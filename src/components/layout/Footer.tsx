@@ -10,7 +10,7 @@ export default function Footer() {
         </div>
         <nav className="flex items-center gap-6 text-sm text-muted-foreground">
           <Link href="/insights" className="hover:text-foreground transition-colors">인사이트</Link>
-          <Link href="/library" className="hover:text-foreground transition-colors">케이스 라이브러리</Link>
+          <Link href="/library" className="hover:text-foreground transition-colors">레퍼런스</Link>
           <Link href="/newsletter" className="hover:text-foreground transition-colors">뉴스레터</Link>
           <Link href="/about" className="hover:text-foreground transition-colors">소개</Link>
         </nav>

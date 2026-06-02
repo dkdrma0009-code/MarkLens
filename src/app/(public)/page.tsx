@@ -97,7 +97,7 @@ export default async function HomePage() {
       {/* Categories */}
       <section className="max-w-6xl mx-auto px-6 py-14">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl font-bold">케이스 라이브러리</h2>
+          <h2 className="text-xl font-bold">레퍼런스</h2>
           <Link href="/library" className="text-sm text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-1">
             전체 보기 <ArrowRight className="w-3.5 h-3.5" />
           </Link>

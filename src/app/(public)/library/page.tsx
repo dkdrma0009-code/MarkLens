@@ -45,7 +45,7 @@ export default async function LibraryPage({ searchParams }: Props) {
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-1">케이스 라이브러리</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-1">레퍼런스</h1>
         <p className="text-gray-500">카테고리별로 정리된 마케팅 인사이트 아카이브</p>
       </div>
 
