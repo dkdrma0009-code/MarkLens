@@ -1,46 +1,60 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
+import InsightCard from "@/components/InsightCard"
 
 const CATEGORIES = [
-  { label: "브랜딩", slug: "branding" },
-  { label: "퍼포먼스 마케팅", slug: "performance-marketing" },
-  { label: "SEO", slug: "seo" },
-  { label: "콘텐츠 마케팅", slug: "content-marketing" },
-  { label: "소셜 미디어", slug: "social-media" },
-  { label: "AI 마케팅", slug: "ai-marketing" },
-  { label: "CRM", slug: "crm" },
-  { label: "소비자 심리", slug: "consumer-psychology" },
+  { label: "브랜딩", slug: "브랜딩" },
+  { label: "퍼포먼스 마케팅", slug: "퍼포먼스 마케팅" },
+  { label: "SEO", slug: "SEO" },
+  { label: "콘텐츠 마케팅", slug: "콘텐츠 마케팅" },
+  { label: "소셜 미디어", slug: "소셜 미디어" },
+  { label: "AI 마케팅", slug: "AI 마케팅" },
+  { label: "CRM", slug: "CRM" },
+  { label: "소비자 심리", slug: "소비자 심리" },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient()
+
+  const { data: recentInsights } = await supabase
+    .from("insights")
+    .select("*, article:articles(*)")
+    .order("created_at", { ascending: false })
+    .limit(7)
+
+  const featured = recentInsights?.[0]
+  const rest = recentInsights?.slice(1, 7) ?? []
+
   return (
     <div className="flex flex-col">
+
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-24 pb-20">
+      <section className="max-w-6xl mx-auto px-6 pt-20 pb-14">
         <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground border border-border/60 rounded-full px-3 py-1 mb-8">
+          <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1 mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             매주 월요일 7:30 AM 발행
           </div>
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.15] mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
             마케팅 트렌드를 읽고,<br />
-            <span className="text-muted-foreground">실무를 준비하다.</span>
+            <span className="text-gray-400">실무를 준비하다.</span>
           </h1>
-          <p className="text-lg text-muted-foreground leading-relaxed mb-10">
+          <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-xl">
             글로벌 마케팅 인사이트를 분석하여 왜 중요한지, 어떻게 적용할 수 있는지,
             포트폴리오에 어떻게 녹여낼 수 있는지를 함께 전달합니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href="/newsletter"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
             >
               뉴스레터 구독하기
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
               href="/insights"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md border border-border text-sm font-medium hover:bg-accent transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
             >
               인사이트 둘러보기
             </Link>
@@ -48,48 +62,44 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Divider */}
-      <div className="border-t border-border/50" />
+      <div className="border-t border-gray-100" />
 
-      {/* What MarkLens Offers */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-10">
-          MarkLens가 제공하는 것
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              title: "글로벌 마케팅 인사이트",
-              description: "HubSpot, Ahrefs, Think with Google 등 주요 마케팅 미디어의 핵심 아티클을 매일 큐레이션합니다.",
-            },
-            {
-              title: "실무 중심 분석",
-              description: "단순 요약이 아닙니다. 왜 중요한지, 어떻게 적용할 수 있는지, 어떤 프레임워크가 숨어 있는지를 분석합니다.",
-            },
-            {
-              title: "포트폴리오 & 커리어",
-              description: "마케팅 사례를 포트폴리오에 어떻게 녹여낼 수 있는지, 면접에서 어떻게 활용할 수 있는지 함께 제안합니다.",
-            },
-          ].map((item) => (
-            <div key={item.title} className="space-y-3">
-              <h3 className="font-medium text-sm">{item.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+      {/* Latest Insights */}
+      {recentInsights && recentInsights.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 py-14">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-bold">최신 인사이트</h2>
+            <Link href="/insights" className="text-sm text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-1">
+              전체 보기 <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Featured */}
+          {featured && (
+            <div className="mb-6">
+              <InsightCard insight={featured as any} size="large" />
             </div>
-          ))}
-        </div>
-      </section>
+          )}
 
-      {/* Divider */}
-      <div className="border-t border-border/50" />
+          {/* Grid */}
+          {rest.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {rest.map((insight: any) => (
+                <InsightCard key={insight.id} insight={insight} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <div className="border-t border-gray-100" />
 
       {/* Categories */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <div className="flex items-center justify-between mb-10">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-            케이스 라이브러리
-          </p>
-          <Link href="/library" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-            전체 보기 <ArrowRight className="w-3 h-3" />
+      <section className="max-w-6xl mx-auto px-6 py-14">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-bold">케이스 라이브러리</h2>
+          <Link href="/library" className="text-sm text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-1">
+            전체 보기 <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -97,7 +107,7 @@ export default function HomePage() {
             <Link
               key={cat.slug}
               href={`/library?category=${cat.slug}`}
-              className="px-4 py-2 text-sm border border-border rounded-md hover:bg-accent transition-colors"
+              className="px-5 py-2 text-sm border border-gray-200 rounded-full font-medium hover:bg-black hover:text-white hover:border-black transition-all"
             >
               {cat.label}
             </Link>
@@ -105,30 +115,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Divider */}
-      <div className="border-t border-border/50" />
+      <div className="border-t border-gray-100" />
 
       {/* Newsletter CTA */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <div className="max-w-xl">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-4">
-            MarkLens Weekly
-          </p>
-          <h2 className="text-2xl font-semibold tracking-tight mb-3">
-            매주 월요일, 한 주를 시작하는 마케팅 브리핑
+      <section className="max-w-6xl mx-auto px-6 py-14">
+        <div className="bg-black rounded-2xl p-10 text-white">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">MarkLens Weekly</p>
+          <h2 className="text-2xl md:text-3xl font-bold mb-3">
+            매주 월요일, 한 주를 시작하는<br />마케팅 브리핑
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-8">
-            This Week&apos;s Signals, Case of the Week, AI Marketing Brief, Portfolio Insight, Career Lens — 5가지 섹션으로 구성된 뉴스레터를 무료로 받아보세요.
+          <p className="text-gray-400 leading-relaxed mb-7 max-w-lg">
+            This Week&apos;s Signals, Case of the Week, AI Marketing Brief, Portfolio Insight, Career Lens —
+            5가지 섹션을 무료로 받아보세요.
           </p>
           <Link
             href="/newsletter"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black text-sm font-semibold hover:bg-gray-100 transition-colors"
           >
             무료 구독하기
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </section>
+
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import ArticleActions from "./ArticleActions"
+import AnalyzeTrigger from "./AnalyzeTrigger"
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,7 @@ export default async function AdminArticlesPage() {
           <h1 className="text-xl font-semibold tracking-tight">아티클 관리</h1>
           <p className="text-sm text-muted-foreground mt-1">수집된 아티클을 검토하고 발행합니다</p>
         </div>
+        <AnalyzeTrigger pendingCount={byStatus.pending.length} />
       </div>
 
       {/* Ready to publish */}

@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { formatDate, truncate } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import InsightCard from "@/components/InsightCard"
 import Link from "next/link"
 
 const CATEGORIES = [
@@ -33,34 +32,32 @@ export default async function LibraryPage({ searchParams }: Props) {
 
   const { data: insights } = await query
 
-  const grouped: Record<string, typeof insights> = {}
-  if (insights) {
+  const grouped: Record<string, any[]> = {}
+  if (insights && !category) {
     for (const insight of insights) {
       const cat = insight.category ?? "기타"
       if (!grouped[cat]) grouped[cat] = []
-      grouped[cat]!.push(insight)
+      grouped[cat].push(insight)
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-16">
-      <div className="mb-10">
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">케이스 라이브러리</h1>
-        <p className="text-sm text-muted-foreground">
-          카테고리별로 정리된 마케팅 인사이트 아카이브
-        </p>
+    <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight mb-1">케이스 라이브러리</h1>
+        <p className="text-gray-500">카테고리별로 정리된 마케팅 인사이트 아카이브</p>
       </div>
 
       {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-12">
+      <div className="flex flex-wrap gap-2 mb-10">
         {CATEGORIES.map((cat) => (
           <Link
             key={cat.slug}
             href={cat.slug ? `/library?category=${cat.slug}` : "/library"}
-            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all ${
               category === cat.slug || (!category && !cat.slug)
-                ? "bg-foreground text-background border-foreground"
-                : "border-border hover:bg-accent"
+                ? "bg-black text-white border-black"
+                : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900"
             }`}
           >
             {cat.label}
@@ -69,32 +66,30 @@ export default async function LibraryPage({ searchParams }: Props) {
       </div>
 
       {!insights || insights.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground text-sm">
+        <div className="text-center py-20 text-gray-400">
           아직 등록된 케이스가 없습니다.
         </div>
       ) : category ? (
-        // 특정 카테고리 선택 시 일반 그리드
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {insights.map((insight: any) => (
             <InsightCard key={insight.id} insight={insight} />
           ))}
         </div>
       ) : (
-        // 전체: 카테고리별 그룹
         <div className="space-y-14">
           {Object.entries(grouped).map(([cat, items]) => (
             <div key={cat}>
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-sm font-semibold">{cat}</h2>
+                <h2 className="text-lg font-bold">{cat}</h2>
                 <Link
                   href={`/library?category=${cat}`}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
                 >
                   전체 보기 →
                 </Link>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {items?.slice(0, 3).map((insight: any) => (
+                {items.slice(0, 3).map((insight: any) => (
                   <InsightCard key={insight.id} insight={insight} />
                 ))}
               </div>
@@ -103,30 +98,5 @@ export default async function LibraryPage({ searchParams }: Props) {
         </div>
       )}
     </div>
-  )
-}
-
-function InsightCard({ insight }: { insight: any }) {
-  return (
-    <Link
-      href={`/insights/${insight.slug}`}
-      className="group block border border-border rounded-lg p-5 hover:border-foreground/30 transition-colors"
-    >
-      <Badge variant="secondary" className="text-xs font-normal mb-3">
-        {insight.category}
-      </Badge>
-      <h3 className="font-medium text-sm leading-snug mb-2 group-hover:text-foreground/80 line-clamp-2">
-        {insight.article?.title}
-      </h3>
-      {insight.summary && (
-        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-4">
-          {truncate(insight.summary, 100)}
-        </p>
-      )}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{insight.article?.source_name}</span>
-        <span>{formatDate(insight.created_at)}</span>
-      </div>
-    </Link>
   )
 }

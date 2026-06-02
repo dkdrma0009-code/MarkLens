@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
 import { Resend } from "resend"
 import { NextResponse } from "next/server"
 
@@ -38,18 +39,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No active subscribers" }, { status: 400 })
   }
 
-  const html = buildNewsletterHtml(issue)
   const subject = `MarkLens Weekly ${issue.title}`
   const emails = subscribers.map((s) => s.email)
 
-  // resend.batch.send: 개별 발송 (수신자끼리 이메일 주소 미노출), 최대 100건/호출
+  // 개인화된 구독 취소 URL 포함, 100건씩 배치 발송
   for (let i = 0; i < emails.length; i += 100) {
-    const batch = emails.slice(i, i + 100).map((to) => ({
-      from: "MarkLens <newsletter@marklens.co>",
-      to,
-      subject,
-      html,
-    }))
+    const batch = await Promise.all(
+      emails.slice(i, i + 100).map(async (to) => {
+        const unsubscribeUrl = await generateUnsubscribeUrl(to)
+        return {
+          from: "MarkLens <newsletter@marklens.co>",
+          to,
+          subject,
+          html: buildNewsletterHtml(issue, unsubscribeUrl),
+        }
+      })
+    )
     await resend.batch.send(batch)
   }
 
@@ -61,7 +66,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true, sentTo: emails.length })
 }
 
-function buildNewsletterHtml(issue: any): string {
+function buildNewsletterHtml(issue: any, unsubscribeUrl = ""): string {
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -86,7 +91,7 @@ function buildNewsletterHtml(issue: any): string {
     <div style="margin-top:40px;padding-top:24px;border-top:1px solid #e5e5e5;text-align:center;">
       <p style="font-size:12px;color:#999;margin:0;">
         MarkLens — Where Marketing Trends Become Action<br/>
-        <a href="{{unsubscribe_url}}" style="color:#999;">구독 취소</a>
+        <a href="${unsubscribeUrl}" style="color:#999;">구독 취소</a>
       </p>
     </div>
   </div>

@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/insights", label: "인사이트" },
@@ -15,10 +14,10 @@ export default function Header() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur">
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="font-semibold text-[15px] tracking-tight">MarkLens</span>
+        <Link href="/" className="font-bold text-base tracking-tight">
+          MarkLens
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -26,12 +25,11 @@ export default function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                "px-3 py-1.5 text-sm rounded-md transition-colors",
+              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
                 pathname.startsWith(item.href)
-                  ? "text-foreground bg-accent"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-              )}
+                  ? "text-gray-900 bg-gray-100"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              }`}
             >
               {item.label}
             </Link>
@@ -40,7 +38,7 @@ export default function Header() {
 
         <Link
           href="/newsletter"
-          className="text-sm font-medium px-4 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors"
+          className="text-sm font-semibold px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800 transition-colors"
         >
           구독하기
         </Link>

@@ -1,19 +1,17 @@
 import { createClient } from "@/lib/supabase/server"
-import { Badge } from "@/components/ui/badge"
-import { formatDate, truncate } from "@/lib/utils"
+import InsightCard from "@/components/InsightCard"
 import Link from "next/link"
-import type { Insight, Article } from "@/types"
 
 const CATEGORIES = [
   { label: "전체", slug: "" },
-  { label: "브랜딩", slug: "branding" },
-  { label: "퍼포먼스 마케팅", slug: "performance-marketing" },
-  { label: "SEO", slug: "seo" },
-  { label: "콘텐츠 마케팅", slug: "content-marketing" },
-  { label: "소셜 미디어", slug: "social-media" },
-  { label: "AI 마케팅", slug: "ai-marketing" },
-  { label: "CRM", slug: "crm" },
-  { label: "소비자 심리", slug: "consumer-psychology" },
+  { label: "브랜딩", slug: "브랜딩" },
+  { label: "퍼포먼스 마케팅", slug: "퍼포먼스 마케팅" },
+  { label: "SEO", slug: "SEO" },
+  { label: "콘텐츠 마케팅", slug: "콘텐츠 마케팅" },
+  { label: "소셜 미디어", slug: "소셜 미디어" },
+  { label: "AI 마케팅", slug: "AI 마케팅" },
+  { label: "CRM", slug: "CRM" },
+  { label: "소비자 심리", slug: "소비자 심리" },
 ]
 
 interface Props {
@@ -21,7 +19,7 @@ interface Props {
 }
 
 export default async function InsightsPage({ searchParams }: Props) {
-  const { category, q } = await searchParams
+  const { category } = await searchParams
   const supabase = await createClient()
 
   let query = supabase
@@ -31,17 +29,18 @@ export default async function InsightsPage({ searchParams }: Props) {
     .limit(30)
 
   if (category) query = query.eq("category", category)
-  if (q) query = query.ilike("article.title", `%${q}%`)
 
   const { data: insights } = await query
+  const featured = insights?.[0]
+  const rest = insights?.slice(1) ?? []
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-16">
-      <div className="mb-10">
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">인사이트</h1>
-        <p className="text-sm text-muted-foreground">
-          글로벌 마케팅 아티클에서 추출한 실무 인사이트
-        </p>
+    <div className="max-w-6xl mx-auto px-6 py-12">
+
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight mb-1">인사이트</h1>
+        <p className="text-gray-500">글로벌 마케팅 아티클에서 추출한 실무 인사이트</p>
       </div>
 
       {/* Category Filter */}
@@ -50,10 +49,10 @@ export default async function InsightsPage({ searchParams }: Props) {
           <Link
             key={cat.slug}
             href={cat.slug ? `/insights?category=${cat.slug}` : "/insights"}
-            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all ${
               category === cat.slug || (!category && !cat.slug)
-                ? "bg-foreground text-background border-foreground"
-                : "border-border hover:bg-accent"
+                ? "bg-black text-white border-black"
+                : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900"
             }`}
           >
             {cat.label}
@@ -61,44 +60,26 @@ export default async function InsightsPage({ searchParams }: Props) {
         ))}
       </div>
 
-      {/* Articles Grid */}
       {!insights || insights.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground text-sm">
+        <div className="text-center py-20 text-gray-400">
           아직 발행된 인사이트가 없습니다.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {insights.map((insight: Insight & { article: Article }) => (
-            <Link
-              key={insight.id}
-              href={`/insights/${insight.slug}`}
-              className="group block border border-border rounded-lg p-5 hover:border-foreground/30 transition-colors"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <Badge variant="secondary" className="text-xs font-normal">
-                  {insight.category}
-                </Badge>
-                {insight.is_featured && (
-                  <Badge variant="outline" className="text-xs font-normal">
-                    추천
-                  </Badge>
-                )}
-              </div>
-              <h2 className="font-medium text-sm leading-snug mb-2 group-hover:text-foreground/80 transition-colors line-clamp-2">
-                {insight.article?.title}
-              </h2>
-              {insight.summary && (
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-4">
-                  {truncate(insight.summary, 120)}
-                </p>
-              )}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{insight.article?.source_name}</span>
-                <span>{formatDate(insight.created_at)}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <>
+          {/* Featured — first article large */}
+          {!category && featured && (
+            <div className="mb-8">
+              <InsightCard insight={featured as any} size="large" />
+            </div>
+          )}
+
+          {/* Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {(category ? insights : rest).map((insight: any) => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
