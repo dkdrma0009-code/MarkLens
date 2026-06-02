@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import ArticleActions from "./ArticleActions"
 import AnalyzeTrigger from "./AnalyzeTrigger"
+import CollectTrigger from "./CollectTrigger"
 
 export const dynamic = 'force-dynamic'
 
@@ -40,7 +41,10 @@ export default async function AdminArticlesPage() {
             )}
           </p>
         </div>
-        <AnalyzeTrigger pendingCount={byStatus.pending.length} />
+        <div className="flex items-center gap-2">
+          <CollectTrigger />
+          <AnalyzeTrigger pendingCount={byStatus.pending.length} />
+        </div>
       </div>
 
       {byStatus.ready.length === 0 && byStatus.pending.length === 0 && byStatus.analyzing.length === 0 && (
