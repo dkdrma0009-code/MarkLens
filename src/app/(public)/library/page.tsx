@@ -47,8 +47,8 @@ export default async function LibraryPage({ searchParams }: Props) {
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-1">레퍼런스</h1>
-        <p className="text-gray-500">카테고리별로 정리된 마케팅 인사이트 아카이브</p>
+        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">레퍼런스</h1>
+        <p className="text-gray-500 dark:text-gray-400">카테고리별로 정리된 마케팅 인사이트 아카이브</p>
       </div>
 
       {/* Category Filter */}
@@ -57,10 +57,10 @@ export default async function LibraryPage({ searchParams }: Props) {
           <Link
             key={cat.slug}
             href={cat.slug ? `/library?category=${cat.slug}` : "/library"}
-            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all ${
+            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
               category === cat.slug || (!category && !cat.slug)
-                ? "bg-black text-white border-black"
-                : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900"
+                ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
+                : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
             }`}
           >
             {cat.label}
@@ -69,7 +69,7 @@ export default async function LibraryPage({ searchParams }: Props) {
       </div>
 
       {!insights || insights.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-gray-400 dark:text-gray-600">
           아직 등록된 케이스가 없습니다.
         </div>
       ) : category ? (
@@ -83,10 +83,10 @@ export default async function LibraryPage({ searchParams }: Props) {
           {Object.entries(grouped).map(([cat, items]) => (
             <div key={cat}>
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold">{cat}</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{cat}</h2>
                 <Link
                   href={`/library?category=${cat}`}
-                  className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                  className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors whitespace-nowrap"
                 >
                   전체 보기 →
                 </Link>

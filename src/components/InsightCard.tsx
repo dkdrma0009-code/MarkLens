@@ -49,7 +49,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
       <div className="flex flex-col flex-1 p-5 gap-3">
         {/* Category */}
         <span
-          className="self-start text-[11px] font-bold px-2.5 py-1 rounded-full text-white"
+          className="self-start text-[11px] font-bold px-2.5 py-1 rounded-full text-white whitespace-nowrap"
           style={{ backgroundColor: meta.color }}
         >
           {insight.category}
