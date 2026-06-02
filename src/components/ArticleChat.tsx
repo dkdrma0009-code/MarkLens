@@ -86,7 +86,7 @@ export default function ArticleChat({ context, color }: { context: string; color
       {/* Chat Panel */}
       {open && (
         <div
-          className="fixed bottom-6 right-6 z-50 w-80 md:w-96 flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+          className="fixed bottom-6 right-6 z-50 w-80 md:w-96 flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden"
           style={{ height: "480px" }}
         >
           {/* Header */}
@@ -115,7 +115,7 @@ export default function ArticleChat({ context, color }: { context: string; color
                   className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                     m.role === "user"
                       ? "text-white rounded-br-sm"
-                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-sm"
                   }`}
                   style={m.role === "user" ? { backgroundColor: color } : {}}
                 >
@@ -144,7 +144,7 @@ export default function ArticleChat({ context, color }: { context: string; color
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="질문을 입력하세요..."
               disabled={loading}
-              className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors disabled:opacity-60"
+              className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 transition-colors disabled:opacity-60"
             />
             <button
               onClick={send}

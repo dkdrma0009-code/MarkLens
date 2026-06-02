@@ -6,6 +6,7 @@ import { ArrowLeft, ExternalLink, ArrowRight } from "lucide-react"
 import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
 import ShareButtons from "@/components/ShareButtons"
+import Image from "next/image"
 import type { Metadata } from "next"
 
 interface Props {
@@ -90,8 +91,8 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* Thumbnail */}
       {article?.image_url && (
-        <div className="rounded-2xl overflow-hidden mb-8 h-72">
-          <img src={article.image_url} alt="" className="w-full h-full object-cover" />
+        <div className="relative rounded-2xl overflow-hidden mb-8 h-72">
+          <Image src={article.image_url} alt="" fill className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
         </div>
       )}
 
@@ -219,7 +220,9 @@ export default async function InsightDetailPage({ params }: Props) {
                   className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group"
                 >
                   {r.article?.image_url ? (
-                    <img src={r.article.image_url} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                      <Image src={r.article.image_url} alt="" fill className="object-cover" sizes="64px" />
+                    </div>
                   ) : (
                     <div className={`w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br ${rm.gradient}`} />
                   )}
