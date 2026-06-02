@@ -4,6 +4,7 @@ import ArticleActions from "./ArticleActions"
 import AnalyzeTrigger from "./AnalyzeTrigger"
 import CollectTrigger from "./CollectTrigger"
 import InsightPreview from "./InsightPreview"
+import EditInsight from "./EditInsight"
 
 export const dynamic = 'force-dynamic'
 
@@ -117,13 +118,16 @@ function ArticleTable({ articles }: { articles: any[] }) {
                 <StatusBadge status={article.status} />
               </td>
               <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {article.insights?.[0] && (
-                    <InsightPreview
-                      articleId={article.id}
-                      articleTitle={article.title}
-                      articleUrl={article.url}
-                    />
+                    <>
+                      <InsightPreview
+                        articleId={article.id}
+                        articleTitle={article.title}
+                        articleUrl={article.url}
+                      />
+                      <EditInsight articleId={article.id} />
+                    </>
                   )}
                   <ArticleActions articleId={article.id} status={article.status} />
                 </div>

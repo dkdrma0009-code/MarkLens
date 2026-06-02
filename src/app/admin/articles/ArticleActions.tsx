@@ -3,13 +3,15 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { Trash2 } from "lucide-react"
 
 interface Props {
   articleId: string
+  insightId?: string
   status: string
 }
 
-export default function ArticleActions({ articleId, status }: Props) {
+export default function ArticleActions({ articleId, insightId, status }: Props) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -22,9 +24,7 @@ export default function ArticleActions({ articleId, status }: Props) {
         body: JSON.stringify({ status: newStatus }),
       })
       if (!res.ok) throw new Error()
-      toast.success(
-        newStatus === "published" ? "발행됐습니다." : newStatus === "rejected" ? "거절됐습니다." : "업데이트됐습니다."
-      )
+      toast.success(newStatus === "published" ? "발행됐습니다." : newStatus === "rejected" ? "거절됐습니다." : "업데이트됐습니다.")
       router.refresh()
     } catch {
       toast.error("오류가 발생했습니다.")
@@ -52,15 +52,39 @@ export default function ArticleActions({ articleId, status }: Props) {
     }
   }
 
-  if (status === "published") return null
+  async function deleteArticle() {
+    if (!confirm("이 아티클을 삭제하시겠습니까? 연결된 인사이트도 함께 삭제됩니다.")) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/articles/${articleId}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast.success("삭제됐습니다.")
+      router.refresh()
+    } catch {
+      toast.error("삭제 실패")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (status === "rejected") return (
-    <button
-      onClick={() => updateStatus("pending")}
-      disabled={loading}
-      className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-    >
-      복원
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => updateStatus("pending")}
+        disabled={loading}
+        className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+      >
+        복원
+      </button>
+      <button
+        onClick={deleteArticle}
+        disabled={loading}
+        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+        title="삭제"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
   )
 
   return (
@@ -69,7 +93,7 @@ export default function ArticleActions({ articleId, status }: Props) {
         <button
           onClick={() => updateStatus("published")}
           disabled={loading}
-          className="text-xs font-medium px-3 py-1 rounded bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
+          className="text-xs font-medium px-3 py-1 rounded bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           발행
         </button>
@@ -78,17 +102,28 @@ export default function ArticleActions({ articleId, status }: Props) {
         <button
           onClick={analyzeOne}
           disabled={loading}
-          className="text-xs font-medium px-3 py-1 rounded border border-border hover:bg-accent transition-colors disabled:opacity-50"
+          className="text-xs font-medium px-3 py-1 rounded border border-border hover:bg-accent transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           {loading ? "분석 중..." : "분석"}
         </button>
       )}
+      {status === "analyzing" && (
+        <span className="text-xs text-muted-foreground">분석 중...</span>
+      )}
       <button
         onClick={() => updateStatus("rejected")}
         disabled={loading}
-        className="text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+        className="text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 whitespace-nowrap"
       >
         거절
+      </button>
+      <button
+        onClick={deleteArticle}
+        disabled={loading}
+        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+        title="삭제"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
   )
