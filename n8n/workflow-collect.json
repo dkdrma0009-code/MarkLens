@@ -1,0 +1,123 @@
+{
+  "name": "MarkLens - RSS 수집 (하루 2회)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtHour": 9
+            },
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "매일 9시 & 18시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://marklens.vercel.app/api/webhooks/collect?secret=marklens-n8n-2025",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "RSS 수집 실행",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.collected }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "새 아티클이 있으면",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://marklens.vercel.app/api/webhooks/analyze-pending?secret=marklens-n8n-2025",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "AI 분석 실행",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 240]
+    }
+  ],
+  "connections": {
+    "매일 9시 & 18시": {
+      "main": [
+        [
+          {
+            "node": "RSS 수집 실행",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS 수집 실행": {
+      "main": [
+        [
+          {
+            "node": "새 아티클이 있으면",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "새 아티클이 있으면": {
+      "main": [
+        [
+          {
+            "node": "AI 분석 실행",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
