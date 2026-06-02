@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import Link from "next/link"
 
 export const dynamic = 'force-dynamic'
 
@@ -11,21 +12,41 @@ export default async function AdminAnalyticsPage() {
     { count: totalInsights },
     { count: totalSubscribers },
     { count: sentNewsletters },
-    { data: topInsights },
+    { data: insights },
+    { data: feedbacks },
   ] = await Promise.all([
     supabase.from("articles").select("*", { count: "exact", head: true }),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
     supabase.from("insights").select("*", { count: "exact", head: true }),
     supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("newsletter_issues").select("*", { count: "exact", head: true }).eq("status", "sent"),
-    supabase.from("insights").select("*, article:articles(title)").order("view_count", { ascending: false }).limit(5),
+    supabase
+      .from("insights")
+      .select("id, hook, category, view_count, article:articles!inner(title, status)")
+      .eq("articles.status", "published")
+      .order("view_count", { ascending: false })
+      .limit(100),
+    supabase
+      .from("feedback")
+      .select("insight_id, rating"),
   ])
 
+  // 인사이트별 좋아요(helpful) 수 집계
+  const likeMap: Record<string, number> = {}
+  for (const f of feedbacks ?? []) {
+    if (f.rating === "helpful") {
+      likeMap[f.insight_id] = (likeMap[f.insight_id] ?? 0) + 1
+    }
+  }
+
+  const totalViews = insights?.reduce((sum, i) => sum + (i.view_count ?? 0), 0) ?? 0
+  const totalLikes = Object.values(likeMap).reduce((sum, n) => sum + n, 0)
+
   const stats = [
-    { label: "수집된 아티클", value: totalArticles ?? 0 },
     { label: "발행된 인사이트", value: publishedArticles ?? 0 },
-    { label: "AI 분석 완료", value: totalInsights ?? 0 },
-    { label: "뉴스레터 구독자", value: totalSubscribers ?? 0 },
+    { label: "전체 조회수", value: totalViews.toLocaleString() },
+    { label: "전체 좋아요", value: totalLikes },
+    { label: "구독자", value: totalSubscribers ?? 0 },
     { label: "발송된 뉴스레터", value: sentNewsletters ?? 0 },
   ]
 
@@ -36,7 +57,8 @@ export default async function AdminAnalyticsPage() {
         <p className="text-sm text-muted-foreground mt-1">플랫폼 운영 지표</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {stats.map((stat) => (
           <div key={stat.label} className="border border-border rounded-lg p-4 bg-background">
             <p className="text-3xl font-semibold">{stat.value}</p>
@@ -45,18 +67,55 @@ export default async function AdminAnalyticsPage() {
         ))}
       </div>
 
-      {topInsights && topInsights.length > 0 && (
-        <div className="border border-border rounded-lg p-6 bg-background">
-          <h2 className="text-sm font-medium mb-5">많이 읽힌 인사이트 Top 5</h2>
-          <div className="space-y-3">
-            {topInsights.map((insight: any, i: number) => (
-              <div key={insight.id} className="flex items-center gap-4">
-                <span className="text-xs text-muted-foreground font-mono w-4">{i + 1}</span>
-                <p className="flex-1 text-sm line-clamp-1">{insight.article?.title}</p>
-                <span className="text-xs text-muted-foreground">{insight.view_count ?? 0} views</span>
-              </div>
-            ))}
+      {/* Insights Table */}
+      {insights && insights.length > 0 && (
+        <div className="border border-border rounded-lg overflow-hidden bg-background">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-medium">인사이트 참여 지표</h2>
           </div>
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/30">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">#</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">인사이트</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">조회수</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">좋아요</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {insights.map((insight: any, i: number) => {
+                const likes = likeMap[insight.id] ?? 0
+                return (
+                  <tr key={insight.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{i + 1}</td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/insights/${insight.id}`}
+                        className="font-medium line-clamp-1 hover:underline text-sm"
+                        target="_blank"
+                      >
+                        {insight.hook ?? insight.article?.title ?? "—"}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {insight.category ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums">
+                      {(insight.view_count ?? 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums">
+                      {likes > 0 ? (
+                        <span className="text-rose-500 font-medium">♥ {likes}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
