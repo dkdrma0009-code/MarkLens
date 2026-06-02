@@ -3,6 +3,8 @@ import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 
+export const revalidate = 3600
+
 const CATEGORIES = [
   { label: "브랜딩", slug: "브랜딩" },
   { label: "퍼포먼스 마케팅", slug: "퍼포먼스 마케팅" },

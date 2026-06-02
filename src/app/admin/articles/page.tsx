@@ -15,19 +15,15 @@ export default async function AdminArticlesPage() {
       .select("*, insights(id, summary, category)")
       .in("status", ["pending", "analyzing", "ready", "rejected"])
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(100),
     supabase
       .from("articles")
       .select("*", { count: "exact", head: true })
       .eq("status", "published"),
   ])
 
-  const byStatus = {
-    pending: articles?.filter((a) => a.status === "pending") ?? [],
-    ready: articles?.filter((a) => a.status === "ready") ?? [],
-    analyzing: articles?.filter((a) => a.status === "analyzing") ?? [],
-    rejected: articles?.filter((a) => a.status === "rejected") ?? [],
-  }
+  const waiting = articles?.filter(a => ["pending", "analyzing", "ready"].includes(a.status)) ?? []
+  const rejected = articles?.filter(a => a.status === "rejected") ?? []
 
   return (
     <div className="p-8">
@@ -35,70 +31,47 @@ export default async function AdminArticlesPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">아티클 관리</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            수집된 아티클을 검토하고 발행합니다
-            {(publishedCount ?? 0) > 0 && (
-              <span className="ml-2 text-xs">· 발행됨 {publishedCount}개</span>
-            )}
+            발행됨 <span className="font-medium text-foreground">{publishedCount ?? 0}개</span>
+            {waiting.length > 0 && <> · 대기중 <span className="font-medium text-amber-600">{waiting.length}개</span></>}
+            {rejected.length > 0 && <> · 거절됨 <span className="font-medium">{rejected.length}개</span></>}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <CollectTrigger />
-          <AnalyzeTrigger pendingCount={byStatus.pending.length} />
+          <AnalyzeTrigger pendingCount={waiting.filter(a => a.status === "pending").length} />
         </div>
       </div>
 
-      {byStatus.ready.length === 0 && byStatus.pending.length === 0 && byStatus.analyzing.length === 0 && (
+      {waiting.length === 0 && rejected.length === 0 ? (
         <div className="border border-border rounded-lg p-12 text-center text-sm text-muted-foreground bg-background">
-          검토할 아티클이 없습니다.
+          검토할 아티클이 없습니다. RSS 수집 버튼을 눌러 새 아티클을 가져오세요.
         </div>
-      )}
+      ) : (
+        <>
+          {waiting.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-sm font-medium mb-4 flex items-center gap-2">
+                대기중
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                  {waiting.length}
+                </span>
+              </h2>
+              <ArticleTable articles={waiting} />
+            </div>
+          )}
 
-      {byStatus.ready.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-medium mb-4 flex items-center gap-2">
-            발행 준비 완료
-            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-              {byStatus.ready.length}
-            </span>
-          </h2>
-          <ArticleTable articles={byStatus.ready} />
-        </div>
-      )}
-
-      {byStatus.analyzing.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-medium mb-4 flex items-center gap-2">
-            분석 중
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-              {byStatus.analyzing.length}
-            </span>
-          </h2>
-          <ArticleTable articles={byStatus.analyzing} />
-        </div>
-      )}
-
-      {byStatus.pending.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-medium mb-4 flex items-center gap-2">
-            수집 완료 (분석 대기)
-            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-              {byStatus.pending.length}
-            </span>
-          </h2>
-          <ArticleTable articles={byStatus.pending} />
-        </div>
-      )}
-
-      {byStatus.rejected.length > 0 && (
-        <div>
-          <h2 className="text-sm font-medium mb-4 text-muted-foreground flex items-center gap-2">
-            거절됨
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-              {byStatus.rejected.length}
-            </span>
-          </h2>
-          <ArticleTable articles={byStatus.rejected} />
-        </div>
+          {rejected.length > 0 && (
+            <div>
+              <h2 className="text-sm font-medium mb-4 text-muted-foreground flex items-center gap-2">
+                거절됨
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                  {rejected.length}
+                </span>
+              </h2>
+              <ArticleTable articles={rejected} />
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -114,7 +87,7 @@ function ArticleTable({ articles }: { articles: any[] }) {
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">소스</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">수집일</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">상태</th>
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -154,16 +127,24 @@ function ArticleTable({ articles }: { articles: any[] }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending: { label: "수집됨", cls: "bg-gray-100 text-gray-600" },
-    analyzing: { label: "분석 중", cls: "bg-blue-100 text-blue-600" },
-    ready: { label: "준비 완료", cls: "bg-emerald-100 text-emerald-700" },
-    rejected: { label: "거절됨", cls: "bg-red-100 text-red-600" },
+  if (status === "pending" || status === "analyzing" || status === "ready") {
+    const labels: Record<string, string> = {
+      pending: "수집됨",
+      analyzing: "분석 중",
+      ready: "준비 완료",
+    }
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 whitespace-nowrap">
+        {labels[status]}
+      </span>
+    )
   }
-  const s = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-600" }
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>
-      {s.label}
-    </span>
-  )
+  if (status === "rejected") {
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500 whitespace-nowrap">
+        거절됨
+      </span>
+    )
+  }
+  return null
 }

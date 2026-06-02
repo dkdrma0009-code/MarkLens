@@ -6,8 +6,11 @@ import { ArrowLeft, ExternalLink, ArrowRight } from "lucide-react"
 import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
 import ShareButtons from "@/components/ShareButtons"
+import ViewCounter from "@/components/ViewCounter"
 import Image from "next/image"
 import type { Metadata } from "next"
+
+export const revalidate = 3600
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -61,20 +64,14 @@ export default async function InsightDetailPage({ params }: Props) {
 
   if (!insight) notFound()
 
-  const [_, { data: related }] = await Promise.all([
-    supabase
-      .from("insights")
-      .update({ view_count: (insight.view_count || 0) + 1 })
-      .eq("id", insight.id),
-    supabase
-      .from("insights")
-      .select("*, article:articles!inner(*)")
-      .eq("category", insight.category)
-      .eq("articles.status", "published")
-      .neq("id", insight.id)
-      .order("created_at", { ascending: false })
-      .limit(3),
-  ])
+  const { data: related } = await supabase
+    .from("insights")
+    .select("*, article:articles!inner(*)")
+    .eq("category", insight.category)
+    .eq("articles.status", "published")
+    .neq("id", insight.id)
+    .order("created_at", { ascending: false })
+    .limit(3)
 
   const article = insight.article
   const meta = getCategoryMeta(insight.category)
@@ -270,6 +267,8 @@ export default async function InsightDetailPage({ params }: Props) {
           <ArrowLeft className="w-4 h-4" /> 모든 인사이트 보기
         </Link>
       </div>
+
+      <ViewCounter slug={insight.slug} />
 
       {/* ── 챗봇 (floating) ── */}
       <ArticleChat

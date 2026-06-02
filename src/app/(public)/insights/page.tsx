@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import InsightsClient from "./InsightsClient"
 
+export const revalidate = 3600
+
 interface Props {
   searchParams: Promise<{ category?: string }>
 }

@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 import Link from "next/link"
 
+export const revalidate = 3600
+
 const CATEGORIES = [
   { label: "전체", slug: "" },
   { label: "브랜딩", slug: "브랜딩" },
