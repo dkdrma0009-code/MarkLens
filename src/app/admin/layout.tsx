@@ -15,9 +15,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside className="w-56 border-r border-border bg-background flex flex-col">
-        <div className="h-14 flex items-center px-4 border-b border-border">
+        <div className="h-14 flex items-center px-4 border-b border-border gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"
+            stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            className="w-6 h-6 flex-shrink-0">
+            <path d="M6 26V8l10 4 10-4v18"/>
+            <circle cx="16" cy="18" r="5"/>
+            <circle cx="16" cy="18" r="0.5" fill="currentColor" stroke="none"/>
+          </svg>
           <Link href="/" className="text-sm font-semibold">MarkLens</Link>
-          <span className="ml-2 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Admin</span>
+          <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Admin</span>
         </div>
         <nav className="flex-1 p-2">
           {navItems.map((item) => (

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import ArticleActions from "./ArticleActions"
 import AnalyzeTrigger from "./AnalyzeTrigger"
+import PublishedSection from "./PublishedSection"
 
 export const dynamic = 'force-dynamic'
 
@@ -58,12 +59,11 @@ export default async function AdminArticlesPage() {
         </div>
       )}
 
-      {/* Published */}
+      {/* Published — 기본 접힘 */}
       {byStatus.published.length > 0 && (
-        <div>
-          <h2 className="text-sm font-medium mb-4 text-muted-foreground">발행됨</h2>
+        <PublishedSection count={byStatus.published.length}>
           <ArticleTable articles={byStatus.published} />
-        </div>
+        </PublishedSection>
       )}
     </div>
   )
