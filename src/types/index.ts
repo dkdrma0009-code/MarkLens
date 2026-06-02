@@ -21,6 +21,7 @@ export interface Insight {
   id: string
   article_id: string
   slug: string
+  hook?: string
   summary?: string
   key_takeaways?: string[]
   why_it_matters?: string
@@ -28,6 +29,7 @@ export interface Insight {
   framework_analysis?: string
   portfolio_usage?: string
   interview_points?: string[]
+  video_url?: string
   category: string
   tags?: string[]
   keywords?: string[]

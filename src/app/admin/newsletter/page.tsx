@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import NewsletterControls from "./NewsletterControls"
+import NewsletterPreview from "./NewsletterPreview"
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +66,10 @@ export default async function AdminNewsletterPage() {
                     {issue.sent_at ? formatDate(issue.sent_at) : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <NewsletterControls issueId={issue.id} status={issue.status} />
+                    <div className="flex items-center gap-3">
+                      <NewsletterPreview issue={issue} />
+                      <NewsletterControls issueId={issue.id} status={issue.status} />
+                    </div>
                   </td>
                 </tr>
               ))}

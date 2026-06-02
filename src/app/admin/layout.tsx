@@ -1,10 +1,12 @@
 import Link from "next/link"
-import { LayoutDashboard, FileText, Mail, BarChart2, Rss } from "lucide-react"
+import { LayoutDashboard, FileText, Mail, BarChart2, Rss, Users } from "lucide-react"
 
 const navItems = [
   { href: "/admin", label: "대시보드", icon: LayoutDashboard },
   { href: "/admin/articles", label: "아티클", icon: FileText },
   { href: "/admin/newsletter", label: "뉴스레터", icon: Mail },
+  { href: "/admin/subscribers", label: "구독자", icon: Users },
+  { href: "/admin/sources", label: "RSS 소스", icon: Rss },
   { href: "/admin/analytics", label: "분석", icon: BarChart2 },
 ]
 
@@ -31,7 +33,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
         <div className="p-4 border-t border-border">
           <Link href="/" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            <Rss className="w-3.5 h-3.5" />
+            <LayoutDashboard className="w-3.5 h-3.5" />
             공개 사이트 보기
           </Link>
         </div>

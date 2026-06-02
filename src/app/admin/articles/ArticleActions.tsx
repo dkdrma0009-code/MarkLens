@@ -33,6 +33,25 @@ export default function ArticleActions({ articleId, status }: Props) {
     }
   }
 
+  async function analyzeOne() {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/articles/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "분석 실패")
+      toast.success("분석 완료됐습니다.")
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message ?? "오류가 발생했습니다.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (status === "published") return null
   if (status === "rejected") return (
     <button
@@ -53,6 +72,15 @@ export default function ArticleActions({ articleId, status }: Props) {
           className="text-xs font-medium px-3 py-1 rounded bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
         >
           발행
+        </button>
+      )}
+      {status === "pending" && (
+        <button
+          onClick={analyzeOne}
+          disabled={loading}
+          className="text-xs font-medium px-3 py-1 rounded border border-border hover:bg-accent transition-colors disabled:opacity-50"
+        >
+          {loading ? "분석 중..." : "분석"}
         </button>
       )}
       <button

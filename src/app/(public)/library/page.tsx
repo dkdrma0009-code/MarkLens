@@ -24,7 +24,8 @@ export default async function LibraryPage({ searchParams }: Props) {
 
   let query = supabase
     .from("insights")
-    .select("*, article:articles(*)")
+    .select("*, article:articles!inner(*)")
+    .eq("articles.status", "published")
     .order("created_at", { ascending: false })
     .limit(60)
 

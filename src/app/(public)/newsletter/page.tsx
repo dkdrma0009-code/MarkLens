@@ -18,8 +18,13 @@ export default function NewsletterPage() {
         body: JSON.stringify({ email }),
       })
       if (!res.ok) throw new Error()
-      setSubscribed(true)
-      toast.success("구독이 완료됐습니다!")
+      const data = await res.json()
+      if (data.alreadySubscribed) {
+        toast.info("이미 구독 중이에요!")
+      } else {
+        setSubscribed(true)
+        toast.success("확인 이메일을 보냈습니다!")
+      }
     } catch {
       toast.error("오류가 발생했습니다. 다시 시도해주세요.")
     } finally {

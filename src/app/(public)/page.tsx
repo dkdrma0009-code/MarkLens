@@ -19,7 +19,8 @@ export default async function HomePage() {
 
   const { data: recentInsights } = await supabase
     .from("insights")
-    .select("*, article:articles(*)")
+    .select("*, article:articles!inner(*)")
+    .eq("articles.status", "published")
     .order("created_at", { ascending: false })
     .limit(7)
 

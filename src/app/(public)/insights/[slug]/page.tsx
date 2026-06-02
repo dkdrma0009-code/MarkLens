@@ -5,9 +5,47 @@ import Link from "next/link"
 import { ArrowLeft, ExternalLink, ArrowRight } from "lucide-react"
 import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
+import ShareButtons from "@/components/ShareButtons"
+import type { Metadata } from "next"
 
 interface Props {
   params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const supabase = await createClient()
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("hook, summary, category, article:articles(title, image_url, source_name)")
+    .eq("slug", slug)
+    .single()
+
+  if (!insight) return {}
+
+  const title = insight.hook ?? (insight.article as any)?.title ?? "MarkLens 인사이트"
+  const description = insight.summary ?? "글로벌 마케팅 아티클에서 추출한 실무 인사이트"
+  const image = (insight.article as any)?.image_url
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+
+  return {
+    title: `${title} | MarkLens`,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${base}/insights/${slug}`,
+      siteName: "MarkLens",
+      ...(image ? { images: [{ url: image, width: 1200, height: 630 }] } : {}),
+      type: "article",
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
+  }
 }
 
 export default async function InsightDetailPage({ params }: Props) {
@@ -22,10 +60,20 @@ export default async function InsightDetailPage({ params }: Props) {
 
   if (!insight) notFound()
 
-  await supabase
-    .from("insights")
-    .update({ view_count: (insight.view_count || 0) + 1 })
-    .eq("id", insight.id)
+  const [_, { data: related }] = await Promise.all([
+    supabase
+      .from("insights")
+      .update({ view_count: (insight.view_count || 0) + 1 })
+      .eq("id", insight.id),
+    supabase
+      .from("insights")
+      .select("*, article:articles!inner(*)")
+      .eq("category", insight.category)
+      .eq("articles.status", "published")
+      .neq("id", insight.id)
+      .order("created_at", { ascending: false })
+      .limit(3),
+  ])
 
   const article = insight.article
   const meta = getCategoryMeta(insight.category)
@@ -73,16 +121,19 @@ export default async function InsightDetailPage({ params }: Props) {
       <p className="text-lg text-gray-400 mb-6">{article?.title}</p>
 
       {/* Meta */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-gray-400 pb-8 border-b border-gray-100 mb-12">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base text-gray-400 pb-8 border-b border-gray-100 mb-12">
         <span className="font-semibold text-gray-600">{article?.source_name}</span>
         {article?.author && <span>· {article.author}</span>}
         <span>· {new Date(insight.created_at).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}</span>
-        {article?.url && (
-          <a href={article.url} target="_blank" rel="noopener noreferrer"
-            className="ml-auto inline-flex items-center gap-1.5 hover:text-gray-900 transition-colors">
-            원문 보기 <ExternalLink className="w-4 h-4" />
-          </a>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {article?.url && (
+            <a href={article.url} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 hover:text-gray-900 transition-colors">
+              원문 보기 <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+          <ShareButtons slug={insight.slug} title={insight.hook ?? article?.title ?? ""} />
+        </div>
       </div>
 
       {/* ── 핵심 요약 ── */}
@@ -152,6 +203,40 @@ export default async function InsightDetailPage({ params }: Props) {
             ))}
           </div>
         </Section>
+      )}
+
+      {/* ── 관련 인사이트 ── */}
+      {related && related.length > 0 && (
+        <div className="mb-14">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">관련 인사이트</h2>
+          <div className="space-y-3">
+            {related.map((r: any) => {
+              const rm = getCategoryMeta(r.category)
+              return (
+                <Link
+                  key={r.id}
+                  href={`/insights/${r.slug}`}
+                  className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group"
+                >
+                  {r.article?.image_url ? (
+                    <img src={r.article.image_url} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className={`w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br ${rm.gradient}`} />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white mb-1.5 inline-block"
+                      style={{ backgroundColor: rm.color }}>
+                      {r.category}
+                    </span>
+                    <p className="text-base font-semibold text-gray-900 group-hover:text-gray-600 transition-colors line-clamp-2 leading-snug">
+                      {r.hook ?? r.article?.title}
+                    </p>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       {/* ── CTA ── */}

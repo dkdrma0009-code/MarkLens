@@ -54,23 +54,32 @@ export async function POST(req: Request) {
   for (const source of sources) {
     try {
       const feed = await parser.parseURL(source.rss_url)
-      const items = feed.items.slice(0, 10) // 소스당 최신 10개
+      const items = feed.items.slice(0, 10).filter(item => item.link && item.title)
 
-      for (const item of items) {
-        if (!item.link || !item.title) continue
+      // OG 이미지를 병렬로 fetch
+      const images = await Promise.all(
+        items.map(item =>
+          item.enclosure?.url
+            ? Promise.resolve(item.enclosure.url)
+            : fetchOgImage(item.link!)
+        )
+      )
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
 
         // 중복 체크 후 삽입
         const { error } = await supabase
           .from("articles")
           .insert({
-            title: item.title.trim(),
+            title: item.title!.trim(),
             url: item.link,
             source: source.slug,
             source_name: source.name,
             author: item.creator ?? item.author ?? null,
             published_at: item.pubDate ? new Date(item.pubDate).toISOString() : null,
             raw_content: stripBom(item.contentSnippet ?? item.content ?? null),
-            image_url: item.enclosure?.url ?? await fetchOgImage(item.link),
+            image_url: images[i],
             status: "pending",
           })
           .select()
