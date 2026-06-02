@@ -40,9 +40,8 @@ export default async function HomePage() {
             마케팅 트렌드를 읽고,<br />
             <span className="text-gray-400">실무를 준비하다.</span>
           </h1>
-          <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-xl">
-            글로벌 마케팅 인사이트를 분석하여 왜 중요한지, 어떻게 적용할 수 있는지,
-            포트폴리오에 어떻게 녹여낼 수 있는지를 함께 전달합니다.
+          <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-xl break-keep">
+            글로벌 마케팅 인사이트를 분석하여 왜 중요한지, 어떻게 적용할 수 있는지, 포트폴리오에 어떻게 녹여낼 수 있는지를 함께 전달합니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Link

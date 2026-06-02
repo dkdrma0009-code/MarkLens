@@ -37,7 +37,8 @@ const VOICE_SYSTEM_PROMPT = `당신은 MarkLens의 에디터입니다.
 - AI가 쓴 것처럼 보이지 않게 자연스럽게 씁니다
 - "이 글은", "본 아티클은" 같은 딱딱한 표현을 피합니다
 - 실무에 즉시 활용 가능한 내용을 중심으로 씁니다
-- 단순 요약이 아닌 "왜"와 "어떻게"에 집중합니다`
+- 단순 요약이 아닌 "왜"와 "어떻게"에 집중합니다
+- **절대로 마크다운 문법을 사용하지 않습니다**: **, *, #, >, - 등 일절 금지. 순수 텍스트만 씁니다.`
 
 interface ArticleInput {
   title: string
@@ -47,6 +48,7 @@ interface ArticleInput {
 
 interface InsightOutput {
   slug: string
+  hook: string
   summary: string
   key_takeaways: string[]
   why_it_matters: string
@@ -132,13 +134,14 @@ ${article.content.substring(0, 3000)}
 
 다음 JSON 구조로 응답하세요:
 {
+  "hook": "독자를 낚는 한 줄 후킹 멘트 (20-35자, 질문형 또는 반전형, 예: 'SEO가 죽어가고 있다. 그 자리를 차지할 건 누구?')",
   "summary": "핵심 요약 (2-3문장, 자연스럽게)",
   "key_takeaways": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
   "why_it_matters": "왜 중요한가 (마케터 관점에서, 2-3단락)",
   "practical_applications": "실전 적용법 (구체적인 액션 아이템 포함, 2-3단락)",
   "framework_analysis": "활용된 마케팅 프레임워크 분석",
   "portfolio_usage": "포트폴리오에 어떻게 녹여낼 수 있는지 (STAR 방식 예시 포함)",
-  "interview_points": ["면접 질문 예시와 답변 방향 1", "면접 질문 예시와 답변 방향 2"]
+  "interview_points": ["실생활에서 이 인사이트를 바로 써볼 수 있는 구체적인 상황과 방법 1", "실생활에서 바로 써볼 수 있는 상황 2"]
 }`,
       },
     ],
@@ -155,6 +158,7 @@ ${article.content.substring(0, 3000)}
     }
   } catch {
     analysis = {
+      hook: "",
       summary: "",
       key_takeaways: [],
       why_it_matters: "",
@@ -170,6 +174,17 @@ ${article.content.substring(0, 3000)}
     category: CATEGORY_LABELS[classification.category] ?? classification.category,
     tags: classification.tags ?? [],
     keywords: classification.keywords ?? [],
-    ...analysis,
+    ...stripMarkdown(analysis),
   }
+}
+
+function stripMarkdown<T extends Record<string, any>>(obj: T): T {
+  const clean = (s: string) => s.replace(/\*\*/g, "").replace(/\*/g, "").replace(/^#+\s/gm, "").replace(/^>\s/gm, "")
+  const result: any = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === "string") result[k] = clean(v)
+    else if (Array.isArray(v)) result[k] = v.map((i) => typeof i === "string" ? clean(i) : i)
+    else result[k] = v
+  }
+  return result
 }

@@ -12,6 +12,23 @@ function stripBom(str: string | null | undefined): string | null {
   return str.replace(/^\uFEFF/, "").trim()
 }
 
+async function fetchOgImage(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "MarkLens/1.0" },
+      signal: AbortSignal.timeout(8000),
+    })
+    const html = await res.text()
+    const match =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ??
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+    return match?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function POST(req: Request) {
   const { searchParams } = new URL(req.url)
   const secret = searchParams.get("secret")
@@ -53,7 +70,7 @@ export async function POST(req: Request) {
             author: item.creator ?? item.author ?? null,
             published_at: item.pubDate ? new Date(item.pubDate).toISOString() : null,
             raw_content: stripBom(item.contentSnippet ?? item.content ?? null),
-            image_url: item.enclosure?.url ?? null,
+            image_url: item.enclosure?.url ?? await fetchOgImage(item.link),
             status: "pending",
           })
           .select()
