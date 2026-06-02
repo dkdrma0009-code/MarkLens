@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
-import { Resend } from "resend"
 import { NextResponse } from "next/server"
 
 async function isAdmin(): Promise<boolean> {
@@ -9,6 +8,26 @@ async function isAdmin(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
   return !!user && user.email?.trim().toLowerCase() === adminEmail
+}
+
+async function sendViaBrevo(to: string, subject: string, html: string): Promise<void> {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY!,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: "MarkLens", email: "newsletter@marklens.site" },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Brevo error: ${err}`)
+  }
 }
 
 export async function POST(req: Request) {
@@ -20,7 +39,6 @@ export async function POST(req: Request) {
   if (!issueId) return NextResponse.json({ error: "issueId required" }, { status: 400 })
 
   const supabase = createAdminClient()
-  const resend = new Resend(process.env.RESEND_API_KEY)
 
   const { data: issue } = await supabase
     .from("newsletter_issues")
@@ -40,22 +58,17 @@ export async function POST(req: Request) {
   }
 
   const subject = `MarkLens Weekly ${issue.title}`
-  const emails = subscribers.map((s) => s.email)
+  let sent = 0
+  const errors: string[] = []
 
-  // 개인화된 구독 취소 URL 포함, 100건씩 배치 발송
-  for (let i = 0; i < emails.length; i += 100) {
-    const batch = await Promise.all(
-      emails.slice(i, i + 100).map(async (to) => {
-        const unsubscribeUrl = await generateUnsubscribeUrl(to)
-        return {
-          from: "MarkLens <newsletter@marklens.co>",
-          to,
-          subject,
-          html: buildNewsletterHtml(issue, unsubscribeUrl),
-        }
-      })
-    )
-    await resend.batch.send(batch)
+  for (const { email } of subscribers) {
+    try {
+      const unsubscribeUrl = await generateUnsubscribeUrl(email)
+      await sendViaBrevo(email, subject, buildNewsletterHtml(issue, unsubscribeUrl))
+      sent++
+    } catch (e: any) {
+      errors.push(`${email}: ${e.message}`)
+    }
   }
 
   await supabase
@@ -63,7 +76,7 @@ export async function POST(req: Request) {
     .update({ status: "sent", sent_at: new Date().toISOString() })
     .eq("id", issueId)
 
-  return NextResponse.json({ success: true, sentTo: emails.length })
+  return NextResponse.json({ success: true, sentTo: sent, errors: errors.length ? errors : undefined })
 }
 
 function buildNewsletterHtml(issue: any, unsubscribeUrl = ""): string {
@@ -91,6 +104,7 @@ function buildNewsletterHtml(issue: any, unsubscribeUrl = ""): string {
     <div style="margin-top:40px;padding-top:24px;border-top:1px solid #e5e5e5;text-align:center;">
       <p style="font-size:12px;color:#999;margin:0;">
         MarkLens — Where Marketing Trends Become Action<br/>
+        <a href="https://marklens.site" style="color:#999;">marklens.site</a> ·
         <a href="${unsubscribeUrl}" style="color:#999;">구독 취소</a>
       </p>
     </div>

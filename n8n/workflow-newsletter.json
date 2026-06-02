@@ -23,7 +23,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://marklens.vercel.app/api/newsletter/generate?secret=marklens-n8n-2025",
+        "url": "https://marklens.site/api/newsletter/generate?secret=marklens-n8n-2025",
         "options": {
           "timeout": 120000
         }

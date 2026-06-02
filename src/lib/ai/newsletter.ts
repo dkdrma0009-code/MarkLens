@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk"
+import { generateText } from "@/lib/ai/llm"
 
 const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly의 에디터입니다.
 
@@ -7,7 +7,8 @@ const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly의 에디터입니다.
 - Morning Brew 스타일 30%: 짧고 펀치 있는 문장, 복잡한 개념을 쉽게 풀어씁니다
 - 모든 내용은 한국어로 작성합니다
 - AI가 쓴 것처럼 보이지 않게 자연스럽게 씁니다
-- 대학생과 취준생, 주니어 마케터가 읽는다는 것을 염두에 둡니다`
+- 대학생과 취준생, 주니어 마케터가 읽는다는 것을 염두에 둡니다
+- 마크다운 문법 사용 금지 (**, *, # 등)`
 
 interface NewsletterInput {
   issueNumber: number
@@ -30,21 +31,15 @@ interface NewsletterOutput {
 }
 
 export async function generateNewsletter(input: NewsletterInput): Promise<NewsletterOutput> {
-  const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
   const insightsSummary = input.insights
     .slice(0, 10)
     .map((i, idx) => `${idx + 1}. [${i.category}] ${i.title}\n요약: ${i.summary}`)
     .join("\n\n")
 
-  const res = await claude.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 5000,
+  const text = await generateText({
     system: VOICE_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `MarkLens Weekly #${input.issueNumber}을 작성해주세요.
+    maxTokens: 5000,
+    prompt: `MarkLens Weekly #${input.issueNumber}을 작성해주세요.
 
 이번 주 수집된 인사이트:
 ${insightsSummary}
@@ -58,14 +53,9 @@ ${insightsSummary}
   "portfolio_insight": "Portfolio Insight — 이번 주 인사이트 중 포트폴리오에 활용하기 좋은 것. STAR 방식 예시와 면접 답변 방향 포함",
   "career_lens": "Career Lens — 이번 주 현직자가 주목한 역량 또는 트렌드. 취준생이 당장 실천할 수 있는 액션 아이템 포함"
 }`,
-      },
-    ],
   })
 
-  const content = res.content[0]
-  if (content.type !== "text") throw new Error("Unexpected response type")
-
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/)
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error("No JSON found in response")
 
   return JSON.parse(jsonMatch[0]) as NewsletterOutput

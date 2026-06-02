@@ -1,10 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk"
 import OpenAI from "openai"
 import { slugify } from "@/lib/utils"
-
-function getClaudeClient() {
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-}
+import { generateText } from "@/lib/ai/llm"
 
 function getOpenAIClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -62,7 +58,6 @@ interface InsightOutput {
 }
 
 export async function analyzeArticle(article: ArticleInput): Promise<InsightOutput> {
-  const claude = getClaudeClient()
   const openai = getOpenAIClient()
 
   // GPT-4o: 카테고리 분류 + 태그 + 키워드 추출 (실패 시 Claude 폴백)
@@ -90,22 +85,13 @@ export async function analyzeArticle(article: ArticleInput): Promise<InsightOutp
       keywords: parsed.keywords ?? [],
     }
   } catch {
-    // GPT-4o 실패 시 Claude로 분류
-    const fallbackRes = await claude.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      messages: [{
-        role: "user",
-        content: `다음 마케팅 아티클을 분류하세요. JSON만 반환하세요.
-카테고리 목록: ${CATEGORIES.join(", ")}
-형식: {"category":"...","tags":["..."],"keywords":["..."]}
-
-제목: ${article.title}
-내용: ${article.content.substring(0, 300)}`,
-      }],
-    })
+    // GPT-4o 실패 시 generateText(Claude→Gemini 폴백)로 분류
     try {
-      const text = fallbackRes.content[0].type === "text" ? fallbackRes.content[0].text : "{}"
+      const text = await generateText({
+        system: `다음 마케팅 아티클을 분류하세요. JSON만 반환하세요. 카테고리 목록: ${CATEGORIES.join(", ")}`,
+        prompt: `형식: {"category":"...","tags":["..."],"keywords":["..."]}\n\n제목: ${article.title}\n내용: ${article.content.substring(0, 300)}`,
+        maxTokens: 300,
+      })
       const match = text.match(/\{[\s\S]*\}/)
       const parsed = JSON.parse(match?.[0] ?? "{}")
       classification = {
@@ -118,15 +104,10 @@ export async function analyzeArticle(article: ArticleInput): Promise<InsightOutp
     }
   }
 
-  // Claude Sonnet: 깊은 인사이트 분석
-  const analysisRes = await claude.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 4000,
+  // Claude→Gemini 폴백으로 깊은 인사이트 분석
+  const analysisText = await generateText({
     system: VOICE_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `다음 마케팅 아티클을 분석해서 JSON 형식으로 응답해주세요.
+    prompt: `다음 마케팅 아티클을 분석해서 JSON 형식으로 응답해주세요.
 
 아티클 제목: ${article.title}
 아티클 내용:
@@ -143,9 +124,8 @@ ${article.content.substring(0, 3000)}
   "portfolio_usage": "포트폴리오에 어떻게 녹여낼 수 있는지 (STAR 방식 예시 포함)",
   "interview_points": ["실생활에서 이 인사이트를 바로 써볼 수 있는 구체적인 상황과 방법 1", "실생활에서 바로 써볼 수 있는 상황 2"]
 }`,
-      },
-    ],
   })
+  const analysisRes = { content: [{ type: "text" as const, text: analysisText }] }
 
   let analysis: Omit<InsightOutput, "slug" | "category" | "tags" | "keywords">
   try {

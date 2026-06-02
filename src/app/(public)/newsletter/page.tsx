@@ -44,8 +44,8 @@ export default function NewsletterPage() {
 
         {subscribed ? (
           <div className="border border-border rounded-lg p-6">
-            <p className="text-sm font-medium mb-1">구독이 완료됐습니다.</p>
-            <p className="text-xs text-muted-foreground">다음 월요일 7:30에 첫 뉴스레터가 도착합니다.</p>
+            <p className="text-sm font-medium mb-1">확인 이메일을 보냈습니다.</p>
+            <p className="text-xs text-muted-foreground">받은 편지함에서 구독 확인 버튼을 눌러주세요.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex gap-2">
