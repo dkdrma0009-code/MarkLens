@@ -1,10 +1,5 @@
-import OpenAI from "openai"
 import { slugify } from "@/lib/utils"
 import { generateText } from "@/lib/ai/llm"
-
-function getOpenAIClient() {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-}
 
 const CATEGORIES = [
   "branding", "performance-marketing", "crm", "content-marketing",
@@ -58,50 +53,23 @@ interface InsightOutput {
 }
 
 export async function analyzeArticle(article: ArticleInput): Promise<InsightOutput> {
-  const openai = getOpenAIClient()
-
-  // GPT-4o: 카테고리 분류 + 태그 + 키워드 추출 (실패 시 Claude 폴백)
+  // 카테고리 분류: Claude → OpenAI → Gemini 체인으로 자동 폴백
   let classification: { category: string; tags: string[]; keywords: string[] }
   try {
-    const classificationRes = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `다음 마케팅 아티클을 분류합니다. 반드시 JSON 형식으로만 응답하세요.
-카테고리 목록: ${CATEGORIES.join(", ")}`,
-        },
-        {
-          role: "user",
-          content: `제목: ${article.title}\n\n내용 요약: ${article.content.substring(0, 500)}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+    const text = await generateText({
+      system: `다음 마케팅 아티클을 분류하세요. JSON만 반환하세요. 카테고리 목록: ${CATEGORIES.join(", ")}`,
+      prompt: `형식: {"category":"...","tags":["..."],"keywords":["..."]}\n\n제목: ${article.title}\n내용: ${article.content.substring(0, 500)}`,
+      maxTokens: 300,
     })
-    const parsed = JSON.parse(classificationRes.choices[0].message.content ?? "{}")
+    const match = text.match(/\{[\s\S]*\}/)
+    const parsed = JSON.parse(match?.[0] ?? "{}")
     classification = {
       category: CATEGORIES.includes(parsed.category) ? parsed.category : CATEGORIES[0],
       tags: parsed.tags ?? [],
       keywords: parsed.keywords ?? [],
     }
   } catch {
-    // GPT-4o 실패 시 generateText(Claude→Gemini 폴백)로 분류
-    try {
-      const text = await generateText({
-        system: `다음 마케팅 아티클을 분류하세요. JSON만 반환하세요. 카테고리 목록: ${CATEGORIES.join(", ")}`,
-        prompt: `형식: {"category":"...","tags":["..."],"keywords":["..."]}\n\n제목: ${article.title}\n내용: ${article.content.substring(0, 300)}`,
-        maxTokens: 300,
-      })
-      const match = text.match(/\{[\s\S]*\}/)
-      const parsed = JSON.parse(match?.[0] ?? "{}")
-      classification = {
-        category: CATEGORIES.includes(parsed.category) ? parsed.category : CATEGORIES[0],
-        tags: parsed.tags ?? [],
-        keywords: parsed.keywords ?? [],
-      }
-    } catch {
-      classification = { category: CATEGORIES[0], tags: [], keywords: [] }
-    }
+    classification = { category: CATEGORIES[0], tags: [], keywords: [] }
   }
 
   // Claude→Gemini 폴백으로 깊은 인사이트 분석
