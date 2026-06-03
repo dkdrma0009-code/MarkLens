@@ -82,6 +82,8 @@ export default async function AdminArticlesPage() {
 
 type ArticleWithInsights = Article & {
   insights?: { id: string; summary?: string; category?: string }[]
+  raw_content?: string | null
+  image_url?: string | null
 }
 
 function ArticleTable({ articles }: { articles: ArticleWithInsights[] }) {
@@ -124,15 +126,17 @@ function ArticleTable({ articles }: { articles: ArticleWithInsights[] }) {
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
+                  <InsightPreview
+                    articleId={article.id}
+                    articleTitle={article.title}
+                    articleUrl={article.url}
+                    sourceName={article.source_name}
+                    rawContent={article.raw_content}
+                    imageUrl={article.image_url}
+                    hasInsight={!!article.insights?.[0]}
+                  />
                   {article.insights?.[0] && (
-                    <>
-                      <InsightPreview
-                        articleId={article.id}
-                        articleTitle={article.title}
-                        articleUrl={article.url}
-                      />
-                      <EditInsight articleId={article.id} />
-                    </>
+                    <EditInsight articleId={article.id} />
                   )}
                   <ArticleActions articleId={article.id} status={article.status} />
                 </div>
