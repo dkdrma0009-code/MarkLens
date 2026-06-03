@@ -21,8 +21,8 @@ export default function NewsletterControls({ issueId, status }: Props) {
       if (!res.ok) throw new Error(data.error)
       toast.success(`#${data.issue.issue_number} 뉴스레터가 생성됐습니다.`)
       router.refresh()
-    } catch (e: any) {
-      toast.error(e.message ?? "생성 실패")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "생성 실패")
     } finally {
       setLoading(false)
     }
@@ -42,8 +42,8 @@ export default function NewsletterControls({ issueId, status }: Props) {
       if (!res.ok) throw new Error(data.error)
       toast.success(`${data.sentTo}명에게 발송됐습니다.`)
       router.refresh()
-    } catch (e: any) {
-      toast.error(e.message ?? "발송 실패")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "발송 실패")
     } finally {
       setLoading(false)
     }

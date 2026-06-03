@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     await supabase.from("articles").update({ status: "ready" }).eq("id", articleId)
 
     return NextResponse.json({ success: true, insight })
-  } catch (err) {
+  } catch {
     await supabase.from("articles").update({ status: "pending" }).eq("id", articleId)
     return NextResponse.json({ error: "Analysis failed" }, { status: 500 })
   }

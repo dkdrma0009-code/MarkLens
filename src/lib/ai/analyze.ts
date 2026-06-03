@@ -158,13 +158,13 @@ ${article.content.substring(0, 3000)}
   }
 }
 
-function stripMarkdown<T extends Record<string, any>>(obj: T): T {
+function stripMarkdown<T extends Record<string, unknown>>(obj: T): T {
   const clean = (s: string) => s.replace(/\*\*/g, "").replace(/\*/g, "").replace(/^#+\s/gm, "").replace(/^>\s/gm, "")
-  const result: any = {}
+  const result: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(obj)) {
     if (typeof v === "string") result[k] = clean(v)
     else if (Array.isArray(v)) result[k] = v.map((i) => typeof i === "string" ? clean(i) : i)
     else result[k] = v
   }
-  return result
+  return result as unknown as T
 }

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
 import { NextResponse } from "next/server"
+import type { NewsletterIssue } from "@/types"
 
 async function isAdmin(): Promise<boolean> {
   const supabase = await createClient()
@@ -66,8 +67,8 @@ export async function POST(req: Request) {
       const unsubscribeUrl = await generateUnsubscribeUrl(email)
       await sendViaBrevo(email, subject, buildNewsletterHtml(issue, unsubscribeUrl))
       sent++
-    } catch (e: any) {
-      errors.push(`${email}: ${e.message}`)
+    } catch (e) {
+      errors.push(`${email}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
 
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true, sentTo: sent, errors: errors.length ? errors : undefined })
 }
 
-function buildNewsletterHtml(issue: any, unsubscribeUrl = ""): string {
+function buildNewsletterHtml(issue: NewsletterIssue, unsubscribeUrl = ""): string {
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -113,7 +114,7 @@ function buildNewsletterHtml(issue: any, unsubscribeUrl = ""): string {
 </html>`
 }
 
-function buildSection(title: string, content: string): string {
+function buildSection(title: string, content?: string | null): string {
   if (!content) return ""
   return `
     <div style="margin-bottom:36px;">

@@ -7,11 +7,10 @@ import { Trash2 } from "lucide-react"
 
 interface Props {
   articleId: string
-  insightId?: string
   status: string
 }
 
-export default function ArticleActions({ articleId, insightId, status }: Props) {
+export default function ArticleActions({ articleId, status }: Props) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -45,8 +44,8 @@ export default function ArticleActions({ articleId, insightId, status }: Props) 
       if (!res.ok) throw new Error(data.error ?? "분석 실패")
       toast.success("분석 완료됐습니다.")
       router.refresh()
-    } catch (e: any) {
-      toast.error(e.message ?? "오류가 발생했습니다.")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "오류가 발생했습니다.")
     } finally {
       setLoading(false)
     }

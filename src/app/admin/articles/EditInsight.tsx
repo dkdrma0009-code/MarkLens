@@ -6,7 +6,8 @@ import { toast } from "sonner"
 import { Pencil, X } from "lucide-react"
 
 interface Props {
-  articleId: string
+  articleId?: string
+  insightId?: string
 }
 
 interface Insight {
@@ -19,7 +20,7 @@ interface Insight {
   category?: string
 }
 
-export default function EditInsight({ articleId }: Props) {
+export default function EditInsight({ articleId, insightId: insightIdProp }: Props) {
   const [open, setOpen] = useState(false)
   const [insight, setInsight] = useState<Insight | null>(null)
   const [loading, setLoading] = useState(false)
@@ -30,7 +31,10 @@ export default function EditInsight({ articleId }: Props) {
     if (insight) { setOpen(true); return }
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/insight-preview?articleId=${articleId}`)
+      const param = insightIdProp
+        ? `insightId=${insightIdProp}`
+        : `articleId=${articleId}`
+      const res = await fetch(`/api/admin/insight-preview?${param}`)
       const data = await res.json()
       if (!data.insight?.id) throw new Error("인사이트 없음")
       setInsight(data.insight)

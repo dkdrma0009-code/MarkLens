@@ -29,8 +29,8 @@ ${context ? `\n지금 독자가 읽고 있는 인사이트:\n${context}` : ""}`
 
     const reply = await generateText({ system, prompt, maxTokens: 600 })
     return NextResponse.json({ reply })
-  } catch (err: any) {
-    console.error("chat error:", err.message)
+  } catch (err) {
+    console.error("chat error:", err instanceof Error ? err.message : err)
     return NextResponse.json({ error: "AI 서비스에 일시적인 문제가 발생했습니다." }, { status: 503 })
   }
 }

@@ -57,10 +57,10 @@ export default function ArticleChat({ context, color }: { context: string; color
         role: "assistant",
         content: data.reply || "죄송해요, 다시 시도해주세요.",
       }])
-    } catch (e: any) {
+    } catch (e) {
       setMessages(prev => [...prev, {
         role: "assistant",
-        content: e.message || "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        content: e instanceof Error ? e.message : "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
       }])
     } finally {
       setLoading(false)

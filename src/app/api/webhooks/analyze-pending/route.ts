@@ -62,8 +62,8 @@ export async function POST(req: Request) {
         .eq("id", article.id)
 
       analyzed++
-    } catch (err: any) {
-      errors.push(`${article.title}: ${err.message}`)
+    } catch (err) {
+      errors.push(`${article.title}: ${err instanceof Error ? err.message : String(err)}`)
       await supabase
         .from("articles")
         .update({ status: "pending" })

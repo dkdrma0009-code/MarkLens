@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
+import type { Insight } from "@/types"
 
 export const revalidate = 3600
 
@@ -78,13 +79,13 @@ export default async function HomePage() {
 
           {featured && (
             <div className="mb-6">
-              <InsightCard insight={featured as any} size="large" />
+              <InsightCard insight={featured as Insight} size="large" />
             </div>
           )}
 
           {rest.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {rest.map((insight: any) => (
+              {rest.map((insight) => (
                 <InsightCard key={insight.id} insight={insight} />
               ))}
             </div>

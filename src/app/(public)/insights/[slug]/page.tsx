@@ -27,9 +27,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!insight) return {}
 
-  const title = insight.hook ?? (insight.article as any)?.title ?? "MarkLens 인사이트"
+  const article = insight.article as { title?: string; image_url?: string } | null
+  const title = insight.hook ?? article?.title ?? "MarkLens 인사이트"
   const description = insight.summary ?? "글로벌 마케팅 아티클에서 추출한 실무 인사이트"
-  const image = (insight.article as any)?.image_url
+  const image = article?.image_url
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
 
   return {
@@ -208,7 +209,7 @@ export default async function InsightDetailPage({ params }: Props) {
         <div className="mb-14">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">관련 인사이트</h2>
           <div className="space-y-3">
-            {related.map((r: any) => {
+            {related.map((r) => {
               const rm = getCategoryMeta(r.category)
               return (
                 <Link

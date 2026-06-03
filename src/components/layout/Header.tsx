@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import { Sun, Moon, Menu, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 const navItems = [
   { href: "/insights", label: "인사이트" },
@@ -26,17 +26,15 @@ function Logo() {
 }
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  if (!mounted) return <div className="w-8 h-8" />
+  const { setTheme, resolvedTheme } = useTheme()
+  if (resolvedTheme === undefined) return <div className="w-8 h-8" />
   return (
     <button
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 transition-colors"
       aria-label="테마 전환"
     >
-      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
   )
 }
@@ -44,9 +42,6 @@ function ThemeToggle() {
 export default function Header() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  // 페이지 이동 시 모바일 메뉴 닫기
-  useEffect(() => { setMobileOpen(false) }, [pathname])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur">
@@ -99,6 +94,7 @@ export default function Header() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={`block px-3 py-2.5 text-sm rounded-lg font-medium transition-colors ${
                 pathname.startsWith(item.href)
                   ? "text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800"

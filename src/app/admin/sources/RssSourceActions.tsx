@@ -64,8 +64,8 @@ export function AddSourceForm() {
       setOpen(false)
       setForm({ name: "", slug: "", rss_url: "", website_url: "" })
       router.refresh()
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "추가 실패")
     } finally {
       setLoading(false)
     }
@@ -100,7 +100,7 @@ export function AddSourceForm() {
             <label className="text-xs font-medium text-gray-600 block mb-1">{label}</label>
             <input
               required
-              value={(form as any)[field]}
+              value={form[field as keyof typeof form]}
               onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
               placeholder={placeholder}
               className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"

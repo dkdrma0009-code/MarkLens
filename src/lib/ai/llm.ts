@@ -2,8 +2,8 @@ import Anthropic from "@anthropic-ai/sdk"
 
 const CREDIT_ERROR_KEYWORDS = ["credit", "billing", "quota", "insufficient", "balance"]
 
-function isCreditError(err: any): boolean {
-  const msg = (err?.message ?? "").toLowerCase()
+function isCreditError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : "").toLowerCase()
   return CREDIT_ERROR_KEYWORDS.some(k => msg.includes(k))
 }
 
@@ -47,7 +47,7 @@ export async function generateText({
       messages: [{ role: "user", content: prompt }],
     })
     return res.content[0].type === "text" ? res.content[0].text : ""
-  } catch (err: any) {
+  } catch (err) {
     if (isCreditError(err)) {
       console.log("Claude 크레딧 부족 → Gemini 폴백")
       return callGemini(prompt, system)

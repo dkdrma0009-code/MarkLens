@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import Link from "next/link"
 import InsightCard from "@/components/InsightCard"
 import { Search, X } from "lucide-react"
+import type { Insight } from "@/types"
 
 const CATEGORIES = [
   { label: "전체", slug: "" },
@@ -21,7 +22,7 @@ const PAGE_SIZE = 12
 
 interface Props {
   category?: string
-  allInsights: any[]
+  allInsights: Insight[]
 }
 
 export default function InsightsClient({ category, allInsights }: Props) {
@@ -107,7 +108,7 @@ export default function InsightsClient({ category, allInsights }: Props) {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {rest.map((insight: any) => (
+            {rest.map((insight) => (
               <InsightCard key={insight.id} insight={insight} />
             ))}
           </div>

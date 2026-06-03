@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
+import type { Article } from "@/types"
 import ArticleActions from "./ArticleActions"
 import AnalyzeTrigger from "./AnalyzeTrigger"
 import CollectTrigger from "./CollectTrigger"
@@ -79,7 +80,11 @@ export default async function AdminArticlesPage() {
   )
 }
 
-function ArticleTable({ articles }: { articles: any[] }) {
+type ArticleWithInsights = Article & {
+  insights?: { id: string; summary?: string; category?: string }[]
+}
+
+function ArticleTable({ articles }: { articles: ArticleWithInsights[] }) {
   return (
     <div className="border border-border rounded-lg overflow-hidden bg-background">
       <table className="w-full text-sm">

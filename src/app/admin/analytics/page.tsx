@@ -1,7 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import Link from "next/link"
+import InsightActions from "@/app/admin/insights/InsightActions"
 
 export const dynamic = 'force-dynamic'
+
+type AnalyticsInsight = {
+  id: string
+  slug: string
+  hook?: string | null
+  category?: string | null
+  view_count?: number | null
+  article?: { title?: string | null; status?: string | null } | null
+}
 
 export default async function AdminAnalyticsPage() {
   const supabase = createAdminClient()
@@ -22,7 +32,7 @@ export default async function AdminAnalyticsPage() {
     supabase.from("newsletter_issues").select("*", { count: "exact", head: true }).eq("status", "sent"),
     supabase
       .from("insights")
-      .select("id, hook, category, view_count, article:articles!inner(title, status)")
+      .select("id, slug, hook, category, view_count, article:articles!inner(title, status)")
       .eq("articles.status", "published")
       .order("view_count", { ascending: false })
       .limit(100),
@@ -39,11 +49,14 @@ export default async function AdminAnalyticsPage() {
     }
   }
 
-  const totalViews = insights?.reduce((sum, i) => sum + (i.view_count ?? 0), 0) ?? 0
+  const typedInsights = (insights ?? []) as AnalyticsInsight[]
+  const totalViews = typedInsights.reduce((sum, i) => sum + (i.view_count ?? 0), 0)
   const totalLikes = Object.values(likeMap).reduce((sum, n) => sum + n, 0)
 
   const stats = [
+    { label: "전체 아티클", value: totalArticles ?? 0 },
     { label: "발행된 인사이트", value: publishedArticles ?? 0 },
+    { label: "전체 인사이트", value: totalInsights ?? 0 },
     { label: "전체 조회수", value: totalViews.toLocaleString() },
     { label: "전체 좋아요", value: totalLikes },
     { label: "구독자", value: totalSubscribers ?? 0 },
@@ -68,7 +81,7 @@ export default async function AdminAnalyticsPage() {
       </div>
 
       {/* Insights Table */}
-      {insights && insights.length > 0 && (
+      {typedInsights.length > 0 && (
         <div className="border border-border rounded-lg overflow-hidden bg-background">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="text-sm font-medium">인사이트 참여 지표</h2>
@@ -81,17 +94,18 @@ export default async function AdminAnalyticsPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">조회수</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">좋아요</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {insights.map((insight: any, i: number) => {
+              {typedInsights.map((insight, i) => {
                 const likes = likeMap[insight.id] ?? 0
                 return (
                   <tr key={insight.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{i + 1}</td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/insights/${insight.id}`}
+                        href={`/insights/${insight.slug}`}
                         className="font-medium line-clamp-1 hover:underline text-sm"
                         target="_blank"
                       >
@@ -110,6 +124,9 @@ export default async function AdminAnalyticsPage() {
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <InsightActions insightId={insight.id} />
                     </td>
                   </tr>
                 )

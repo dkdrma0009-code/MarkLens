@@ -17,8 +17,8 @@ export default function CollectTrigger() {
       if (!res.ok) throw new Error(data.error)
       toast.success(`${data.collected}개 새 아티클 수집됐습니다.`)
       router.refresh()
-    } catch (e: any) {
-      toast.error(e.message ?? "수집 실패")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "수집 실패")
     } finally {
       setLoading(false)
     }

@@ -30,3 +30,31 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id } = await params
+  const supabase = createAdminClient()
+
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("article_id")
+    .eq("id", id)
+    .single()
+
+  if (!insight) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const { error } = await supabase.from("insights").delete().eq("id", id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await supabase
+    .from("articles")
+    .update({ status: "ready" })
+    .eq("id", insight.article_id)
+
+  return NextResponse.json({ success: true })
+}

@@ -66,8 +66,8 @@ export async function POST(req: Request) {
     if (error) throw error
 
     return NextResponse.json({ success: true, issue: data })
-  } catch (err: any) {
+  } catch (err) {
     console.error(err)
-    return NextResponse.json({ error: err?.message ?? "Generation failed" }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Generation failed" }, { status: 500 })
   }
 }

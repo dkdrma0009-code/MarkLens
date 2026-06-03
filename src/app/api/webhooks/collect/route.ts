@@ -94,8 +94,8 @@ export async function POST(req: Request) {
         .update({ last_fetched_at: new Date().toISOString() })
         .eq("id", source.id)
 
-    } catch (err: any) {
-      errors.push(`${source.name}: ${err.message}`)
+    } catch (err) {
+      errors.push(`${source.name}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

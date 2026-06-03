@@ -1,9 +1,10 @@
 import Link from "next/link"
-import { LayoutDashboard, FileText, Mail, BarChart2, Rss, Users } from "lucide-react"
+import { LayoutDashboard, FileText, Lightbulb, Mail, BarChart2, Rss, Users } from "lucide-react"
 
 const navItems = [
   { href: "/admin", label: "대시보드", icon: LayoutDashboard },
   { href: "/admin/articles", label: "아티클", icon: FileText },
+  { href: "/admin/insights", label: "인사이트", icon: Lightbulb },
   { href: "/admin/newsletter", label: "뉴스레터", icon: Mail },
   { href: "/admin/subscribers", label: "구독자", icon: Users },
   { href: "/admin/sources", label: "RSS 소스", icon: Rss },

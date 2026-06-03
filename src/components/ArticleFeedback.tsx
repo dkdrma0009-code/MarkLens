@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Heart } from "lucide-react"
-import Link from "next/link"
 
 export default function ArticleFeedback({ insightId, color }: { insightId: string; color: string }) {
   const [liked, setLiked] = useState(false)

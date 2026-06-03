@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 import Link from "next/link"
+import type { Insight } from "@/types"
 
 export const revalidate = 3600
 
@@ -35,7 +36,7 @@ export default async function LibraryPage({ searchParams }: Props) {
 
   const { data: insights } = await query
 
-  const grouped: Record<string, any[]> = {}
+  const grouped: Record<string, Insight[]> = {}
   if (insights && !category) {
     for (const insight of insights) {
       const cat = insight.category ?? "기타"
@@ -74,7 +75,7 @@ export default async function LibraryPage({ searchParams }: Props) {
         </div>
       ) : category ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {insights.map((insight: any) => (
+          {insights.map((insight) => (
             <InsightCard key={insight.id} insight={insight} />
           ))}
         </div>
@@ -92,7 +93,7 @@ export default async function LibraryPage({ searchParams }: Props) {
                 </Link>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {items.slice(0, 3).map((insight: any) => (
+                {items.slice(0, 3).map((insight) => (
                   <InsightCard key={insight.id} insight={insight} />
                 ))}
               </div>
