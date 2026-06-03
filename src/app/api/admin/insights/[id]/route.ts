@@ -53,7 +53,7 @@ export async function DELETE(
 
   await supabase
     .from("articles")
-    .update({ status: "ready" })
+    .update({ status: "pending" })
     .eq("id", insight.article_id)
 
   return NextResponse.json({ success: true })
