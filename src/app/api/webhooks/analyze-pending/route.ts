@@ -40,7 +40,6 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient()
 
-  // pending 상태 아티클 최대 3개씩 처리
   const { data: articles } = await supabase
     .from("articles")
     .select("*")
@@ -53,37 +52,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "No pending articles", analyzed: 0 })
   }
 
-  let analyzed = 0
-  const errors: string[] = []
+  const cleanStr = (s: string) => s.replace(/﻿/g, "").trim()
 
-  for (const article of articles) {
-    try {
-      // analyzing 상태로 변경
-      await supabase
-        .from("articles")
-        .update({ status: "analyzing" })
-        .eq("id", article.id)
+  // 아티클 병렬 처리 — 순차 처리 대비 ~3배 빠름
+  const results = await Promise.allSettled(
+    articles.map(async (article) => {
+      await supabase.from("articles").update({ status: "analyzing" }).eq("id", article.id)
 
-      const cleanStr = (s: string) => s.replace(/\uFEFF/g, "").trim()
       const insight = await analyzeArticle({
         title: cleanStr(article.title),
         content: cleanStr(article.raw_content ?? article.title),
         url: cleanStr(article.url),
       })
 
-      // slug 중복 방지
-      const baseSlug = slugify(article.title)
-      const slug = `${baseSlug}-${article.id.slice(0, 6)}`
+      const slug = `${slugify(article.title)}-${article.id.slice(0, 6)}`
 
-      // 핵심 3개 필드 없으면 거절 (빈 인사이트 방지)
-      const hasContent = insight.hook && insight.summary && insight.why_it_matters
-      if (!hasContent) {
+      // hook만 없으면 거절 — 나머지 빈 필드는 수정 가능하므로 거절 안 함
+      if (!insight.hook) {
         await supabase.from("articles").update({ status: "rejected" }).eq("id", article.id)
-        errors.push(`${article.title}: 분석 내용 부족`)
-        continue
+        throw new Error(`${article.title}: hook 없음`)
       }
 
-      // 퀴즈 자동 생성 (분석과 동시)
       const quizContent = [insight.why_it_matters, insight.practical_applications, insight.summary]
         .filter(Boolean).join("\n\n")
       const quiz = quizContent.length > 100 ? await generateQuiz(quizContent) : null
@@ -92,23 +81,29 @@ export async function POST(req: Request) {
         { article_id: article.id, ...insight, slug, ...(quiz ? { quiz } : {}) },
         { onConflict: "slug" }
       )
-
       if (upsertError) throw new Error(`insight upsert: ${upsertError.message}`)
 
-      await supabase
-        .from("articles")
-        .update({ status: "ready" })
-        .eq("id", article.id)
+      await supabase.from("articles").update({ status: "ready" }).eq("id", article.id)
+      return article.title
+    })
+  )
 
-      analyzed++
-    } catch (err) {
-      errors.push(`${article.title}: ${err instanceof Error ? err.message : String(err)}`)
-      await supabase
-        .from("articles")
-        .update({ status: "pending" })
-        .eq("id", article.id)
-    }
-  }
+  const analyzed = results.filter(r => r.status === "fulfilled").length
+  const errors = results
+    .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+    .map(r => r.reason instanceof Error ? r.reason.message : String(r.reason))
+
+  // 실패한 아티클 중 아직 analyzing 상태인 건 pending으로 복귀
+  await Promise.all(
+    articles
+      .filter((_, i) => results[i].status === "rejected")
+      .map(a =>
+        supabase.from("articles")
+          .update({ status: "pending" })
+          .eq("id", a.id)
+          .eq("status", "analyzing")
+      )
+  )
 
   return NextResponse.json({
     success: true,

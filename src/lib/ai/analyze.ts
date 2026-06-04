@@ -55,69 +55,60 @@ interface InsightOutput {
 }
 
 export async function analyzeArticle(article: ArticleInput): Promise<InsightOutput> {
-  // 카테고리 분류: Claude → OpenAI → Gemini 체인으로 자동 폴백
-  let classification: { category: string; tags: string[]; keywords: string[] }
-  try {
-    const text = await generateText({
-      system: `다음 마케팅 아티클을 분류하세요. JSON만 반환하세요. 카테고리 목록: ${CATEGORIES.join(", ")}`,
-      prompt: `형식: {"category":"...","tags":["..."],"keywords":["..."]}\n\n제목: ${article.title}\n내용: ${article.content.substring(0, 500)}`,
-      maxTokens: 300,
-    })
-    const match = text.match(/\{[\s\S]*\}/)
-    const parsed = JSON.parse(match?.[0] ?? "{}")
-    classification = {
-      category: CATEGORIES.includes(parsed.category) ? parsed.category : CATEGORIES[0],
-      tags: parsed.tags ?? [],
-      keywords: parsed.keywords ?? [],
-    }
-  } catch {
-    classification = { category: CATEGORIES[0], tags: [], keywords: [] }
-  }
-
-  // Claude→Gemini 폴백으로 깊은 인사이트 분석
-  const analysisText = await generateText({
+  // 분류 + 분석을 1번 호출로 통합 — AI 호출 횟수 절반으로 감소
+  const combinedText = await generateText({
     system: VOICE_SYSTEM_PROMPT,
-    prompt: `다음 마케팅 아티클을 분석해서 JSON 형식으로 응답해주세요.
+    prompt: `다음 마케팅 아티클을 분석해서 JSON 형식으로 응답해주세요. JSON 외에 다른 텍스트는 절대 포함하지 마세요.
 
 아티클 제목: ${article.title}
 아티클 내용:
 ${article.content.substring(0, 3000)}
 
+카테고리 목록: ${CATEGORIES.join(", ")}
+
 다음 JSON 구조로 응답하세요:
 {
+  "category": "${CATEGORIES[0]} 중 하나",
+  "tags": ["태그1", "태그2", "태그3"],
+  "keywords": ["키워드1", "키워드2"],
   "hook": "독자를 낚는 한 줄 후킹 멘트 (20-35자, 질문형 또는 반전형, 예: 'SEO가 죽어가고 있다. 그 자리를 차지할 건 누구?')",
   "summary": "핵심 요약 (2-3문장, 자연스럽게)",
   "key_takeaways": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
   "why_it_matters": "왜 중요한가 (마케터 관점에서, 2-3단락)",
   "practical_applications": "실전 적용법 (구체적인 액션 아이템 포함, 2-3단락)",
   "framework_analysis": "활용된 마케팅 프레임워크 분석",
-  "portfolio_usage": "이 인사이트를 바탕으로 지금 당장 해볼 수 있는 미니 프로젝트 2가지를 제안하세요. 경험 없이도 할 수 있는 실제 작업(분석, 실험, 리포트 등)으로, '첫째 ..., 둘째 ...' 형식으로 구체적으로 써주세요. 가짜 수치나 없는 경험을 꾸며내지 마세요.",
-  "interview_points": ["첫째, [취준생/주니어 마케터가 지금 당장 할 수 있는 구체적인 시나리오 - 가짜 수치 금지, 2-3문장]", "둘째, [또 다른 실생활 시나리오 - Q/A 형식 금지, 자연스러운 한국어]"],
-  "marketing_terms": [{"term": "이 아티클 본문에 실제로 등장하는 영어 약어/전문 개념어만 (AEO, E-E-A-T, ROAS 등 - 고유명사/일반 단어 절대 금지)", "definition": "이 아티클에서 어떤 맥락으로 쓰였는지 + 마케팅 정확한 의미 2문장"}]
+  "portfolio_usage": "지금 당장 해볼 수 있는 미니 프로젝트 2가지. '첫째 ..., 둘째 ...' 형식으로 구체적으로. 가짜 수치 금지.",
+  "interview_points": ["첫째, 취준생/주니어 마케터가 지금 당장 할 수 있는 구체적인 시나리오 (2-3문장, 가짜 수치 금지)", "둘째, 또 다른 실생활 시나리오 (자연스러운 한국어)"],
+  "marketing_terms": [{"term": "아티클에 실제 등장하는 영어 약어/전문 개념어", "definition": "아티클 맥락 + 마케팅 의미 2문장"}]
 }`,
+    maxTokens: 4000,
   })
-  const analysisRes = { content: [{ type: "text" as const, text: analysisText }] }
 
-  let analysis: Omit<InsightOutput, "slug" | "category" | "tags" | "keywords">
+  let parsed: Record<string, unknown> = {}
   try {
-    const content = analysisRes.content[0]
-    if (content.type === "text") {
-      const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-      analysis = JSON.parse(jsonMatch?.[0] ?? "{}")
-    } else {
-      throw new Error("Unexpected content type")
-    }
+    const jsonMatch = combinedText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").match(/\{[\s\S]*\}/)
+    parsed = JSON.parse(jsonMatch?.[0] ?? "{}")
   } catch {
-    analysis = {
-      hook: "",
-      summary: "",
-      key_takeaways: [],
-      why_it_matters: "",
-      practical_applications: "",
-      framework_analysis: "",
-      portfolio_usage: "",
-      interview_points: [],
-    }
+    // JSON 파싱 실패 시 빈 객체로 진행 (거절 기준은 webhook에서 판단)
+  }
+
+  const rawCategory = String(parsed.category ?? "")
+  const classification = {
+    category: CATEGORIES.includes(rawCategory) ? rawCategory : CATEGORIES[0],
+    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+  }
+
+  const analysis = {
+    hook: String(parsed.hook ?? ""),
+    summary: String(parsed.summary ?? ""),
+    key_takeaways: Array.isArray(parsed.key_takeaways) ? parsed.key_takeaways : [],
+    why_it_matters: String(parsed.why_it_matters ?? ""),
+    practical_applications: String(parsed.practical_applications ?? ""),
+    framework_analysis: String(parsed.framework_analysis ?? ""),
+    portfolio_usage: String(parsed.portfolio_usage ?? ""),
+    interview_points: Array.isArray(parsed.interview_points) ? parsed.interview_points : [],
+    marketing_terms: Array.isArray(parsed.marketing_terms) ? parsed.marketing_terms : [],
   }
 
   const videoUrl = await findYouTubeVideo(article.title, analysis.summary ?? "")

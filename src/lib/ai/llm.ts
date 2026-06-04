@@ -1,6 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk"
 import OpenAI from "openai"
 
+// 실패한 provider를 30분간 건너뜀 — 매번 에러 응답 기다리는 낭비 방지
+const failedAt = new Map<string, number>()
+const COOLDOWN_MS = 30 * 60 * 1000
+
+function available(provider: string): boolean {
+  const t = failedAt.get(provider)
+  return !t || Date.now() - t > COOLDOWN_MS
+}
+
+function markFailed(provider: string) {
+  failedAt.set(provider, Date.now())
+  console.log(`[AI] ${provider} 실패 → ${COOLDOWN_MS / 60000}분 건너뜀`)
+}
+
 function isCreditError(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : "").toLowerCase()
   return ["credit", "billing", "quota", "insufficient", "balance", "429", "resource_exhausted"].some(k => msg.includes(k))
@@ -9,7 +23,6 @@ function isCreditError(err: unknown): boolean {
 async function callGemini(prompt: string, system: string, maxTokens = 4000): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error("GEMINI_API_KEY not set")
-
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
@@ -52,7 +65,7 @@ async function callOpenAI(system: string, prompt: string, maxTokens: number): Pr
 }
 
 // 우선순위: Claude → OpenAI → Gemini
-// 크레딧/쿼터 소진 시 자동으로 다음 단계로 폴백
+// 실패한 provider는 30분간 건너뛰어 불필요한 대기 없음
 export async function generateText({
   system,
   prompt,
@@ -62,33 +75,28 @@ export async function generateText({
   prompt: string
   maxTokens?: number
 }): Promise<string> {
-  // 1. Claude 시도
-  try {
-    const result = await callClaude(system, prompt, maxTokens)
-    console.log("[AI] Claude 사용")
-    return result
-  } catch (err) {
-    if (isCreditError(err)) {
-      console.log("[AI] Claude 크레딧 부족 → OpenAI 시도")
-    } else {
-      console.warn("[AI] Claude 오류 → OpenAI 시도:", err instanceof Error ? err.message : err)
+  if (available("claude")) {
+    try {
+      const result = await callClaude(system, prompt, maxTokens)
+      console.log("[AI] Claude 사용")
+      return result
+    } catch (err) {
+      markFailed("claude")
+      if (!isCreditError(err)) console.warn("[AI] Claude 오류:", err instanceof Error ? err.message : err)
     }
   }
 
-  // 2. OpenAI 시도
-  try {
-    const result = await callOpenAI(system, prompt, maxTokens)
-    console.log("[AI] OpenAI 사용")
-    return result
-  } catch (err) {
-    if (isCreditError(err)) {
-      console.log("[AI] OpenAI 크레딧 부족 → Gemini 시도")
-    } else {
-      console.warn("[AI] OpenAI 오류 → Gemini 시도:", err instanceof Error ? err.message : err)
+  if (available("openai")) {
+    try {
+      const result = await callOpenAI(system, prompt, maxTokens)
+      console.log("[AI] OpenAI 사용")
+      return result
+    } catch (err) {
+      markFailed("openai")
+      if (!isCreditError(err)) console.warn("[AI] OpenAI 오류:", err instanceof Error ? err.message : err)
     }
   }
 
-  // 3. Gemini 폴백 (최후 수단)
   console.log("[AI] Gemini 사용")
   return callGemini(prompt, system, maxTokens)
 }
