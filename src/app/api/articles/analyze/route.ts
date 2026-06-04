@@ -41,6 +41,12 @@ export async function POST(req: Request) {
     })
 
     // slug 중복 방지: article_id 기준 upsert
+    // hook 없으면 분석 실패로 처리 (빈 인사이트 저장 방지)
+    if (!insight.hook) {
+      await supabase.from("articles").update({ status: "pending" }).eq("id", articleId)
+      return NextResponse.json({ error: "분석 결과가 부족합니다. 다시 시도해주세요." }, { status: 422 })
+    }
+
     const slug = `${insight.slug}-${articleId.slice(0, 6)}`
     const { error: insightError } = await supabase.from("insights").upsert(
       { article_id: articleId, ...insight, slug },
