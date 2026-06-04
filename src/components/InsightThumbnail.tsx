@@ -12,7 +12,7 @@ interface Props {
 export default function InsightThumbnail({ src, alt, gradient, className = "" }: Props) {
   const [failed, setFailed] = useState(false)
 
-  if (failed) {
+  if (failed || !src) {
     return <div className={`bg-gradient-to-br ${gradient} ${className}`} />
   }
 

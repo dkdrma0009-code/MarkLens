@@ -24,8 +24,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
   const article = insight.article
   const isLarge = size === "large"
   const headline = insight.hook || article?.title || ""
-  // 이미지가 없으면 자동 생성된 OG 썸네일 사용
-  const thumbnailSrc = article?.image_url || `/api/og/${insight.slug}`
+  const thumbnailSrc = article?.image_url ?? ""
 
   if (isLarge) {
     return (
