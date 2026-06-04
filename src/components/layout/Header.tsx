@@ -8,7 +8,7 @@ import { useState } from "react"
 
 const navItems = [
   { href: "/insights", label: "인사이트" },
-  { href: "/library", label: "레퍼런스" },
+  { href: "/library", label: "케이스" },
   { href: "/newsletter", label: "뉴스레터" },
   { href: "/about", label: "소개" },
 ]

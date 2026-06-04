@@ -1,19 +1,19 @@
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 import Link from "next/link"
-import type { Insight } from "@/types"
 
 export const revalidate = 3600
+
+const CASE_SOURCES = ["adage", "contently", "marketing-dive"]
 
 const CATEGORIES = [
   { label: "전체", slug: "" },
   { label: "브랜딩", slug: "브랜딩" },
   { label: "퍼포먼스 마케팅", slug: "퍼포먼스 마케팅" },
-  { label: "SEO", slug: "SEO" },
   { label: "콘텐츠 마케팅", slug: "콘텐츠 마케팅" },
   { label: "소셜 미디어", slug: "소셜 미디어" },
   { label: "AI 마케팅", slug: "AI 마케팅" },
-  { label: "CRM", slug: "CRM" },
+  { label: "SEO", slug: "SEO" },
   { label: "소비자 심리", slug: "소비자 심리" },
 ]
 
@@ -28,28 +28,25 @@ export default async function LibraryPage({ searchParams }: Props) {
   let query = supabase
     .from("insights")
     .select("*, article:articles!inner(*)")
-    .eq("articles.status", "published")
     .order("created_at", { ascending: false })
-    .limit(60)
+    .limit(200)
 
   if (category) query = query.eq("category", category)
 
-  const { data: insights } = await query
+  const { data: allInsights } = await query
 
-  const grouped: Record<string, Insight[]> = {}
-  if (insights && !category) {
-    for (const insight of insights) {
-      const cat = insight.category ?? "기타"
-      if (!grouped[cat]) grouped[cat] = []
-      grouped[cat].push(insight)
-    }
-  }
+  // 케이스 소스 아티클만 필터
+  const insights = (allInsights ?? []).filter(
+    (i: any) => i.article?.status === "published" && CASE_SOURCES.includes(i.article?.source)
+  )
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">레퍼런스</h1>
-        <p className="text-gray-500 dark:text-gray-400">카테고리별로 정리된 마케팅 인사이트 아카이브</p>
+        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">케이스</h1>
+        <p className="text-gray-500 dark:text-gray-400">
+          Ad Age · Contently · Marketing Dive에서 엄선한 실제 브랜드 & 캠페인 사례
+        </p>
       </div>
 
       {/* Category Filter */}
@@ -58,10 +55,10 @@ export default async function LibraryPage({ searchParams }: Props) {
           <Link
             key={cat.slug}
             href={cat.slug ? `/library?category=${cat.slug}` : "/library"}
-            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
+            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all ${
               category === cat.slug || (!category && !cat.slug)
-                ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
-                : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
+                ? "bg-black text-white border-black dark:bg-white dark:text-black"
+                : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900"
             }`}
           >
             {cat.label}
@@ -70,34 +67,14 @@ export default async function LibraryPage({ searchParams }: Props) {
       </div>
 
       {!insights || insights.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 dark:text-gray-600">
-          아직 등록된 케이스가 없습니다.
-        </div>
-      ) : category ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {insights.map((insight) => (
-            <InsightCard key={insight.id} insight={insight} />
-          ))}
+        <div className="text-center py-24 text-gray-400">
+          <p className="text-lg mb-2">콘텐츠 준비 중입니다.</p>
+          <p className="text-sm">Ad Age, Contently, Marketing Dive의 최신 사례를 분석 중입니다.</p>
         </div>
       ) : (
-        <div className="space-y-14">
-          {Object.entries(grouped).map(([cat, items]) => (
-            <div key={cat}>
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{cat}</h2>
-                <Link
-                  href={`/library?category=${cat}`}
-                  className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors whitespace-nowrap"
-                >
-                  전체 보기 →
-                </Link>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {items.slice(0, 3).map((insight) => (
-                  <InsightCard key={insight.id} insight={insight} />
-                ))}
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {insights.map((insight: any) => (
+            <InsightCard key={insight.id} insight={insight} />
           ))}
         </div>
       )}

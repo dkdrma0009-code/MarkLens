@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const supabase = createAdminClient()
   const query = supabase
     .from("insights")
-    .select("id, hook, summary, key_takeaways, why_it_matters, practical_applications, framework_analysis, portfolio_usage, interview_points, category")
+    .select("id, slug, hook, summary, key_takeaways, why_it_matters, practical_applications, framework_analysis, portfolio_usage, interview_points, category")
 
   const { data: insight } = insightId
     ? await query.eq("id", insightId).single()
