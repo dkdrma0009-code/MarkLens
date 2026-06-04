@@ -40,7 +40,11 @@ export async function POST() {
     .limit(30)
 
   let generated = 0
+  const deadline = Date.now() + 240_000 // 240초 예산 (300초 한도에서 여유 확보)
+
   for (const row of (insights ?? [])) {
+    if (Date.now() > deadline) break
+
     const content = (row.article as { raw_content?: string } | null)?.raw_content
       || [row.why_it_matters, row.practical_applications, row.summary].filter(Boolean).join("\n\n")
       || ""

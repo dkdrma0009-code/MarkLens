@@ -26,10 +26,10 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
     setLiked(true)
     setDisliked(false)
     setShowComment(false)
-    await sendFeedback("helpful")
+    try { await sendFeedback("helpful") } catch { /* silent — feedback is best-effort */ }
   }
 
-  async function handleDislike() {
+  function handleDislike() {
     if (disliked) return
     setDisliked(true)
     setLiked(false)
@@ -37,7 +37,9 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
   }
 
   async function submitComment() {
-    await sendFeedback("not_helpful", comment)
+    try {
+      await sendFeedback("not_helpful", comment)
+    } catch { /* silent */ }
     setSubmitted(true)
     setShowComment(false)
   }

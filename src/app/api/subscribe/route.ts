@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 
 async function makeConfirmToken(email: string): Promise<string> {
-  const secret = process.env.N8N_WEBHOOK_SECRET ?? "marklens"
+  const secret = process.env.N8N_WEBHOOK_SECRET ?? ""
   const data = new TextEncoder().encode(`confirm:${email}:${secret}`)
   const hash = await crypto.subtle.digest("SHA-256", data)
   return Array.from(new Uint8Array(hash))

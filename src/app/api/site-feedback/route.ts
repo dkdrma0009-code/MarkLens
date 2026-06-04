@@ -1,5 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+
+async function isAdmin(): Promise<boolean> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  return !!user && user.email?.trim().toLowerCase() === adminEmail
+}
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -23,6 +31,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const supabase = createAdminClient()
   const { data } = await supabase
     .from("site_feedback")

@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 }
 
 async function makeToken(email: string): Promise<string> {
-  const secret = process.env.N8N_WEBHOOK_SECRET ?? "marklens"
+  const secret = process.env.N8N_WEBHOOK_SECRET ?? ""
   const data = new TextEncoder().encode(`${email}:${secret}`)
   const hashBuffer = await crypto.subtle.digest("SHA-256", data)
   return Array.from(new Uint8Array(hashBuffer))

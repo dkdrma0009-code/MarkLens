@@ -12,6 +12,7 @@ export async function GET(req: Request) {
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const secret = process.env.N8N_WEBHOOK_SECRET
+  if (!secret) return NextResponse.json({ error: "N8N_WEBHOOK_SECRET not configured" }, { status: 500 })
 
   const res = await fetch(`${base}/api/webhooks/collect?secret=${secret}`, {
     method: "POST",

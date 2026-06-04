@@ -72,12 +72,15 @@ export async function POST(req: Request) {
     }
   }
 
-  await supabase
-    .from("newsletter_issues")
-    .update({ status: "sent", sent_at: new Date().toISOString() })
-    .eq("id", issueId)
+  // 한 건이라도 성공한 경우에만 sent 처리
+  if (sent > 0) {
+    await supabase
+      .from("newsletter_issues")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .eq("id", issueId)
+  }
 
-  return NextResponse.json({ success: true, sentTo: sent, errors: errors.length ? errors : undefined })
+  return NextResponse.json({ success: sent > 0, sentTo: sent, errors: errors.length ? errors : undefined })
 }
 
 function buildNewsletterHtml(issue: NewsletterIssue, unsubscribeUrl = ""): string {
