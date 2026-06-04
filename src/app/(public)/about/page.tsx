@@ -109,6 +109,22 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Feedback */}
+      <section className="rounded-2xl border border-gray-100 dark:border-gray-800 p-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div>
+          <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1">함께 만들어가요</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            불편한 점, 아쉬운 점, 바라는 점 — 어떤 의견이든 환영합니다. 1분이면 끝나요.
+          </p>
+        </div>
+        <Link
+          href="/feedback"
+          className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap"
+        >
+          피드백 남기기 <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </section>
+
       {/* CTA */}
       <div className="rounded-2xl bg-black dark:bg-white p-8 text-center">
         <p className="text-xs font-bold text-white/50 dark:text-black/50 uppercase tracking-widest mb-2">MarkLens Weekly</p>
