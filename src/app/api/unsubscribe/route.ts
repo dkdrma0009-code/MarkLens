@@ -37,7 +37,7 @@ async function makeToken(email: string): Promise<string> {
 }
 
 export async function generateUnsubscribeUrl(email: string): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.vercel.app"
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const token = await makeToken(email)
   return `${base}/api/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`
 }

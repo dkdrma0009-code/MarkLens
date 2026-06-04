@@ -76,7 +76,12 @@ export async function POST(req: Request) {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const confirmUrl = `${base}/api/confirm-subscription?email=${encodeURIComponent(email)}&token=${token}`
 
-  await sendConfirmEmail(email, confirmUrl)
+  try {
+    await sendConfirmEmail(email, confirmUrl)
+  } catch {
+    // 이메일 발송 실패해도 구독은 유지, 재시도 안내
+    return NextResponse.json({ success: true, emailFailed: true })
+  }
 
   return NextResponse.json({ success: true })
 }
