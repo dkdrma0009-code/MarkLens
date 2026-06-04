@@ -41,6 +41,7 @@ interface InsightOutput {
   slug: string
   hook: string
   summary: string
+  video_url?: string | null
   key_takeaways: string[]
   why_it_matters: string
   practical_applications: string
@@ -89,7 +90,7 @@ ${article.content.substring(0, 3000)}
   "why_it_matters": "왜 중요한가 (마케터 관점에서, 2-3단락)",
   "practical_applications": "실전 적용법 (구체적인 액션 아이템 포함, 2-3단락)",
   "framework_analysis": "활용된 마케팅 프레임워크 분석",
-  "portfolio_usage": "포트폴리오에 어떻게 녹여낼 수 있는지 (STAR 방식 예시 포함)",
+  "portfolio_usage": "이 인사이트를 바탕으로 지금 당장 해볼 수 있는 미니 프로젝트 2가지를 제안하세요. 경험 없이도 할 수 있는 실제 작업(분석, 실험, 리포트 등)으로, '첫째 ..., 둘째 ...' 형식으로 구체적으로 써주세요. 가짜 수치나 없는 경험을 꾸며내지 마세요.",
   "interview_points": ["실생활에서 이 인사이트를 바로 써볼 수 있는 구체적인 상황과 방법 1", "실생활에서 바로 써볼 수 있는 상황 2"]
 }`,
   })
@@ -117,12 +118,37 @@ ${article.content.substring(0, 3000)}
     }
   }
 
+  const videoUrl = await findYouTubeVideo(article.title, analysis.summary ?? "")
+
   return {
     slug: slugify(article.title),
     category: CATEGORY_LABELS[classification.category] ?? classification.category,
     tags: classification.tags ?? [],
     keywords: classification.keywords ?? [],
+    video_url: videoUrl,
     ...stripMarkdown(analysis),
+  }
+}
+
+async function findYouTubeVideo(title: string, _summary: string): Promise<string | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) return null
+
+  // 검색 쿼리: 제목 키워드 + marketing
+  const query = encodeURIComponent(`${title} marketing`)
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=3&relevanceLanguage=en&videoDuration=medium&key=${apiKey}`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) return null
+
+    const data = await res.json()
+    const videoId = data.items?.[0]?.id?.videoId
+    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null
+  } catch {
+    return null
   }
 }
 

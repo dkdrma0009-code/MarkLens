@@ -186,10 +186,10 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
-      {/* ── 포트폴리오 활용 ── STAR 파싱 */}
+      {/* ── 지금 바로 해볼 수 있는 프로젝트 ── */}
       {insight.portfolio_usage && (
-        <Section title="포트폴리오 활용">
-          <StarBlock text={insight.portfolio_usage} color={meta.color} />
+        <Section title="지금 바로 해볼 수 있는 프로젝트">
+          <Prose text={insight.portfolio_usage} />
         </Section>
       )}
 

@@ -18,6 +18,7 @@ interface Insight {
   why_it_matters?: string
   practical_applications?: string
   category?: string
+  video_url?: string
 }
 
 export default function EditInsight({ articleId, insightId: insightIdProp }: Props) {
@@ -60,6 +61,7 @@ export default function EditInsight({ articleId, insightId: insightIdProp }: Pro
           why_it_matters: insight.why_it_matters,
           practical_applications: insight.practical_applications,
           category: insight.category,
+          video_url: insight.video_url || null,
         }),
       })
       if (!res.ok) throw new Error()
@@ -148,6 +150,18 @@ export default function EditInsight({ articleId, insightId: insightIdProp }: Pro
                   rows={4}
                   className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 resize-none"
                 />
+              </Field>
+
+              <Field label="관련 영상 URL (YouTube / Vimeo)">
+                <input
+                  value={insight.video_url ?? ""}
+                  onChange={e => updateField("video_url", e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
+                />
+                {insight.video_url && (
+                  <p className="text-xs text-green-600 mt-1">✓ 영상 URL 입력됨 — 아티클 상단에 임베드됩니다</p>
+                )}
               </Field>
             </div>
 
