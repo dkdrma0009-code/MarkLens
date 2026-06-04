@@ -24,6 +24,8 @@ export default function InsightCard({ insight, size = "default" }: Props) {
   const article = insight.article
   const isLarge = size === "large"
   const headline = insight.hook || article?.title || ""
+  // 이미지가 없으면 자동 생성된 OG 썸네일 사용
+  const thumbnailSrc = article?.image_url || `/api/og/${insight.slug}`
 
   if (isLarge) {
     return (
@@ -33,20 +35,12 @@ export default function InsightCard({ insight, size = "default" }: Props) {
       >
         {/* Thumbnail */}
         <div className="relative h-56 md:h-72 w-full overflow-hidden flex-shrink-0">
-          {article?.image_url ? (
-            <InsightThumbnail
-              src={article.image_url}
-              alt=""
-              gradient={meta.gradient}
-              className="h-56 md:h-72"
-            />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${meta.gradient} flex items-center justify-center`}>
-              <span className="text-white/20 font-black select-none" style={{ fontSize: "8rem", lineHeight: 1 }}>
-                {meta.emoji}
-              </span>
-            </div>
-          )}
+          <InsightThumbnail
+            src={thumbnailSrc}
+            alt=""
+            gradient={meta.gradient}
+            className="h-56 md:h-72"
+          />
           {/* gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
           {/* Category badge over image */}
@@ -84,20 +78,12 @@ export default function InsightCard({ insight, size = "default" }: Props) {
     >
       {/* Thumbnail */}
       <div className="relative h-44 w-full overflow-hidden flex-shrink-0">
-        {article?.image_url ? (
-          <InsightThumbnail
-            src={article.image_url}
-            alt=""
-            gradient={meta.gradient}
-            className="h-44"
-          />
-        ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${meta.gradient} flex items-center justify-center`}>
-            <span className="text-white/20 font-black select-none" style={{ fontSize: "4rem", lineHeight: 1 }}>
-              {meta.emoji}
-            </span>
-          </div>
-        )}
+        <InsightThumbnail
+          src={thumbnailSrc}
+          alt=""
+          gradient={meta.gradient}
+          className="h-44"
+        />
       </div>
 
       {/* Content */}
