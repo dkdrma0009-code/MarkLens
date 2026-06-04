@@ -1,6 +1,33 @@
 import { slugify } from "@/lib/utils"
 import { generateText } from "@/lib/ai/llm"
 
+const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
+
+export async function generateQuiz(content: string): Promise<object | null> {
+  if (!GEMINI_KEY || content.length < 100) return null
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: `너는 마케팅 교육 전문가야. 주어진 글을 읽고 핵심 내용을 테스트하는 4지선다 퀴즈 1문제를 만들어줘. 반드시 아래 JSON 형식으로만 응답해. 설명이나 마크다운 없이 JSON만.\n{"questions":[{"question":"문제","options":["① 보기1","② 보기2","③ 보기3","④ 보기4"],"answer":0,"explanation":"해설"}]}\nanswer는 정답 인덱스(0~3).` }] },
+          contents: [{ parts: [{ text: content.slice(0, 2000) }] }],
+        }),
+      }
+    )
+    const data = await res.json()
+    const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+      .replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim()
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    return JSON.parse(match[0])
+  } catch {
+    return null
+  }
+}
+
 const CATEGORIES = [
   "branding", "performance-marketing", "crm", "content-marketing",
   "seo", "social-media", "ai-marketing", "consumer-psychology",
@@ -52,6 +79,7 @@ interface InsightOutput {
   category: string
   tags: string[]
   keywords: string[]
+  quiz?: object | null
 }
 
 export async function analyzeArticle(article: ArticleInput): Promise<InsightOutput> {
@@ -111,7 +139,12 @@ ${article.content.substring(0, 3000)}
     marketing_terms: Array.isArray(parsed.marketing_terms) ? parsed.marketing_terms : [],
   }
 
-  const videoUrl = await findYouTubeVideo(article.title, analysis.summary ?? "")
+  const quizContent = [analysis.why_it_matters, analysis.practical_applications, analysis.summary]
+    .filter(Boolean).join("\n\n")
+  const [videoUrl, quiz] = await Promise.all([
+    findYouTubeVideo(article.title, analysis.summary ?? ""),
+    generateQuiz(quizContent),
+  ])
 
   return {
     slug: slugify(article.title),
@@ -119,6 +152,7 @@ ${article.content.substring(0, 3000)}
     tags: classification.tags ?? [],
     keywords: classification.keywords ?? [],
     video_url: videoUrl,
+    quiz,
     ...stripMarkdown(analysis),
   }
 }
