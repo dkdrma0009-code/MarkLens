@@ -26,6 +26,22 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient()
+
+  // published로 변경 시 인사이트 내용 검증
+  if (status === "published") {
+    const { data: insight } = await supabase
+      .from("insights")
+      .select("hook, summary")
+      .eq("article_id", id)
+      .single()
+
+    if (!insight?.hook || !insight?.summary) {
+      return NextResponse.json({
+        error: "인사이트 내용이 없습니다. 분석을 먼저 완료해주세요."
+      }, { status: 400 })
+    }
+  }
+
   const { error } = await supabase.from("articles").update({ status }).eq("id", id)
 
   if (error) {

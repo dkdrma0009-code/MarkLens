@@ -5,12 +5,14 @@ import Link from "next/link"
 import { ArrowLeft, ExternalLink, ArrowRight } from "lucide-react"
 import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
+import InsightCard from "@/components/InsightCard"
+import InsightQuiz from "@/components/InsightQuiz"
 import ShareButtons from "@/components/ShareButtons"
 import ViewCounter from "@/components/ViewCounter"
 import Image from "next/image"
 import type { Metadata } from "next"
 
-export const revalidate = 3600
+export const dynamic = "force-dynamic"
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -87,17 +89,10 @@ export default async function InsightDetailPage({ params }: Props) {
         인사이트 목록
       </Link>
 
-      {/* Thumbnail */}
+      {/* 썸네일 — 상단에는 이미지만 */}
       {article?.image_url && (
         <div className="relative rounded-2xl overflow-hidden mb-8 h-72">
           <Image src={article.image_url} alt="" fill className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
-        </div>
-      )}
-
-      {/* Video Embed */}
-      {insight.video_url && (
-        <div className="rounded-2xl overflow-hidden mb-8 aspect-video">
-          <VideoEmbed url={insight.video_url} />
         </div>
       )}
 
@@ -142,7 +137,7 @@ export default async function InsightDetailPage({ params }: Props) {
             <div className="w-1 h-5 rounded-full" style={{ backgroundColor: meta.color }} />
             <span className="text-sm font-bold uppercase tracking-widest" style={{ color: meta.color }}>핵심 요약</span>
           </div>
-          <p className="text-xl font-medium leading-relaxed text-gray-800">{insight.summary}</p>
+          <SentenceText text={insight.summary} className="text-xl font-medium leading-relaxed text-gray-800" />
         </div>
       )}
 
@@ -156,7 +151,7 @@ export default async function InsightDetailPage({ params }: Props) {
                   style={{ backgroundColor: meta.color }}>
                   {i + 1}
                 </span>
-                <p className="text-lg leading-relaxed text-gray-700">{item}</p>
+                <SentenceText text={item} className="text-lg leading-relaxed text-gray-700" />
               </div>
             ))}
           </div>
@@ -186,14 +181,7 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
-      {/* ── 지금 바로 해볼 수 있는 프로젝트 ── */}
-      {insight.portfolio_usage && (
-        <Section title="지금 바로 해볼 수 있는 프로젝트">
-          <Prose text={insight.portfolio_usage} />
-        </Section>
-      )}
-
-      {/* ── 실생활에서 쓰기 ── Q/A 파싱 */}
+      {/* ── 실생활에서 쓰기 ── */}
       {insight.interview_points?.length > 0 && (
         <Section title="실생활에서 쓰기">
           <div className="space-y-5">
@@ -204,62 +192,38 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
+      {/* ── 마케팅 학습하기 ── */}
+      {(insight.quiz?.questions?.length > 0 || insight.quiz?.question) && (
+        <Section title="마케팅 학습하기">
+          <InsightQuiz quiz={insight.quiz} color={meta.color} />
+        </Section>
+      )}
+
+      {/* ── 영상 ── */}
+      {insight.video_url && (
+        <Section title="관련 영상">
+          <div className="rounded-2xl overflow-hidden aspect-video">
+            <VideoEmbed url={insight.video_url} />
+          </div>
+        </Section>
+      )}
+
+      {/* ── 피드백 + CTA ── */}
+      <div className="mb-14">
+        <ArticleFeedback insightId={insight.id} color={meta.color} />
+      </div>
+
       {/* ── 관련 인사이트 ── */}
       {related && related.length > 0 && (
         <div className="mb-14">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">관련 인사이트</h2>
-          <div className="space-y-3">
-            {related.map((r) => {
-              const rm = getCategoryMeta(r.category)
-              return (
-                <Link
-                  key={r.id}
-                  href={`/insights/${r.slug}`}
-                  className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group"
-                >
-                  {r.article?.image_url ? (
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
-                      <Image src={r.article.image_url} alt="" fill className="object-cover" sizes="64px" />
-                    </div>
-                  ) : (
-                    <div className={`w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br ${rm.gradient}`} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white mb-1.5 inline-block"
-                      style={{ backgroundColor: rm.color }}>
-                      {r.category}
-                    </span>
-                    <p className="text-base font-semibold text-gray-900 group-hover:text-gray-600 transition-colors line-clamp-2 leading-snug">
-                      {r.hook ?? r.article?.title}
-                    </p>
-                  </div>
-                </Link>
-              )
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {related.map((r: any) => (
+              <InsightCard key={r.id} insight={r} />
+            ))}
           </div>
         </div>
       )}
-
-      {/* ── CTA ── */}
-      <div className="rounded-2xl p-8 mb-8 text-center" style={{ backgroundColor: meta.color }}>
-        <p className="text-sm font-bold text-white/70 uppercase tracking-widest mb-2">MarkLens Weekly</p>
-        <h3 className="text-2xl font-bold text-white mb-3 text-balance">
-          매주 월요일, 이런 인사이트를 이메일로 받아보세요
-        </h3>
-        <p className="text-white/80 text-base mb-6">
-          This Week&apos;s Signals, Case of the Week, Portfolio Insight 등 5가지 섹션 무료 발행
-        </p>
-        <Link href="/newsletter"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-sm font-bold hover:bg-gray-100 transition-colors"
-          style={{ color: meta.color }}>
-          무료 구독하기 <ArrowRight className="w-4 h-4" />
-        </Link>
-      </div>
-
-      {/* ── 피드백 ── */}
-      <div className="mb-10">
-        <ArticleFeedback insightId={insight.id} color={meta.color} />
-      </div>
 
       {/* Footer */}
       <div className="pt-8 border-t border-gray-100">
@@ -275,11 +239,12 @@ export default async function InsightDetailPage({ params }: Props) {
       <ArticleChat
         color={meta.color}
         context={[
-          insight.hook,
-          insight.summary,
-          insight.why_it_matters,
-          insight.practical_applications,
-          insight.framework_analysis,
+          insight.hook && `제목: ${insight.hook}`,
+          insight.summary && `핵심 요약: ${insight.summary}`,
+          insight.key_takeaways?.length && `핵심 포인트:\n${insight.key_takeaways.join('\n')}`,
+          insight.why_it_matters && `왜 중요한가: ${insight.why_it_matters}`,
+          insight.practical_applications && `실전 적용법: ${insight.practical_applications}`,
+          insight.interview_points?.length && `실생활 적용:\n${insight.interview_points.join('\n')}`,
         ].filter(Boolean).join("\n\n")}
       />
     </div>
@@ -298,6 +263,29 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 const ORDINAL_RE = /^(첫째|둘째|셋째|넷째|다섯째|1\.|2\.|3\.|4\.|5\.)[,，\s]/
+
+function splitInlineNumbers(text: string): string[] {
+  const parts = text.split(/(?=\(\d+\)\s)/).filter(Boolean)
+  return parts.length > 1 ? parts : [text]
+}
+
+function splitSentences(text: string): string[] {
+  const sentences: string[] = []
+  let remaining = text.trim()
+  // 마침표/물음표/느낌표로 끝나는 문장 구분
+  const SENT_RE = /^(.+?[다요죠니까습][.?!]|.+?[.?!])\s+/
+  while (remaining.length > 0) {
+    const match = remaining.match(SENT_RE)
+    if (match) {
+      sentences.push(match[1])
+      remaining = remaining.slice(match[0].length)
+    } else {
+      sentences.push(remaining)
+      break
+    }
+  }
+  return sentences.filter(s => s.trim().length > 0)
+}
 
 function Prose({ text }: { text: string }) {
   const paragraphs = text.split(/\n+/).filter(Boolean)
@@ -324,7 +312,7 @@ function Prose({ text }: { text: string }) {
 
   // 일부만 순서 단락이거나 일반 단락
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {paragraphs.map((p, i) => {
         const match = p.match(ORDINAL_RE)
         if (match) {
@@ -337,11 +325,33 @@ function Prose({ text }: { text: string }) {
             </div>
           )
         }
-        return (
-          <p key={i} className="text-lg leading-[1.95] text-gray-600">
-            <InlineText text={p} />
-          </p>
-        )
+        // (1)...(2)... 인라인 번호가 있으면 카드로 분리
+        const numbered = splitInlineNumbers(p)
+        if (numbered.length > 1) {
+          return (
+            <div key={i} className="space-y-3">
+              {numbered.map((n, j) => (
+                <div key={j} className="rounded-2xl bg-gray-50 border border-gray-100 p-5">
+                  <p className="text-lg leading-[1.9] text-gray-700"><InlineText text={n.trim()} /></p>
+                </div>
+              ))}
+            </div>
+          )
+        }
+        // 문장 단위 분리
+        const sentences = splitSentences(p)
+        if (sentences.length > 1) {
+          return (
+            <div key={i} className="space-y-2">
+              {sentences.map((s, j) => (
+                <p key={j} className="text-lg leading-[1.9] text-gray-600">
+                  <InlineText text={s} />
+                </p>
+              ))}
+            </div>
+          )
+        }
+        return <SentenceText key={i} text={p} className="text-lg leading-[1.95] text-gray-600" />
       })}
     </div>
   )
@@ -427,7 +437,7 @@ function QABlock({ text, index, color }: { text: string; index: number; color: s
           <p className="text-lg font-semibold text-gray-900">{qMatch[1].replace(/['"]$/,"").replace(/^['"]/,"")}</p>
         </div>
         <div className="px-6 py-5">
-          <p className="text-lg leading-[1.9] text-gray-600">{qMatch[2].trim()}</p>
+          <SentenceText text={qMatch[2].trim()} className="text-lg leading-[1.9] text-gray-600" />
         </div>
       </div>
     )
@@ -435,7 +445,23 @@ function QABlock({ text, index, color }: { text: string; index: number; color: s
   return (
     <div className="rounded-2xl border border-gray-100 p-6">
       <span className="text-sm font-bold text-gray-400 block mb-3">상황 {index + 1}</span>
-      <p className="text-lg leading-[1.9] text-gray-700">{text}</p>
+      <SentenceText text={text} className="text-lg leading-[1.9] text-gray-700" />
+    </div>
+  )
+}
+
+function SentenceText({ text, className }: { text: string; className?: string }) {
+  const sentences = splitSentences(text)
+  if (sentences.length <= 1) {
+    return <p className={className}><InlineText text={text} /></p>
+  }
+  return (
+    <div>
+      {sentences.map((s, i) => (
+        <p key={i} className={className} style={{ marginBottom: "0.4em" }}>
+          <InlineText text={s} />
+        </p>
+      ))}
     </div>
   )
 }

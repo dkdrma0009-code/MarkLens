@@ -4,7 +4,7 @@ import Link from "next/link"
 
 export const revalidate = 3600
 
-const CASE_SOURCES = ["adage", "contently", "marketing-dive"]
+const CASE_SOURCES = ["muse-by-clio", "campaign-brief", "adweek", "creative-review"]
 
 const CATEGORIES = [
   { label: "전체", slug: "" },
@@ -35,15 +35,19 @@ export default async function LibraryPage({ searchParams }: Props) {
 
   const { data: allInsights } = await query
 
-  // 케이스 소스 아티클만 필터
+  // source_type 기반 필터 (없으면 source slug 기반 폴백)
   const insights = (allInsights ?? []).filter(
-    (i: any) => i.article?.status === "published" && CASE_SOURCES.includes(i.article?.source)
+    (i: any) => {
+      const srcType = i.article?.source_type
+      if (srcType) return i.article?.status === "published" && srcType === "campaign"
+      return i.article?.status === "published" && CASE_SOURCES.includes(i.article?.source)
+    }
   )
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">케이스</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">캠페인</h1>
         <p className="text-gray-500 dark:text-gray-400">
           Ad Age · Contently · Marketing Dive에서 엄선한 실제 브랜드 & 캠페인 사례
         </p>

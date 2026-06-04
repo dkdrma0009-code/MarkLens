@@ -42,6 +42,7 @@ interface InsightOutput {
   hook: string
   summary: string
   video_url?: string | null
+  marketing_terms?: { term: string; definition: string }[] | null
   key_takeaways: string[]
   why_it_matters: string
   practical_applications: string
@@ -91,7 +92,8 @@ ${article.content.substring(0, 3000)}
   "practical_applications": "실전 적용법 (구체적인 액션 아이템 포함, 2-3단락)",
   "framework_analysis": "활용된 마케팅 프레임워크 분석",
   "portfolio_usage": "이 인사이트를 바탕으로 지금 당장 해볼 수 있는 미니 프로젝트 2가지를 제안하세요. 경험 없이도 할 수 있는 실제 작업(분석, 실험, 리포트 등)으로, '첫째 ..., 둘째 ...' 형식으로 구체적으로 써주세요. 가짜 수치나 없는 경험을 꾸며내지 마세요.",
-  "interview_points": ["실생활에서 이 인사이트를 바로 써볼 수 있는 구체적인 상황과 방법 1", "실생활에서 바로 써볼 수 있는 상황 2"]
+  "interview_points": ["첫째, [취준생/주니어 마케터가 지금 당장 할 수 있는 구체적인 시나리오 - 가짜 수치 금지, 2-3문장]", "둘째, [또 다른 실생활 시나리오 - Q/A 형식 금지, 자연스러운 한국어]"],
+  "marketing_terms": [{"term": "이 아티클 본문에 실제로 등장하는 영어 약어/전문 개념어만 (AEO, E-E-A-T, ROAS 등 - 고유명사/일반 단어 절대 금지)", "definition": "이 아티클에서 어떤 맥락으로 쓰였는지 + 마케팅 정확한 의미 2문장"}]
 }`,
   })
   const analysisRes = { content: [{ type: "text" as const, text: analysisText }] }

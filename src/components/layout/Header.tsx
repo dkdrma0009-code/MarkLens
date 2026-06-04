@@ -7,8 +7,9 @@ import { Sun, Moon, Menu, X } from "lucide-react"
 import { useState } from "react"
 
 const navItems = [
+  { href: "/library", label: "캠페인" },
   { href: "/insights", label: "인사이트" },
-  { href: "/library", label: "케이스" },
+  { href: "/learn", label: "학습하기" },
   { href: "/newsletter", label: "뉴스레터" },
   { href: "/about", label: "소개" },
 ]

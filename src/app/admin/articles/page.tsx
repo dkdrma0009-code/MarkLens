@@ -6,23 +6,49 @@ import AnalyzeTrigger from "./AnalyzeTrigger"
 import CollectTrigger from "./CollectTrigger"
 import InsightPreview from "./InsightPreview"
 import EditInsight from "./EditInsight"
+import PublishAllTrigger from "./PublishAllTrigger"
+import Link from "next/link"
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminArticlesPage() {
+const CASE_SOURCES = ["muse-by-clio", "campaign-brief", "adweek", "creative-review"]
+
+interface Props {
+  searchParams: Promise<{ type?: string }>
+}
+
+export default async function AdminArticlesPage({ searchParams }: Props) {
+  const { type } = await searchParams
+  const isCase = type === "case"
+
   const supabase = createAdminClient()
 
+  let query = supabase
+    .from("articles")
+    .select("*, insights(id, summary, category)")
+    .in("status", ["pending", "analyzing", "ready", "rejected"])
+    .order("created_at", { ascending: false })
+    .limit(100)
+
+  if (isCase) {
+    query = query.in("source", CASE_SOURCES)
+  } else {
+    query = query.not("source", "in", `(${CASE_SOURCES.map(s => `"${s}"`).join(",")})`)
+  }
+
   const [{ data: articles }, { count: publishedCount }] = await Promise.all([
-    supabase
-      .from("articles")
-      .select("*, insights(id, summary, category)")
-      .in("status", ["pending", "analyzing", "ready", "rejected"])
-      .order("created_at", { ascending: false })
-      .limit(100),
+    query,
     supabase
       .from("articles")
       .select("*", { count: "exact", head: true })
-      .eq("status", "published"),
+      .eq("status", "published")
+      .then(async (r) => {
+        // 타입별 발행 수
+        let q = supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published")
+        if (isCase) q = q.in("source", CASE_SOURCES)
+        else q = q.not("source", "in", `(${CASE_SOURCES.map(s => `"${s}"`).join(",")})`)
+        return q
+      }),
   ])
 
   const waiting = articles?.filter(a => ["pending", "analyzing", "ready"].includes(a.status)) ?? []
@@ -30,19 +56,39 @@ export default async function AdminArticlesPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">아티클 관리</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            발행됨 <span className="font-medium text-foreground">{publishedCount ?? 0}개</span>
-            {waiting.length > 0 && <> · 대기중 <span className="font-medium text-amber-600">{waiting.length}개</span></>}
+            대기중 <span className="font-medium text-amber-600">{waiting.length}개</span>
             {rejected.length > 0 && <> · 거절됨 <span className="font-medium">{rejected.length}개</span></>}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <CollectTrigger />
           <AnalyzeTrigger pendingCount={waiting.filter(a => a.status === "pending").length} />
+          <PublishAllTrigger readyCount={waiting.filter(a => a.status === "ready").length} />
         </div>
+      </div>
+
+      {/* 탭 */}
+      <div className="flex gap-1 mb-6 border-b border-border">
+        <Link
+          href="/admin/articles"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            !isCase ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          인사이트
+        </Link>
+        <Link
+          href="/admin/articles?type=case"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            isCase ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          캠페인
+        </Link>
       </div>
 
       {waiting.length === 0 && rejected.length === 0 ? (
@@ -138,7 +184,7 @@ function ArticleTable({ articles }: { articles: ArticleWithInsights[] }) {
                   {article.insights?.[0] && (
                     <EditInsight articleId={article.id} />
                   )}
-                  <ArticleActions articleId={article.id} status={article.status} />
+                  <ArticleActions articleId={article.id} status={article.status} hasInsight={!!article.insights?.[0]?.summary} />
                 </div>
               </td>
             </tr>
@@ -150,7 +196,7 @@ function ArticleTable({ articles }: { articles: ArticleWithInsights[] }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "pending" || status === "analyzing" || status === "ready") {
+  if (["pending", "analyzing", "ready"].includes(status)) {
     const labels: Record<string, string> = {
       pending: "수집됨",
       analyzing: "분석 중",

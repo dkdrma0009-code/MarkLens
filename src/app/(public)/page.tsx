@@ -20,12 +20,22 @@ const CATEGORIES = [
 export default async function HomePage() {
   const supabase = await createClient()
 
-  const { data: recentInsights } = await supabase
+  const CAMPAIGN_SOURCES = ["muse-by-clio", "campaign-brief", "adweek", "creative-review"]
+
+  const { data: allRecent } = await supabase
     .from("insights")
     .select("*, article:articles!inner(*)")
     .eq("articles.status", "published")
     .order("created_at", { ascending: false })
-    .limit(7)
+    .limit(20)
+
+  const recentInsights = (allRecent ?? [])
+    .filter((i: any) => {
+      const srcType = i.article?.source_type
+      if (srcType) return srcType === "insight"
+      return !CAMPAIGN_SOURCES.includes(i.article?.source)
+    })
+    .slice(0, 7)
 
   const featured = recentInsights?.[0]
   const rest = recentInsights?.slice(1, 7) ?? []

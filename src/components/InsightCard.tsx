@@ -1,6 +1,6 @@
 import Link from "next/link"
-import Image from "next/image"
 import { getCategoryMeta } from "@/lib/category"
+import InsightThumbnail from "@/components/InsightThumbnail"
 
 interface Props {
   insight: {
@@ -31,17 +31,21 @@ export default function InsightCard({ insight, size = "default" }: Props) {
       className="group flex flex-col bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-200"
     >
       {/* Thumbnail */}
-      <div className={`relative overflow-hidden flex-shrink-0 ${isLarge ? "h-64" : "h-48"}`}>
+      <div className={`overflow-hidden flex-shrink-0 ${isLarge ? "h-64" : "h-48"}`}>
         {article?.image_url ? (
-          <Image
+          <InsightThumbnail
             src={article.image_url}
             alt=""
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes={isLarge ? "(max-width: 768px) 100vw, 800px" : "(max-width: 768px) 100vw, 400px"}
+            gradient={meta.gradient}
+            className={isLarge ? "h-64" : "h-48"}
           />
         ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${meta.gradient}`} />
+          <div className={`w-full h-full bg-gradient-to-br ${meta.gradient} flex items-center justify-center`}>
+            <span className="text-white/20 font-black select-none"
+              style={{ fontSize: isLarge ? "7rem" : "5rem", lineHeight: 1 }}>
+              {meta.emoji}
+            </span>
+          </div>
         )}
       </div>
 
