@@ -6,6 +6,7 @@ import AnalyzeTrigger from "./AnalyzeTrigger"
 import CollectTrigger from "./CollectTrigger"
 import InsightPreview from "./InsightPreview"
 import EditInsight from "./EditInsight"
+import DeleteRejectedButton from "./DeleteRejectedButton"
 import PublishAllTrigger from "./PublishAllTrigger"
 import Link from "next/link"
 
@@ -111,12 +112,15 @@ export default async function AdminArticlesPage({ searchParams }: Props) {
 
           {rejected.length > 0 && (
             <div>
-              <h2 className="text-sm font-medium mb-4 text-muted-foreground flex items-center gap-2">
-                거절됨
-                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                  {rejected.length}
-                </span>
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  거절됨
+                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                    {rejected.length}
+                  </span>
+                </h2>
+                <DeleteRejectedButton count={rejected.length} />
+              </div>
               <ArticleTable articles={rejected} />
             </div>
           )}
