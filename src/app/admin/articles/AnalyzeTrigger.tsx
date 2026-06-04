@@ -14,12 +14,19 @@ export default function AnalyzeTrigger({ pendingCount }: { pendingCount: number 
   async function handleAnalyzeAll() {
     setLoading(true)
     let total = 0
+    let consecutive_errors = 0
     try {
       while (true) {
         setProgress(`${total}개 완료 중...`)
         const res = await fetch("/api/admin/analyze", { method: "POST" })
         const data = await res.json()
-        if (!res.ok || data.analyzed === 0) break
+        if (!res.ok) {
+          consecutive_errors++
+          if (consecutive_errors >= 3) break // 연속 3번 오류면 중단
+          continue
+        }
+        consecutive_errors = 0
+        if (data.analyzed === 0) break // 더 이상 없으면 종료
         total += data.analyzed
       }
       toast.success(total > 0 ? `총 ${total}개 분석 완료` : "분석할 아티클이 없습니다")
