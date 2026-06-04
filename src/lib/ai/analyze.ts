@@ -142,7 +142,7 @@ ${article.content.substring(0, 3000)}
   const quizContent = [analysis.why_it_matters, analysis.practical_applications, analysis.summary]
     .filter(Boolean).join("\n\n")
   const [videoUrl, quiz] = await Promise.all([
-    findYouTubeVideo(article.title, analysis.summary ?? ""),
+    findYouTubeVideo(article.title),
     generateQuiz(quizContent),
   ])
 
@@ -157,7 +157,7 @@ ${article.content.substring(0, 3000)}
   }
 }
 
-async function findYouTubeVideo(title: string, _summary: string): Promise<string | null> {
+async function findYouTubeVideo(title: string): Promise<string | null> {
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return null
 

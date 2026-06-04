@@ -9,13 +9,17 @@ interface Question {
   explanation: string
 }
 
-interface QuizData {
-  questions: Question[]
+interface QuizFormat {
+  questions?: Question[]
+  question?: string
+  options?: string[]
+  answer?: number
+  explanation?: string
 }
 
-export default function InsightQuiz({ quiz, color }: { quiz: any; color: string }) {
+export default function InsightQuiz({ quiz, color }: { quiz: QuizFormat; color: string }) {
   // questions 배열 또는 flat format 모두 처리
-  const q: Question | undefined = quiz?.questions?.[0] ?? (quiz?.question ? quiz : undefined)
+  const q: Question | undefined = quiz?.questions?.[0] ?? (quiz?.question ? (quiz as unknown as Question) : undefined)
   const [selected, setSelected] = useState<number | null>(null)
 
   if (!q) return null

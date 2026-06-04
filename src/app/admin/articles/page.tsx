@@ -37,20 +37,7 @@ export default async function AdminArticlesPage({ searchParams }: Props) {
     query = query.not("source", "in", `(${CASE_SOURCES.map(s => `"${s}"`).join(",")})`)
   }
 
-  const [{ data: articles }, { count: publishedCount }] = await Promise.all([
-    query,
-    supabase
-      .from("articles")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "published")
-      .then(async (r) => {
-        // 타입별 발행 수
-        let q = supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published")
-        if (isCase) q = q.in("source", CASE_SOURCES)
-        else q = q.not("source", "in", `(${CASE_SOURCES.map(s => `"${s}"`).join(",")})`)
-        return q
-      }),
-  ])
+  const { data: articles } = await query
 
   const waiting = articles?.filter(a => ["pending", "analyzing", "ready"].includes(a.status)) ?? []
   const rejected = articles?.filter(a => a.status === "rejected") ?? []

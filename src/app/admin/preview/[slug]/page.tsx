@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import { getCategoryMeta } from "@/lib/category"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink, ArrowRight } from "lucide-react"
@@ -55,7 +55,7 @@ export default async function AdminPreviewPage({ params }: Props) {
 
   if (!insight) notFound()
 
-  const article = insight.article as any
+  const article = insight.article as { title?: string; image_url?: string; source_name?: string; url?: string; author?: string } | null
   const meta = getCategoryMeta(insight.category)
 
   return (
@@ -79,6 +79,7 @@ export default async function AdminPreviewPage({ params }: Props) {
         {/* Thumbnail */}
         {article?.image_url && (
           <div className="rounded-2xl overflow-hidden mb-8 h-72">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={article.image_url} alt="" className="w-full h-full object-cover" />
           </div>
         )}

@@ -83,8 +83,8 @@ export default function ArticleChat({ context, color }: { context: string; color
           } catch {}
         }
       }
-    } catch (e: any) {
-      if (e?.name !== "AbortError") {
+    } catch (e) {
+      if ((e as Error)?.name !== "AbortError") {
         setMessages(prev => {
           const updated = [...prev]
           updated[updated.length - 1] = {

@@ -26,7 +26,7 @@ export default async function InsightsPage({ searchParams }: Props) {
 
   // source_type 기반 필터 (없으면 source slug 기반 폴백)
   const insights = (allInsights ?? []).filter(
-    (i: any) => {
+    (i) => {
       const srcType = i.article?.source_type
       if (srcType) return srcType === "insight"
       return !CAMPAIGN_SOURCES.includes(i.article?.source)

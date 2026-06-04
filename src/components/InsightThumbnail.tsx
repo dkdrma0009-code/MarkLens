@@ -17,6 +17,7 @@ export default function InsightThumbnail({ src, alt, gradient, className = "" }:
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}

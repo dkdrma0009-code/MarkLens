@@ -37,7 +37,7 @@ export default async function LibraryPage({ searchParams }: Props) {
 
   // source_type 기반 필터 (없으면 source slug 기반 폴백)
   const insights = (allInsights ?? []).filter(
-    (i: any) => {
+    (i) => {
       const srcType = i.article?.source_type
       if (srcType) return i.article?.status === "published" && srcType === "campaign"
       return i.article?.status === "published" && CASE_SOURCES.includes(i.article?.source)
@@ -77,7 +77,7 @@ export default async function LibraryPage({ searchParams }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {insights.map((insight: any) => (
+          {insights.map((insight) => (
             <InsightCard key={insight.id} insight={insight} />
           ))}
         </div>

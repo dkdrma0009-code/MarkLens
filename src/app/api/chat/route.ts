@@ -66,8 +66,8 @@ export async function POST(req: Request) {
               send(chunk.delta.text)
             }
           }
-        } catch (e: any) {
-          const isCreditError = /credit|billing|quota|balance/i.test(e?.message ?? "")
+        } catch (e) {
+          const isCreditError = e instanceof Error && /credit|billing|quota|balance/i.test(e.message)
           if (isCreditError) {
             try {
               const text = await callGemini(system, prompt)

@@ -41,7 +41,7 @@ export async function POST() {
 
   let generated = 0
   for (const row of (insights ?? [])) {
-    const content = (row.article as any)?.raw_content
+    const content = (row.article as { raw_content?: string } | null)?.raw_content
       || [row.why_it_matters, row.practical_applications, row.summary].filter(Boolean).join("\n\n")
       || ""
     if (content.length < 100) continue

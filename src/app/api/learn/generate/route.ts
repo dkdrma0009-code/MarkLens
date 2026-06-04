@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { generateText } from "@/lib/ai/llm"
 
 export const maxDuration = 60
 

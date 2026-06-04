@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getCategoryMeta } from "@/lib/category"
 import Link from "next/link"
-import { ArrowLeft, ExternalLink, ArrowRight } from "lucide-react"
+import { ArrowLeft, ExternalLink } from "lucide-react"
 import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
 import InsightCard from "@/components/InsightCard"
@@ -218,7 +218,7 @@ export default async function InsightDetailPage({ params }: Props) {
         <div className="mb-14">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">관련 인사이트</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {related.map((r: any) => (
+            {related.map((r) => (
               <InsightCard key={r.id} insight={r} />
             ))}
           </div>
@@ -375,57 +375,6 @@ function InlineText({ text }: { text: string }) {
   )
 }
 
-/* STAR 패턴 파서 — Situation/Task/Action/Result/포트폴리오 팁 */
-const STAR_LABELS: { key: string; label: string; emoji: string }[] = [
-  { key: "Situation", label: "상황", emoji: "📍" },
-  { key: "Task",      label: "과제", emoji: "🎯" },
-  { key: "Action",    label: "실행", emoji: "⚡" },
-  { key: "Result",    label: "결과", emoji: "📈" },
-  { key: "포트폴리오 팁", label: "팁", emoji: "💡" },
-]
-
-function StarBlock({ text }: { text: string; color?: string }) {
-  const blocks: { label: string; emoji: string; content: string }[] = []
-  let remaining = text
-
-  for (const { key, label, emoji } of STAR_LABELS) {
-    const regex = new RegExp(`${key}:\\s*`, "i")
-    const idx = remaining.search(regex)
-    if (idx === -1) continue
-
-    const before = remaining.slice(0, idx).trim()
-    if (before) blocks.push({ label: "기타", emoji: "•", content: before })
-
-    const after = remaining.slice(idx).replace(regex, "")
-    let end = after.length
-    for (const { key: nextKey } of STAR_LABELS) {
-      if (nextKey === key) continue
-      const ni = after.search(new RegExp(`${nextKey}:\\s*`, "i"))
-      if (ni !== -1 && ni < end) end = ni
-    }
-    blocks.push({ label, emoji, content: after.slice(0, end).trim() })
-    remaining = after.slice(end)
-  }
-  if (remaining.trim()) blocks.push({ label: "기타", emoji: "•", content: remaining.trim() })
-
-  // STAR 패턴이 하나도 감지 안 되면 일반 텍스트
-  if (blocks.length === 0) return <Prose text={text} />
-
-  return (
-    <div className="space-y-4">
-      {blocks.filter(b => b.content).map((b, i) => (
-        <div key={i} className="rounded-2xl border border-gray-100 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <span className="text-base font-bold text-gray-700">{b.emoji} {b.label}</span>
-          </div>
-          <div className="px-5 py-4">
-            <p className="text-lg leading-[1.9] text-gray-600">{b.content}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 /* Q/A 파서 */
 function QABlock({ text, index, color }: { text: string; index: number; color: string }) {

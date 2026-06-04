@@ -26,7 +26,6 @@ export default async function AdminInsightsPage() {
 
   const rows = (insights ?? []) as InsightRow[]
   const published = rows.filter(r => r.article?.status === "published")
-  const others = rows.filter(r => r.article?.status !== "published")
 
   return (
     <div className="p-8">

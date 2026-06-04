@@ -119,7 +119,7 @@ export default function InsightPreview({
             <div className="overflow-y-auto flex-1 px-6 py-5">
               <div className="space-y-4">
                 {imageUrl && (
-                  <img src={imageUrl} alt="" className="w-full h-48 object-cover rounded-xl" />
+                  <img src={imageUrl} alt="" className="w-full h-48 object-cover rounded-xl" /* eslint-disable-line @next/next/no-img-element */ />
                 )}
                 {preview ? (
                   <div>
