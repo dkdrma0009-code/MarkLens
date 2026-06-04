@@ -9,6 +9,26 @@ const parser = new Parser({
   headers: { "User-Agent": "MarkLens/1.0" },
 })
 
+// Fix bare boolean attributes (valid HTML but invalid XML), e.g. <img loading> → <img loading="loading">
+function fixXmlAttributes(xml: string): string {
+  return xml.replace(/<[^>]+>/g, (tag) =>
+    tag.replace(/(\s+)([a-zA-Z][a-zA-Z0-9_:-]*)(?!\s*=)(?=[\s\/>])/g, '$1$2="$2"')
+  )
+}
+
+async function parseRssFeed(url: string) {
+  try {
+    return await parser.parseURL(url)
+  } catch {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "MarkLens/1.0" },
+      signal: AbortSignal.timeout(10000),
+    })
+    const text = fixXmlAttributes(await res.text())
+    return await parser.parseString(text)
+  }
+}
+
 function stripBom(str: string | null | undefined): string | null {
   if (!str) return str ?? null
   return str.replace(/^\uFEFF/, "").trim()
@@ -55,7 +75,7 @@ export async function POST(req: Request) {
 
   for (const source of sources) {
     try {
-      const feed = await parser.parseURL(source.rss_url)
+      const feed = await parseRssFeed(source.rss_url)
       const items = feed.items.slice(0, 10).filter(item => item.link && item.title)
 
       // 핫링크 차단 도메인 목록
