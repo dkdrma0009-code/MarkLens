@@ -8,6 +8,8 @@ async function isAdmin(): Promise<boolean> {
   return !!user && user.email?.trim().toLowerCase() === adminEmail
 }
 
+export const maxDuration = 300
+
 export async function POST() {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
