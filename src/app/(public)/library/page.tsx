@@ -49,7 +49,7 @@ export default async function LibraryPage({ searchParams }: Props) {
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">캠페인</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Ad Age · Contently · Marketing Dive에서 엄선한 실제 브랜드 & 캠페인 사례
+          Muse by Clio · Adweek · Campaign Brief · Creative Review에서 엄선한 실제 브랜드 & 캠페인 사례
         </p>
       </div>
 
@@ -73,7 +73,7 @@ export default async function LibraryPage({ searchParams }: Props) {
       {!insights || insights.length === 0 ? (
         <div className="text-center py-24 text-gray-400">
           <p className="text-lg mb-2">콘텐츠 준비 중입니다.</p>
-          <p className="text-sm">Ad Age, Contently, Marketing Dive의 최신 사례를 분석 중입니다.</p>
+          <p className="text-sm">Muse by Clio, Adweek, Campaign Brief, Creative Review의 최신 사례를 분석 중입니다.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

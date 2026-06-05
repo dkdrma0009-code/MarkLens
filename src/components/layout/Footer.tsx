@@ -1,8 +1,8 @@
 import Link from "next/link"
 
-export default function Footer() {
+export default function Footer({ className }: { className?: string }) {
   return (
-    <footer className="border-t border-border/50 mt-auto">
+    <footer className={`border-t border-border/50 mt-auto ${className ?? ""}`}>
       <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
           <p className="font-semibold text-sm">MarkLens</p>

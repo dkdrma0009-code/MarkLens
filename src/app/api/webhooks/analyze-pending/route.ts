@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     .eq("status", "pending")
     .not("raw_content", "is", null)
     .order("created_at", { ascending: true })
-    .limit(10)
+    .limit(5)
 
   if (!articles || articles.length === 0) {
     return NextResponse.json({ message: "No pending articles", analyzed: 0 })

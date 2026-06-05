@@ -20,7 +20,7 @@ export default async function AdminFeedbackPage() {
   const STARS = ["", "별로예요", "아쉬워요", "괜찮아요", "좋아요", "최고예요"]
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-8">
         <h1 className="text-xl font-semibold tracking-tight">피드백</h1>
         <p className="text-sm text-muted-foreground mt-1">사이트 피드백 응답 목록</p>
