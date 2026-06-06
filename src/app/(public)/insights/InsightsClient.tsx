@@ -77,13 +77,13 @@ export default function InsightsClient({ category, allInsights }: Props) {
           )}
         </div>
 
-        {/* Category */}
-        <div className="flex flex-wrap gap-2">
+        {/* Category — 모바일: 좌우 스크롤 / 데스크탑: 줄바꿈 */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0 md:flex-wrap md:overflow-visible">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat.slug}
               href={cat.slug ? `/insights?category=${cat.slug}` : "/insights"}
-              className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
                 category === cat.slug || (!category && !cat.slug)
                   ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
                   : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
