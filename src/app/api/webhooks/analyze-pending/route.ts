@@ -28,11 +28,11 @@ export async function POST(req: Request) {
 
   const cleanStr = (s: string) => s.replace(/﻿/g, "").trim()
 
-  // 순차 처리 — 병렬 시 Claude/OpenAI rate limit 충돌로 대부분 rejected 되는 문제 방지
+  // 2개씩 병렬 처리 (속도 ↑, rate limit 안전)
   let analyzed = 0
   const errors: string[] = []
 
-  for (const article of articles) {
+  async function processOne(article: Record<string, any>) {
     try {
       await supabase.from("articles").update({ status: "analyzing" }).eq("id", article.id)
 
@@ -44,11 +44,10 @@ export async function POST(req: Request) {
 
       const slug = `${slugify(article.title)}-${article.id.slice(0, 6)}`
 
-      // hook만 없으면 거절 — 나머지 빈 필드는 수정 가능하므로 거절 안 함
       if (!insight.hook) {
         await supabase.from("articles").update({ status: "rejected" }).eq("id", article.id)
         errors.push(`${article.title}: hook 없음`)
-        continue
+        return
       }
 
       const { error: upsertError } = await supabase.from("insights").upsert(
@@ -61,12 +60,17 @@ export async function POST(req: Request) {
       analyzed++
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err))
-      // 실패한 아티클은 pending으로 복귀 (재시도 가능)
       await supabase.from("articles")
         .update({ status: "pending" })
         .eq("id", article.id)
         .eq("status", "analyzing")
     }
+  }
+
+  // 2개씩 묶어서 병렬 실행
+  for (let i = 0; i < articles.length; i += 2) {
+    const batch = articles.slice(i, i + 2)
+    await Promise.all(batch.map(processOne))
   }
 
   return NextResponse.json({

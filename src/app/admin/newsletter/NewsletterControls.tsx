@@ -62,15 +62,41 @@ export default function NewsletterControls({ issueId, status }: Props) {
     )
   }
 
+  async function deleteIssue() {
+    if (!issueId) return
+    if (!confirm("이 뉴스레터를 삭제하시겠습니까?")) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/newsletter/${issueId}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast.success("삭제됐습니다.")
+      router.refresh()
+    } catch {
+      toast.error("삭제 실패")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // 행 내 액션 버튼
-  if (status === "sent") return null
   return (
-    <button
-      onClick={send}
-      disabled={loading}
-      className="text-xs font-medium px-3 py-1 rounded bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
-    >
-      {loading ? "발송 중..." : "발송"}
-    </button>
+    <div className="flex items-center gap-2">
+      {status !== "sent" && (
+        <button
+          onClick={send}
+          disabled={loading}
+          className="text-xs font-medium px-3 py-1 rounded bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
+        >
+          {loading ? "발송 중..." : "발송"}
+        </button>
+      )}
+      <button
+        onClick={deleteIssue}
+        disabled={loading}
+        className="text-xs text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
+      >
+        삭제
+      </button>
+    </div>
   )
 }

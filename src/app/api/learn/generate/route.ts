@@ -45,14 +45,14 @@ export async function POST(req: Request) {
     // Gemini 직접 호출 (토큰 제한 없이 안정적)
     const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents: [{ parts: [{ text: `마케팅 문제 ${count}개를 위 조건에 맞게 생성해줘.` }] }],
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.7 },
         }),
       }
     )
