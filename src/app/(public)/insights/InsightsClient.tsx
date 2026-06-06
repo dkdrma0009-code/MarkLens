@@ -78,20 +78,23 @@ export default function InsightsClient({ category, allInsights }: Props) {
         </div>
 
         {/* Category — 모바일: 좌우 스크롤 / 데스크탑: 줄바꿈 */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5 md:flex-wrap">
-          {CATEGORIES.map((cat) => (
-            <Link
-              key={cat.slug}
-              href={cat.slug ? `/insights?category=${cat.slug}` : "/insights"}
-              className={`flex-shrink-0 px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
-                category === cat.slug || (!category && !cat.slug)
-                  ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
-                  : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
-              }`}
-            >
-              {cat.label}
-            </Link>
-          ))}
+        {/* 바깥 div가 스크롤 영역, 안쪽 div가 실제 너비를 max-content로 강제 */}
+        <div className="overflow-x-auto scrollbar-hide md:overflow-visible">
+          <div className="flex gap-2 pb-0.5 w-max md:w-auto md:flex-wrap">
+            {CATEGORIES.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={cat.slug ? `/insights?category=${cat.slug}` : "/insights"}
+                className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
+                  category === cat.slug || (!category && !cat.slug)
+                    ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
+                    : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}
+              >
+                {cat.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
