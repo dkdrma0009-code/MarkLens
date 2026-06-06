@@ -53,21 +53,23 @@ export default async function LibraryPage({ searchParams }: Props) {
         </p>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-10">
-        {CATEGORIES.map((cat) => (
-          <Link
-            key={cat.slug}
-            href={cat.slug ? `/library?category=${cat.slug}` : "/library"}
-            className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all ${
-              category === cat.slug || (!category && !cat.slug)
-                ? "bg-black text-white border-black dark:bg-white dark:text-black"
-                : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900"
-            }`}
-          >
-            {cat.label}
-          </Link>
-        ))}
+      {/* Category Filter — 모바일: 좌우 스크롤 / 데스크탑: 줄바꿈 */}
+      <div className="overflow-x-auto scrollbar-hide mb-10 md:overflow-visible">
+        <div className="flex gap-2 pb-0.5 w-max md:w-auto md:flex-wrap">
+          {CATEGORIES.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={cat.slug ? `/library?category=${cat.slug}` : "/library"}
+              className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
+                category === cat.slug || (!category && !cat.slug)
+                  ? "bg-black text-white border-black dark:bg-white dark:text-black"
+                  : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900"
+              }`}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       {!insights || insights.length === 0 ? (
