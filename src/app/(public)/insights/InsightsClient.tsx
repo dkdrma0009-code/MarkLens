@@ -78,7 +78,7 @@ export default function InsightsClient({ category, allInsights }: Props) {
         </div>
 
         {/* Category — 모바일: 좌우 스크롤 / 데스크탑: 줄바꿈 */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0 md:flex-wrap md:overflow-visible">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5 md:flex-wrap">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat.slug}
