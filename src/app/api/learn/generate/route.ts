@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents: [{ parts: [{ text: `마케팅 문제 ${count}개를 위 조건에 맞게 생성해줘.` }] }],
-          generationConfig: { maxOutputTokens: 2048, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
         }),
       }
     )

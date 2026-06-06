@@ -65,15 +65,17 @@ export async function POST(req: Request) {
       const unsubscribeUrl = await generateUnsubscribeUrl(email)
       await sendViaBrevo(email, subject, buildNewsletterHtml(issue, unsubscribeUrl, featuredImages))
       sent++
-    } catch (e: any) {
-      errors.push(`${email}: ${e.message}`)
+    } catch (e) {
+      errors.push(`${email}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
 
-  await supabase.from("newsletter_issues")
-    .update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", issueId)
+  if (sent > 0) {
+    await supabase.from("newsletter_issues")
+      .update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", issueId)
+  }
 
-  return NextResponse.json({ success: true, sentTo: sent, errors: errors.length ? errors : undefined })
+  return NextResponse.json({ success: sent > 0, sentTo: sent, errors: errors.length ? errors : undefined })
 }
 
 type FeaturedImage = { hook: string; image_url: string; title: string }
