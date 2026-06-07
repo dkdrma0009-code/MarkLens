@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M6 26V8l10 4 10-4v18"/>
-  <circle cx="16" cy="18" r="5"/>
-  <circle cx="16" cy="18" r="0.5" fill="#0a0a0a"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <!-- Lens circle -->
+  <circle cx="220" cy="220" r="100" fill="none" stroke="white" stroke-width="36"/>
+  <!-- Lens handle -->
+  <line x1="293" y1="293" x2="380" y2="380" stroke="white" stroke-width="36" stroke-linecap="round"/>
+  <!-- M letter mark inside lens -->
+  <path d="M162 260 L162 185 L220 230 L278 185 L278 260" fill="none" stroke="white" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

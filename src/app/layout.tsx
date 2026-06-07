@@ -17,10 +17,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "MarkLens — Where Marketing Trends Become Action",
   description: "마케팅 트렌드를 분석하고, 실무에 바로 적용 가능한 인사이트를 제공합니다.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "48x48" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icon.svg",
+  },
   openGraph: {
     title: "MarkLens",
     description: "Where Marketing Trends Become Action",
     siteName: "MarkLens",
+    url: "https://www.marklens.site",
   },
 };
 
