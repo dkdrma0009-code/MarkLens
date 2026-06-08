@@ -134,15 +134,17 @@ export async function GET(req: Request) {
   const { data: issue } = await db.from("newsletter_issues").select("*").eq("id", issueId).single()
   if (!issue) return new Response("Not found", { status: 404 })
 
-  const { data: imgData } = await db
+  const { data: imgPool } = await db
     .from("articles")
     .select("image_url")
     .eq("status", "published")
     .not("image_url", "is", null)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .single()
-  const heroImage = (imgData as any)?.image_url ?? null
+    .limit(30)
+  const issueNum = issue.issue_number ?? 0
+  const heroImage = imgPool?.length
+    ? (imgPool[issueNum % imgPool.length] as any)?.image_url ?? null
+    : null
 
   return new Response(buildHtml(issue, heroImage), { headers: { "Content-Type": "text/html; charset=utf-8" } })
 }

@@ -27,16 +27,17 @@ async function sendViaBrevo(to: string, subject: string, html: string): Promise<
   if (!res.ok) throw new Error(`Brevo error: ${await res.text()}`)
 }
 
-async function fetchHeroImage(supabase: ReturnType<typeof createAdminClient>): Promise<string | null> {
+async function fetchHeroImage(supabase: ReturnType<typeof createAdminClient>, issueNumber: number): Promise<string | null> {
   const { data } = await supabase
     .from("articles")
     .select("image_url")
     .eq("status", "published")
     .not("image_url", "is", null)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .single()
-  return (data as any)?.image_url ?? null
+    .limit(30)
+  if (!data?.length) return null
+  const idx = issueNumber % data.length
+  return (data[idx] as any)?.image_url ?? null
 }
 
 export async function POST(req: Request) {
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
   const { data: subscribers } = await supabase.from("subscribers").select("email").eq("status", "active")
   if (!subscribers?.length) return NextResponse.json({ error: "No active subscribers" }, { status: 400 })
 
-  const heroImage = await fetchHeroImage(supabase)
+  const heroImage = await fetchHeroImage(supabase, issue.issue_number ?? 0)
   const cleanTitle = issue.title.replace(/^#\d+\s*[—\-–]\s*/, "").trim()
   const subject = `[MarkLens] ${cleanTitle}`
   let sent = 0
