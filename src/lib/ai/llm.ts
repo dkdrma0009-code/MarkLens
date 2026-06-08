@@ -20,11 +20,11 @@ function isCreditError(err: unknown): boolean {
   return ["credit", "billing", "quota", "insufficient", "balance", "429", "resource_exhausted"].some(k => msg.includes(k))
 }
 
-async function callGemini(prompt: string, system: string, maxTokens = 4000): Promise<string> {
+async function callGeminiModel(model: string, prompt: string, system: string, maxTokens: number): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error("GEMINI_API_KEY not set")
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,8 +36,22 @@ async function callGemini(prompt: string, system: string, maxTokens = 4000): Pro
     }
   )
   const data = await res.json()
-  if (!res.ok) throw new Error(`Gemini error: ${JSON.stringify(data)}`)
+  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(data)}`)
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+}
+
+async function callGemini(prompt: string, system: string, maxTokens = 4000): Promise<string> {
+  // 2.5-flash 먼저, 503 과부하 시 2.0-flash로 폴백
+  try {
+    return await callGeminiModel("gemini-2.5-flash", prompt, system, maxTokens)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ""
+    if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("overloaded")) {
+      console.log("[AI] Gemini 2.5-flash 과부하 → 2.0-flash 재시도")
+      return await callGeminiModel("gemini-2.0-flash", prompt, system, maxTokens)
+    }
+    throw err
+  }
 }
 
 async function callClaude(system: string, prompt: string, maxTokens: number): Promise<string> {
