@@ -33,6 +33,23 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://marklens.site/api/newsletter/send?secret=marklens-n8n-2025",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ issueId: $json.issue.id }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "b1b2c3d4-0002-0002-0002-000000000003",
+      "name": "뉴스레터 발송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
     }
   ],
   "connections": {
@@ -41,6 +58,17 @@
         [
           {
             "node": "뉴스레터 초안 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "뉴스레터 초안 생성": {
+      "main": [
+        [
+          {
+            "node": "뉴스레터 발송",
             "type": "main",
             "index": 0
           }

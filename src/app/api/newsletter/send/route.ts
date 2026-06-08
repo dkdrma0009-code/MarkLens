@@ -40,9 +40,13 @@ async function fetchFeaturedImages(supabase: ReturnType<typeof createAdminClient
 }
 
 export async function POST(req: Request) {
-  if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { searchParams } = new URL(req.url)
+  const secret = searchParams.get("secret")
+  const isN8n = secret === process.env.N8N_WEBHOOK_SECRET
+  if (!isN8n && !await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { issueId } = await req.json()
+  const body = await req.json()
+  const issueId = body.issueId ?? body.issue?.id
   if (!issueId) return NextResponse.json({ error: "issueId required" }, { status: 400 })
 
   const supabase = createAdminClient()
