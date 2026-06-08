@@ -45,14 +45,14 @@ export async function POST(req: Request) {
     // Gemini 직접 호출 (토큰 제한 없이 안정적)
     const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents: [{ parts: [{ text: `마케팅 문제 ${count}개를 위 조건에 맞게 생성해줘.` }] }],
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
         }),
       }
     )
@@ -70,7 +70,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Generation failed" }, { status: 500 })
     }
 
-    const data = JSON.parse(match[0])
+    // Gemini 리터럴 개행문자 sanitize
+    let raw = match[0]
+    let sanitized = ""
+    let inString = false
+    let escaped = false
+    for (let i = 0; i < raw.length; i++) {
+      const c = raw[i]
+      if (escaped) { sanitized += c; escaped = false; continue }
+      if (c === "\\") { sanitized += c; escaped = true; continue }
+      if (c === '"') { inString = !inString; sanitized += c; continue }
+      if (inString) {
+        if (c === "\n") { sanitized += "\\n"; continue }
+        if (c === "\r") { sanitized += "\\r"; continue }
+        if (c === "\t") { sanitized += "\\t"; continue }
+        if (c.charCodeAt(0) < 0x20) continue
+      }
+      sanitized += c
+    }
+
+    const data = JSON.parse(sanitized)
     if (!data.questions?.length) return NextResponse.json({ error: "No questions" }, { status: 500 })
     return NextResponse.json(data)
   } catch (e) {
