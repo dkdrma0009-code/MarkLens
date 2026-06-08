@@ -15,9 +15,6 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  verification: {
-    google: "io4NM_VvWISWgqikgbn_VSqP24ZW9Kwz367iUoDotCQ",
-  },
   title: "MarkLens — Where Marketing Trends Become Action",
   description: "마케팅 트렌드를 분석하고, 실무에 바로 적용 가능한 인사이트를 제공합니다.",
   icons: {
@@ -46,6 +43,9 @@ export default function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <meta name="google-site-verification" content="io4NM_VvWISWgqikgbn_VSqP24ZW9Kwz367iUoDotCQ" />
+      </head>
       <body className="min-h-full flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
         <ThemeProvider>
           {children}
