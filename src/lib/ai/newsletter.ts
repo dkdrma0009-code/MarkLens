@@ -62,6 +62,7 @@ ${insightsSummary}
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error("No JSON found in response")
 
+  // 1차: 제어문자 sanitize
   let raw = jsonMatch[0]
   let sanitized = ""
   let inString = false
@@ -75,10 +76,32 @@ ${insightsSummary}
       if (c === "\n") { sanitized += "\\n"; continue }
       if (c === "\r") { sanitized += "\\r"; continue }
       if (c === "\t") { sanitized += "\\t"; continue }
+      if (c === " " || c === " ") { sanitized += "\\n"; continue }
       if (c.charCodeAt(0) < 0x20) continue
     }
     sanitized += c
   }
 
-  return JSON.parse(sanitized) as NewsletterOutput
+  // 2차: JSON.parse 시도, 실패 시 regex 폴백
+  try {
+    return JSON.parse(sanitized) as NewsletterOutput
+  } catch {
+    // 필드별 regex 추출 (따옴표가 포함된 값에도 동작)
+    function extractField(key: string): string {
+      const pattern = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*[,}])`)
+      const m = sanitized.match(pattern)
+      if (!m) return ""
+      return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').trim()
+    }
+    const result: NewsletterOutput = {
+      title: extractField("title") || `#${input.issueNumber} — 이번 주 마케팅 인사이트`,
+      week_signals: extractField("week_signals"),
+      case_of_week: extractField("case_of_week"),
+      ai_brief: extractField("ai_brief"),
+    }
+    if (!result.week_signals && !result.case_of_week) {
+      throw new Error("JSON parse failed and regex extraction found no content")
+    }
+    return result
+  }
 }
