@@ -1,20 +1,27 @@
 import { generateText } from "@/lib/ai/llm"
 
-const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly 에디터입니다. 뉴닉, Morning Brew처럼 짧고 재밌게 씁니다.
+const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly의 수석 에디터입니다.
+뉴닉, Morning Brew, 스레드 감성으로 씁니다. 읽다 보면 "오 이거 나한테 필요한 거네"가 나와야 해요.
 
-핵심 원칙:
-- 독자는 바쁜 취준생/주니어 마케터. 3분 안에 읽혀야 함
-- 인사이트 페이지 요약 절대 금지. 거기서 못 보는 '에디터의 관점'을 써야 함
-- 각 섹션은 최대 3문장. 그 이상은 쓰지 마세요
-- 문장은 짧게. 한 문장에 하나의 생각만
-- "왜 내가 이걸 알아야 해?" 라는 질문에 바로 답하는 글을 씁니다
-- 마지막에 "당신의 액션"이나 "한 줄 정리"로 마무리
+목소리 원칙:
+- 친구한테 카톡으로 "야 이거 봤어?" 하는 톤
+- 딱딱한 보고서 금지. "~됩니다" 금지. "~거예요, ~해요, ~죠" 사용
+- 한 문장에 아이디어 하나. 문장 짧게
+- 추상적 표현 금지 ("중요해요", "활용해보세요" 수준은 버려요)
+- 구체적인 브랜드명, 캠페인명, 도구명을 반드시 포함
+
+섹션별 공식:
+- week_signals: 이번 주 마케팅판 핵심 변화 → 왜 지금 알아야 하는지 → 마케터에게 의미 (총 3문장)
+- case_of_week: [브랜드명]이/가 [뭘 했는지] → [왜 이게 신선한지] → [내가 배울 점] (총 3문장, 반드시 실제 브랜드명 포함)
+- ai_brief: [도구명/기능명]으로 [구체적으로 뭘 할 수 있는지] → [어떻게 쓰면 되는지] (2문장, 반드시 실제 도구명 포함)
+- portfolio_insight: 이번 주 트렌드로 포트폴리오에 추가할 구체적인 프로젝트 아이디어 1개 (2~3문장, "XX를 분석해서 YY를 만들어보세요" 형식)
+- career_lens: 오늘 당장 30분 안에 할 수 있는 액션 1가지 (2문장, "오늘 [구체적 행동]을 해보세요" 형식)
 
 절대 금지:
-- **, *, #, 마크다운 문법
-- "~입니다. ~합니다" 딱딱한 경어체 → "~해요, ~거예요" 부드러운 경어체
-- 가상 수치 ("20% 증가" 등)
-- 섹션 제목을 본문에 다시 쓰지 마세요 (예: "This Week's Signals —" 로 시작하는 문장 금지)`
+- 마크다운 (**, *, #)
+- 가상 수치 / 출처 없는 통계
+- 섹션 제목으로 문장 시작 ("This Week's Signals —" 등)
+- 인물 이름 창작 (실제 확인된 브랜드만)`
 
 interface NewsletterInput {
   issueNumber: number
@@ -39,7 +46,7 @@ interface NewsletterOutput {
 export async function generateNewsletter(input: NewsletterInput): Promise<NewsletterOutput> {
   const insightsSummary = input.insights
     .slice(0, 10)
-    .map((i, idx) => `${idx + 1}. [${i.category}] ${i.title}\n요약: ${i.summary}`)
+    .map((i, idx) => `${idx + 1}. [${i.category}] ${i.title}\n요약: ${i.summary}${i.why_it_matters ? `\n왜 중요: ${i.why_it_matters}` : ""}`)
     .join("\n\n")
 
   const text = await generateText({
@@ -47,24 +54,23 @@ export async function generateNewsletter(input: NewsletterInput): Promise<Newsle
     maxTokens: 5000,
     prompt: `MarkLens Weekly #${input.issueNumber}을 작성해주세요.
 
-이번 주 수집된 인사이트:
+이번 주 인사이트 목록 (이걸 바탕으로 써주세요):
 ${insightsSummary}
 
-다음 JSON 형식으로 작성하세요. 마크다운 금지, 가상 수치 금지:
+순수 JSON만 반환하세요. 마크다운 없이:
 {
-  "title": "이번 호 제목 (예: #12 — AI 검색이 바꾸는 마케팅의 미래). 반드시 #숫자 — 형식 유지",
-  "week_signals": "이번 주 마케팅판에서 놓치면 안 되는 것 딱 하나. 2~3문장으로. '이게 왜 중요하냐면' 관점으로. 섹션 제목으로 시작하지 마세요.",
-  "case_of_week": "이번 주 가장 흥미로운 캠페인/사례. 무슨 일인지 1문장 → 왜 신선한지 1문장 → 마케터로서 나라면? 1문장. 총 3문장. 섹션 제목으로 시작하지 마세요.",
-  "ai_brief": "AI가 마케팅을 바꾸고 있는 것 중 지금 당장 써먹을 수 있는 것 1가지. 2문장. 도구 이름이나 구체적인 예시 포함. 섹션 제목으로 시작하지 마세요.",
-  "portfolio_insight": "이번 주 인사이트를 포트폴리오에 녹이는 방법 1가지. '이렇게 써보세요' 형식으로 구체적으로. 2~3문장. STAR 금지, 가상 수치 금지. 섹션 제목으로 시작하지 마세요.",
-  "career_lens": "취준생/주니어가 이번 주 트렌드로 지금 당장 할 수 있는 것 1가지. 추상적인 조언 말고 '오늘 XX를 해보세요' 수준으로 구체적으로. 2문장. 섹션 제목으로 시작하지 마세요."
+  "title": "#${input.issueNumber} — [이번 주 핵심 키워드 3~5단어]",
+  "week_signals": "3문장. 이번 주 마케팅 업계에서 놓치면 안 될 변화 하나. 위 인사이트 중 가장 임팩트 있는 것 기반.",
+  "case_of_week": "3문장. 실제 브랜드명 포함 필수. 위 인사이트에서 가장 흥미로운 캠페인/사례.",
+  "ai_brief": "2문장. 실제 AI 도구명 포함 필수. 지금 당장 쓸 수 있는 것.",
+  "portfolio_insight": "2~3문장. 위 트렌드로 만들 수 있는 구체적 포트폴리오 아이디어.",
+  "career_lens": "2문장. 오늘 30분 안에 할 수 있는 구체적 액션."
 }`,
   })
 
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error("No JSON found in response")
 
-  // Gemini가 JSON 문자열 값 안에 리터럴 개행 문자를 넣는 경우 수정
   let raw = jsonMatch[0]
   let sanitized = ""
   let inString = false
