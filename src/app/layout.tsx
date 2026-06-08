@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  verification: {
+    google: "io4NM_VvWISWgqikgbn_VSqP24ZW9Kwz367iUoDotCQ",
+  },
   title: "MarkLens — Where Marketing Trends Become Action",
   description: "마케팅 트렌드를 분석하고, 실무에 바로 적용 가능한 인사이트를 제공합니다.",
   icons: {
