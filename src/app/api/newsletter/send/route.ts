@@ -174,30 +174,36 @@ function buildNewsletterHtml(issue: NewsletterIssue, unsubscribeUrl = "", images
 </html>`
 }
 
+function formatContent(content: string): string {
+  return content
+    .split(/(?<=[.!?])\s+/)
+    .filter(s => s.trim())
+    .map(s => `<p style="margin:0 0 12px;font-size:15px;color:#222;line-height:1.8;">${s.trim()}</p>`)
+    .join("") + ""
+}
+
 function buildSection(num: string, title: string, content: string, bgColor = "#fff", accentColor = "#4f46e5"): string {
-  return `<tr><td style="padding:0 40px 32px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:${bgColor};border-radius:8px;border:1px solid #e8e8e4;overflow:hidden;">
-    <tr><td style="padding:20px 24px 16px;border-bottom:1px solid #e8e8e4;">
-      <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${accentColor};">${num} /</p>
-      <p style="margin:4px 0 0;font-size:15px;font-weight:800;color:#0a0a0a;letter-spacing:-0.3px;">${title}</p>
+  return `<tr><td style="padding:0 40px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:${bgColor};border-radius:12px;border:1px solid #e8e8e4;overflow:hidden;">
+    <tr><td style="padding:18px 24px 14px;border-bottom:2px solid ${accentColor}20;">
+      <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${accentColor};">${num} / ${title}</p>
     </td></tr>
-    <tr><td style="padding:20px 24px;">
-      <p style="margin:0;font-size:14px;color:#333;line-height:1.85;white-space:pre-wrap;">${content}</p>
+    <tr><td style="padding:20px 24px 8px;">
+      ${formatContent(content)}
     </td></tr>
     </table>
   </td></tr>`
 }
 
 function buildSectionWithImage(num: string, title: string, content: string, imageUrl?: string): string {
-  return `<tr><td style="padding:0 40px 32px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;border:1px solid #e8e8e4;overflow:hidden;">
-    <tr><td style="padding:20px 24px 16px;border-bottom:1px solid #e8e8e4;">
-      <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4f46e5;">${num} /</p>
-      <p style="margin:4px 0 0;font-size:15px;font-weight:800;color:#0a0a0a;letter-spacing:-0.3px;">${title}</p>
+  return `<tr><td style="padding:0 40px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;border:1px solid #e8e8e4;overflow:hidden;">
+    <tr><td style="padding:18px 24px 14px;border-bottom:2px solid #4f46e520;">
+      <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#4f46e5;">02 / Case of the Week</p>
     </td></tr>
-    ${imageUrl ? `<tr><td style="padding:0;"><img src="${imageUrl}" alt="Case of the Week" width="600" style="width:100%;display:block;object-fit:cover;height:220px;"/></td></tr>` : ""}
-    <tr><td style="padding:20px 24px;">
-      <p style="margin:0;font-size:14px;color:#333;line-height:1.85;white-space:pre-wrap;">${content}</p>
+    ${imageUrl ? `<tr><td style="padding:0;"><img src="${imageUrl}" alt="Case of the Week" width="600" style="width:100%;display:block;object-fit:cover;height:200px;"/></td></tr>` : ""}
+    <tr><td style="padding:20px 24px 8px;">
+      ${formatContent(content)}
     </td></tr>
     </table>
   </td></tr>`
