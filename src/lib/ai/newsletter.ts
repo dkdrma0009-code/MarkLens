@@ -63,5 +63,24 @@ ${insightsSummary}
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error("No JSON found in response")
 
-  return JSON.parse(jsonMatch[0]) as NewsletterOutput
+  // Gemini가 JSON 문자열 값 안에 리터럴 개행 문자를 넣는 경우 수정
+  let raw = jsonMatch[0]
+  let sanitized = ""
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i]
+    if (escaped) { sanitized += c; escaped = false; continue }
+    if (c === "\\") { sanitized += c; escaped = true; continue }
+    if (c === '"') { inString = !inString; sanitized += c; continue }
+    if (inString) {
+      if (c === "\n") { sanitized += "\\n"; continue }
+      if (c === "\r") { sanitized += "\\r"; continue }
+      if (c === "\t") { sanitized += "\\t"; continue }
+      if (c.charCodeAt(0) < 0x20) continue
+    }
+    sanitized += c
+  }
+
+  return JSON.parse(sanitized) as NewsletterOutput
 }
