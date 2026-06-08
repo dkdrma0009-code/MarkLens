@@ -14,7 +14,7 @@ async function callGemini(system: string, prompt: string): Promise<string> {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: system }] },
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1000 },
+        generationConfig: { maxOutputTokens: 2000 },
       }),
     }
   )
@@ -32,11 +32,14 @@ export async function POST(req: Request) {
     // 최근 6개 메시지만 유지
     const recentMessages = messages.slice(-6)
 
-    const system = `너는 이 페이지의 글 내용을 기반으로 답변하는 어시스턴트야.
-반드시 글에 나온 내용만을 근거로 답변하고, 글과 무관한 질문이 오면 "이 글과 관련된 질문을 해주세요 😊"라고만 답해.
-욕설이나 비속어가 포함된 메시지는 "그런 표현은 삼가 주세요 😊 마케팅 질문이 있으면 편하게 물어보세요!"라고만 답해.
-사용자 이름은 절대 추측하거나 언급하지 마.
-답변은 자연스러운 한국어로, 핵심만 간결하게 말해줘.${context ? `\n\n[글 내용]\n${context}` : ""}`
+    const system = `너는 이 페이지의 마케팅 인사이트 글을 기반으로 답변하는 어시스턴트야.
+반드시 글에 나온 내용만을 근거로 답변해. 글과 무관한 질문이 오면 "이 글과 관련된 질문을 해주세요 😊"라고만 답해.
+욕설이나 비속어는 "그런 표현은 삼가 주세요 😊"라고만 답해.
+답변 규칙:
+- 자연스러운 한국어로 답해
+- 반드시 완성된 문장으로 끝내야 해. 절대 중간에 끊기지 말 것
+- 3~5문장 이내로 핵심만 전달해
+- 마크다운 금지${context ? `\n\n[글 내용]\n${context}` : ""}`
 
     const prompt = recentMessages
       .map((m: { role: string; content: string }) =>
@@ -56,7 +59,7 @@ export async function POST(req: Request) {
           const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
           const claudeStream = claude.messages.stream({
             model: "claude-haiku-4-5-20251001",
-            max_tokens: 1000,
+            max_tokens: 2000,
             system,
             messages: [{ role: "user", content: prompt }],
           })
