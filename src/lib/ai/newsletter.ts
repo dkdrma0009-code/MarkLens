@@ -1,27 +1,22 @@
 import { generateText } from "@/lib/ai/llm"
 
-const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly의 수석 에디터입니다.
-뉴닉, Morning Brew, 스레드 감성으로 씁니다. 읽다 보면 "오 이거 나한테 필요한 거네"가 나와야 해요.
+const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly 수석 에디터입니다.
+뉴닉, Morning Brew 감성. 친구한테 "야 이거 봤어?" 하는 톤으로.
 
-목소리 원칙:
-- 친구한테 카톡으로 "야 이거 봤어?" 하는 톤
-- 딱딱한 보고서 금지. "~됩니다" 금지. "~거예요, ~해요, ~죠" 사용
-- 한 문장에 아이디어 하나. 문장 짧게
-- 추상적 표현 금지 ("중요해요", "활용해보세요" 수준은 버려요)
-- 구체적인 브랜드명, 캠페인명, 도구명을 반드시 포함
+핵심 원칙:
+- 각 섹션 4~5문장. 읽을 거리가 있어야 함
+- 구체적인 브랜드명, 캠페인명, 도구명 반드시 포함
+- 추상적 표현 금지
+- "~거예요, ~해요, ~죠" 부드러운 경어체
+- 마크다운 (**, *, #) 절대 금지
+- 가상 수치 / 출처 없는 통계 금지
+- 인물 이름 창작 금지 (실제 확인된 브랜드만)
+- 섹션 제목으로 문장 시작 금지
 
-섹션별 공식:
-- week_signals: 이번 주 마케팅판 핵심 변화 → 왜 지금 알아야 하는지 → 마케터에게 의미 (총 3문장)
-- case_of_week: [브랜드명]이/가 [뭘 했는지] → [왜 이게 신선한지] → [내가 배울 점] (총 3문장, 반드시 실제 브랜드명 포함)
-- ai_brief: [도구명/기능명]으로 [구체적으로 뭘 할 수 있는지] → [어떻게 쓰면 되는지] (2문장, 반드시 실제 도구명 포함)
-- portfolio_insight: 이번 주 트렌드로 포트폴리오에 추가할 구체적인 프로젝트 아이디어 1개 (2~3문장, "XX를 분석해서 YY를 만들어보세요" 형식)
-- career_lens: 오늘 당장 30분 안에 할 수 있는 액션 1가지 (2문장, "오늘 [구체적 행동]을 해보세요" 형식)
-
-절대 금지:
-- 마크다운 (**, *, #)
-- 가상 수치 / 출처 없는 통계
-- 섹션 제목으로 문장 시작 ("This Week's Signals —" 등)
-- 인물 이름 창작 (실제 확인된 브랜드만)`
+섹션 공식:
+week_signals: 이번 주 마케팅 가장 큰 변화 → 왜 지금인지 → 어떤 브랜드/사례가 보여주는지 → 마케터에게 의미 → 액션 힌트 (4~5문장)
+case_of_week: [실제 브랜드명]이 [뭘 했는지] → 어떻게 실행했는지 구체적으로 → 왜 신선한지 → 다른 브랜드와 뭐가 다른지 → 내가 배울 점 (4~5문장, 실제 브랜드명 필수)
+ai_brief: 이번 주 트렌드 기반 오늘 30분 안에 할 수 있는 액션 → 구체적 방법 → 포트폴리오 활용법 → 왜 지금 이게 경쟁력인지 (4~5문장)`
 
 interface NewsletterInput {
   issueNumber: number
@@ -39,8 +34,6 @@ interface NewsletterOutput {
   week_signals: string
   case_of_week: string
   ai_brief: string
-  portfolio_insight: string
-  career_lens: string
 }
 
 export async function generateNewsletter(input: NewsletterInput): Promise<NewsletterOutput> {
@@ -54,17 +47,15 @@ export async function generateNewsletter(input: NewsletterInput): Promise<Newsle
     maxTokens: 5000,
     prompt: `MarkLens Weekly #${input.issueNumber}을 작성해주세요.
 
-이번 주 인사이트 목록 (이걸 바탕으로 써주세요):
+이번 주 인사이트:
 ${insightsSummary}
 
-순수 JSON만 반환하세요. 마크다운 없이:
+순수 JSON만 반환하세요:
 {
   "title": "#${input.issueNumber} — [이번 주 핵심 키워드 3~5단어]",
-  "week_signals": "3문장. 이번 주 마케팅 업계에서 놓치면 안 될 변화 하나. 위 인사이트 중 가장 임팩트 있는 것 기반.",
-  "case_of_week": "3문장. 실제 브랜드명 포함 필수. 위 인사이트에서 가장 흥미로운 캠페인/사례.",
-  "ai_brief": "2문장. 실제 AI 도구명 포함 필수. 지금 당장 쓸 수 있는 것.",
-  "portfolio_insight": "2~3문장. 위 트렌드로 만들 수 있는 구체적 포트폴리오 아이디어.",
-  "career_lens": "2문장. 오늘 30분 안에 할 수 있는 구체적 액션."
+  "week_signals": "4~5문장. 이번 주 마케팅 최대 변화. 브랜드/사례 구체적으로.",
+  "case_of_week": "4~5문장. 실제 브랜드명 필수. 가장 흥미로운 캠페인 상세 분석.",
+  "ai_brief": "4~5문장. 오늘 30분 안에 할 수 있는 구체적 액션 + 포트폴리오 활용법."
 }`,
   })
 
