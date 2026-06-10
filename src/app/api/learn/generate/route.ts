@@ -75,13 +75,7 @@ function tryParse(text: string): { questions: any[] } | null {
   }
 }
 
-export async function POST(req: Request) {
-  const { count, level, type } = await req.json()
-
-  // 문제 수 기반 토큰 계산 (문제당 ~280 토큰)
-  const maxTokens = Math.min(count * 280 + 500, 6000)
-
-  const system = `너는 마케팅 전문 교육자야. 반드시 아래 JSON 형식으로만 응답해. 마크다운이나 설명 없이 순수 JSON만.
+const SYSTEM = `너는 마케팅 전문 교육자야. 반드시 아래 JSON 형식으로만 응답해. 마크다운이나 설명 없이 순수 JSON만.
 
 {
   "questions": [
@@ -103,31 +97,62 @@ export async function POST(req: Request) {
 
 주의: 실제 마케팅 실무에서 쓰이는 개념 위주로 출제. 정답은 명확하게.`
 
-  const prompt = `마케팅 문제 ${count}개를 생성해줘.
+// 청크 1개 생성 — Gemini 직접 호출 후 실패 시 폴백 체인
+async function generateChunk(n: number, level: string, type: string, seed: number): Promise<any[]> {
+  const maxTokens = Math.min(n * 280 + 500, 4000)
+  const prompt = `마케팅 문제 ${n}개를 생성해줘.
 난이도: ${LEVEL_MAP[level] ?? level}
 유형: ${TYPE_MAP[type] ?? type}
+주제 다양성 시드: ${seed} (이 번호에 맞춰 서로 다른 마케팅 주제·개념으로 출제해서 중복을 피해줘)
 
 JSON만 반환해. 다른 텍스트 없이.`
 
-  // 1차: Gemini 직접 호출 (JSON 모드 — 빠르고 안정적)
   try {
-    const text = await callGemini(system, prompt, maxTokens)
+    const text = await callGemini(SYSTEM, prompt, maxTokens)
     const result = tryParse(text)
-    if (result) return NextResponse.json(result)
-    console.warn("[quiz] Gemini 응답 파싱 실패, 폴백 시도")
+    if (result) return result.questions
   } catch (e) {
-    console.warn("[quiz] Gemini 직접 호출 실패:", e instanceof Error ? e.message : e)
+    console.warn(`[quiz] chunk ${seed} Gemini 실패:`, e instanceof Error ? e.message : e)
   }
 
-  // 2차: 전체 폴백 체인 (Claude → OpenAI → Gemini)
   try {
-    const text = await generateText({ system, prompt, maxTokens })
+    const text = await generateText({ system: SYSTEM, prompt, maxTokens })
     const result = tryParse(text)
-    if (result) return NextResponse.json(result)
-    console.error("[quiz] 폴백 체인도 파싱 실패")
+    if (result) return result.questions
   } catch (e) {
-    console.error("[quiz] 폴백 체인 오류:", e instanceof Error ? e.message : e)
+    console.error(`[quiz] chunk ${seed} 폴백 실패:`, e instanceof Error ? e.message : e)
   }
 
-  return NextResponse.json({ error: "Generation failed" }, { status: 500 })
+  return []
+}
+
+// 문제 수를 청크로 분할 (청크당 최대 5문제, 최대 4병렬)
+function splitChunks(count: number): number[] {
+  const CHUNK = 5
+  const chunks: number[] = []
+  let remaining = count
+  while (remaining > 0) {
+    chunks.push(Math.min(CHUNK, remaining))
+    remaining -= CHUNK
+  }
+  return chunks
+}
+
+export async function POST(req: Request) {
+  const { count, level, type } = await req.json()
+
+  const chunks = splitChunks(count)
+
+  // 청크 병렬 생성 — 20문제도 5문제 단위 4병렬로 처리
+  const results = await Promise.all(
+    chunks.map((n, idx) => generateChunk(n, level, type, idx + 1))
+  )
+
+  const questions = results.flat()
+  if (!questions.length) {
+    return NextResponse.json({ error: "Generation failed" }, { status: 500 })
+  }
+
+  // 요청 수만큼만 잘라서 반환 (혹시 초과 생성 시)
+  return NextResponse.json({ questions: questions.slice(0, count) })
 }
