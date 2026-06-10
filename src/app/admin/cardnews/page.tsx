@@ -50,7 +50,7 @@ export default async function CardnewsListPage() {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">인사이트</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">표지 이미지</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">표지</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">발행일</th>
                 <th className="px-4 py-3" />
@@ -67,7 +67,16 @@ export default async function CardnewsListPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{r.category ?? "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {r.article?.image_url ? (
+                      {cardAt ? (
+                        // 생성된 카드는 실제 표지(1장) 렌더 썸네일 — updated_at으로 캐시버스트
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`/api/admin/cardnews/render?articleId=${r.article_id}&slide=1&v=${encodeURIComponent(cardAt)}`}
+                          alt="표지 미리보기"
+                          loading="lazy"
+                          className="w-10 h-[50px] object-cover rounded border border-border bg-black"
+                        />
+                      ) : r.article?.image_url ? (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">포토 표지</span>
                       ) : (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">타이포 표지</span>
