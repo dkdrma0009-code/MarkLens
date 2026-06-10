@@ -172,12 +172,13 @@ export function renderCampaignFrame(opts: {
   headline: string   // 상단 후킹 헤드라인 (보통 insight.hook)
   caption: string    // 하단 논평 자막 한 줄 (MarkLens 분석)
   source: string     // 출처 매체명
+  transparent?: boolean // true면 배경/이미지 생략(투명) — Shotstack 합성용 오버레이
 }): React.ReactElement {
-  const { image, category, headline, caption, source } = opts
+  const { image, category, headline, caption, source, transparent } = opts
   return (
-    <div style={{ width: T.WIDTH, height: T.HEIGHT, display: "flex", position: "relative", background: T.BG, fontFamily: T.FONT }}>
-      {/* 배경 이미지 풀블리드 */}
-      {image ? (
+    <div style={{ width: T.WIDTH, height: T.HEIGHT, display: "flex", position: "relative", background: transparent ? "transparent" : T.BG, fontFamily: T.FONT }}>
+      {/* 배경 이미지 풀블리드 (오버레이 모드에선 Shotstack이 깔므로 생략) */}
+      {image && !transparent ? (
         <div style={{ position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, display: "flex", backgroundImage: `url(${image})`, backgroundSize: "cover", backgroundPosition: "center" }} />
       ) : null}
       {/* 상단/하단 가독성 그라데이션 */}
