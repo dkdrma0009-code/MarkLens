@@ -47,8 +47,8 @@ async function callGemini(prompt: string, system: string, maxTokens = 4000): Pro
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("overloaded")) {
-      console.log("[AI] Gemini 2.5-flash 과부하 → 2.0-flash 재시도")
-      return await callGeminiModel("gemini-2.0-flash", prompt, system, maxTokens)
+      console.log("[AI] Gemini 2.5-flash 과부하 → 1.5-flash 재시도")
+      return await callGeminiModel("gemini-1.5-flash", prompt, system, maxTokens)
     }
     throw err
   }
