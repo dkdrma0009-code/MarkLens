@@ -97,7 +97,34 @@ function highlightLine(line: string, highlight: string | undefined, key: number)
 
 /* ── 슬라이드 6종 (스펙 4) ── */
 
-function coverSlide(s: CoverSlide, category: string, total: number) {
+function coverSlide(s: CoverSlide, category: string, total: number, coverImage?: string | null) {
+  // 포토 표지: 대표 이미지 풀블리드 + 다크 그라데이션, 헤드라인 하단 배치
+  if (coverImage) {
+    return frame([
+      // eslint-disable-next-line @next/next/no-img-element
+      <img key="bg" src={coverImage} alt="" width={T.WIDTH} height={T.HEIGHT}
+        style={{ position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, objectFit: "cover" }} />,
+      <div key="overlay" style={{
+        position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, display: "flex",
+        background: "linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.45) 30%, rgba(10,10,10,0.62) 55%, rgba(10,10,10,0.95) 100%)",
+      }} />,
+      <div key="cat" style={{ display: "flex", width: "100%", fontSize: 30, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em" }}>
+        {category}
+      </div>,
+      <div key="spacer" style={{ display: "flex", flexGrow: 1 }} />,
+      <div key="text" style={{ display: "flex", flexDirection: "column", width: "100%", marginBottom: 56 }}>
+        <div style={{ display: "flex", flexDirection: "column", fontSize: 92, fontWeight: 700, lineHeight: 1.18, letterSpacing: "-0.02em" }}>
+          {s.headline.map((line, i) => highlightLine(line, s.highlight, i))}
+        </div>
+        {s.sub ? (
+          <div style={{ display: "flex", fontSize: 36, color: "#C9C9C9", marginTop: 32 }}>{s.sub}</div>
+        ) : null}
+      </div>,
+      footer(1, total, false),
+    ])
+  }
+
+  // 타이포 표지 (이미지 없을 때)
   return frame([
     <div key="cat" style={{ display: "flex", width: "100%", fontSize: 30, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em" }}>
       {category}
@@ -197,9 +224,9 @@ function ctaSlide(s: CtaSlide, total: number) {
 }
 
 /* ── 진입점 ── */
-export function renderSlide(slide: Slide, category: string, total = 6): React.ReactElement {
+export function renderSlide(slide: Slide, category: string, total = 6, opts?: { coverImage?: string | null }): React.ReactElement {
   switch (slide.type) {
-    case "cover": return coverSlide(slide, category, total)
+    case "cover": return coverSlide(slide, category, total, opts?.coverImage)
     case "fact": return factSlide(slide, total)
     case "why": return whySlide(slide, total)
     case "apply": return applySlide(slide, total)

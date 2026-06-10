@@ -4,6 +4,18 @@ import { SLIDE_ORDER } from "./types"
 // 글자수 (유니코드 코드포인트 기준 — 한글 1자 = 1)
 const len = (s: string) => [...(s ?? "")].length
 
+// 과장 표현 금지 (스펙 5.3 카피 규칙)
+const BANNED_WORDS = ["충격", "대박", "헐", "미쳤"]
+
+function checkBannedWords(s: Slide, n: number): string[] {
+  const texts: string[] = []
+  if ("headline" in s) texts.push(...(Array.isArray(s.headline) ? s.headline : [s.headline]))
+  if ("body" in s && s.body) texts.push(s.body)
+  if ("sub" in s && s.sub) texts.push(s.sub)
+  const joined = texts.join(" ")
+  return BANNED_WORDS.filter(w => joined.includes(w)).map(w => `slide ${n}: 과장 표현 "${w}" 사용됨 (금지)`)
+}
+
 // 렌더링 오버플로 방지 검증 (스펙 5.4) — 초과 시 자동 개행/잘라내기 금지, 에러로 반환
 export function validateCardnews(data: Cardnews): string[] {
   const errors: string[] = []
@@ -20,6 +32,7 @@ export function validateCardnews(data: Cardnews): string[] {
       return
     }
     errors.push(...validateSlide(s, n))
+    errors.push(...checkBannedWords(s, n))
   })
 
   return errors

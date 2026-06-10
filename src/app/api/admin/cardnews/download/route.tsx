@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { renderSlide, TOKENS } from "@/lib/cardnews/templates"
 import { loadFonts } from "@/lib/cardnews/fonts"
+import { fetchImageDataUri } from "@/lib/cardnews/image"
 import type { Slide } from "@/lib/cardnews/types"
 
 export const maxDuration = 120
@@ -26,15 +27,17 @@ export async function GET(req: Request) {
   if (!articleId) return new Response("articleId required", { status: 400 })
 
   const supabase = createAdminClient()
-  const [{ data: card }, { data: insight }] = await Promise.all([
+  const [{ data: card }, { data: insight }, { data: article }] = await Promise.all([
     supabase.from("cardnews").select("slides, category").eq("article_id", articleId).single(),
     supabase.from("insights").select("slug").eq("article_id", articleId).single(),
+    supabase.from("articles").select("image_url").eq("id", articleId).single(),
   ])
   if (!card?.slides) return new Response("카드뉴스가 없습니다", { status: 404 })
 
   const slides = card.slides as Slide[]
   const category = card.category ?? "마케팅"
   const fonts = await loadFonts()
+  const coverImage = await fetchImageDataUri(article?.image_url)
 
   // ASCII 안전 파일명 (한글 슬러그 대비)
   const rawSlug = insight?.slug ?? `cardnews-${articleId.slice(0, 6)}`
@@ -42,7 +45,7 @@ export async function GET(req: Request) {
 
   const zip = new JSZip()
   for (let i = 0; i < slides.length; i++) {
-    const img = new ImageResponse(renderSlide(slides[i], category, slides.length), {
+    const img = new ImageResponse(renderSlide(slides[i], category, slides.length, { coverImage: i === 0 ? coverImage : null }), {
       width: TOKENS.WIDTH,
       height: TOKENS.HEIGHT,
       fonts,

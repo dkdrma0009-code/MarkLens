@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { renderSlide, SAMPLE_CARDNEWS, TOKENS } from "@/lib/cardnews/templates"
 import { loadFonts } from "@/lib/cardnews/fonts"
+import { fetchImageDataUri } from "@/lib/cardnews/image"
 import type { Slide } from "@/lib/cardnews/types"
 
 export const maxDuration = 60
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
 
   let slides: Slide[]
   let category: string
+  let coverImage: string | null = null
 
   if (searchParams.get("demo") === "1") {
     // 디자인 튜닝용 샘플 렌더
@@ -38,12 +40,18 @@ export async function GET(req: Request) {
     if (!data?.slides) return new Response("카드뉴스가 없습니다. 먼저 생성하세요.", { status: 404 })
     slides = data.slides as Slide[]
     category = data.category ?? "마케팅"
+
+    // 표지(1장)는 아티클 대표 이미지를 배경으로 사용 (없으면 타이포 표지)
+    if (slideNum === 1) {
+      const { data: article } = await supabase.from("articles").select("image_url").eq("id", articleId).single()
+      coverImage = await fetchImageDataUri(article?.image_url)
+    }
   }
 
   const slide = slides[slideNum - 1]
   if (!slide) return new Response("slide not found", { status: 404 })
 
-  return new ImageResponse(renderSlide(slide, category, slides.length), {
+  return new ImageResponse(renderSlide(slide, category, slides.length, { coverImage }), {
     width: TOKENS.WIDTH,
     height: TOKENS.HEIGHT,
     fonts: await loadFonts(),
