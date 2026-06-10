@@ -103,14 +103,28 @@ function tryParse(text: string): QuizQuestion[] | null {
   }
 }
 
+// 최근 인사이트를 출제 소스 텍스트로 변환
+export function buildTrendDigest(insights: Array<{ hook?: string | null; summary?: string | null; why_it_matters?: string | null }>): string {
+  return insights
+    .map((i, idx) => {
+      const why = (i.why_it_matters ?? "").slice(0, 300)
+      return `${idx + 1}. ${i.hook ?? ""}\n${i.summary ?? ""}${why ? `\n${why}` : ""}`
+    })
+    .join("\n\n")
+}
+
 // 청크 1개 생성 — Gemini 직접 → 실패 시 폴백 체인
-export async function generateChunk(n: number, level: string, type: string, seed: number): Promise<QuizQuestion[]> {
+// context가 있으면 이번 주 트렌드 인사이트 기반으로 출제 (무기고 직무 정렬)
+export async function generateChunk(n: number, level: string, type: string, seed: number, context?: string): Promise<QuizQuestion[]> {
   const maxTokens = Math.min(n * 280 + 500, 4000)
+  const trendBlock = context
+    ? `\n아래는 최근 발행된 마케팅 트렌드 인사이트야. 문제는 반드시 이 인사이트들의 내용(트렌드, 사례, 개념)을 기반으로 출제해. 일반 교과서 지식 문제 금지.\n\n[이번 주 인사이트]\n${context}\n`
+    : ""
   const prompt = `한국어로 마케팅 문제 ${n}개를 생성해줘.
 난이도: ${LEVEL_MAP[level] ?? level}
 유형: ${TYPE_MAP[type] ?? type}
-주제 다양성 시드: ${seed} (이 번호에 맞춰 서로 다른 마케팅 주제·개념으로 출제해서 중복을 피해줘)
-
+주제 다양성 시드: ${seed} (이 번호에 맞춰 서로 다른 ${context ? "인사이트를 골라" : "마케팅 주제·개념으로"} 출제해서 중복을 피해줘)
+${trendBlock}
 모든 내용은 반드시 한국어로. JSON만 반환해. 다른 텍스트 없이.`
 
   try {
@@ -144,10 +158,10 @@ export function splitChunks(count: number, chunkSize = 5): number[] {
 }
 
 // count개 문제를 청크 병렬로 생성
-export async function generateQuestions(count: number, level: string, type: string, seedBase = 0): Promise<QuizQuestion[]> {
+export async function generateQuestions(count: number, level: string, type: string, seedBase = 0, context?: string): Promise<QuizQuestion[]> {
   const chunks = splitChunks(count)
   const results = await Promise.all(
-    chunks.map((n, idx) => generateChunk(n, level, type, seedBase + idx + 1))
+    chunks.map((n, idx) => generateChunk(n, level, type, seedBase + idx + 1, context))
   )
   return results.flat().slice(0, count)
 }

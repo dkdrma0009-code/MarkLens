@@ -7,6 +7,7 @@ import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
 import InsightCard from "@/components/InsightCard"
 import InsightQuiz from "@/components/InsightQuiz"
+import InterviewSoundbites from "@/components/InterviewSoundbites"
 import ShareButtons from "@/components/ShareButtons"
 import ViewCounter from "@/components/ViewCounter"
 import Image from "next/image"
@@ -181,14 +182,10 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
-      {/* ── 실생활에서 쓰기 ── */}
+      {/* ── 면접 한 마디 ── */}
       {insight.interview_points?.length > 0 && (
-        <Section title="실생활에서 쓰기">
-          <div className="space-y-5">
-            {insight.interview_points.map((item: string, i: number) => (
-              <QABlock key={i} text={item} index={i} color={meta.color} />
-            ))}
-          </div>
+        <Section title="면접에서 이렇게 말해보세요">
+          <InterviewSoundbites items={insight.interview_points} color={meta.color} />
         </Section>
       )}
 
@@ -375,29 +372,6 @@ function InlineText({ text }: { text: string }) {
   )
 }
 
-
-/* Q/A 파서 */
-function QABlock({ text, index, color }: { text: string; index: number; color: string }) {
-  const qMatch = text.match(/Q[:：]\s*['"]?(.+?)['"]?\s*A[:：]\s*([\s\S]+)/i)
-  if (qMatch) {
-    return (
-      <div className="rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100" style={{ backgroundColor: color + "0d" }}>
-          <p className="text-lg font-semibold text-gray-900">{qMatch[1].replace(/['"]$/,"").replace(/^['"]/,"")}</p>
-        </div>
-        <div className="px-6 py-5">
-          <SentenceText text={qMatch[2].trim()} className="text-lg leading-[1.9] text-gray-600" />
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div className="rounded-2xl border border-gray-100 p-6">
-      <span className="text-sm font-bold text-gray-400 block mb-3">상황 {index + 1}</span>
-      <SentenceText text={text} className="text-lg leading-[1.9] text-gray-700" />
-    </div>
-  )
-}
 
 function SentenceText({ text, className }: { text: string; className?: string }) {
   const sentences = splitSentences(text)

@@ -42,7 +42,8 @@ export async function POST(req: Request) {
         url: cleanStr(article.url),
       })
 
-      const slug = `${slugify(article.title)}-${article.id.slice(0, 6)}`
+      // 한국어 hook 기반 슬러그 — 한국어 검색 정렬 (id 접미사로 유니크 보장)
+      const slug = `${slugify(insight.hook) || slugify(article.title)}-${article.id.slice(0, 6)}`
 
       if (!insight.hook) {
         await supabase.from("articles").update({ status: "rejected" }).eq("id", article.id)

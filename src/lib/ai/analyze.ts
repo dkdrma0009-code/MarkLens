@@ -105,8 +105,7 @@ ${article.content.substring(0, 3000)}
   "why_it_matters": "왜 중요한가 (마케터 관점에서, 2-3단락)",
   "practical_applications": "실전 적용법 (구체적인 액션 아이템 포함, 2-3단락)",
   "framework_analysis": "활용된 마케팅 프레임워크 분석",
-  "portfolio_usage": "지금 당장 해볼 수 있는 미니 프로젝트 2가지. '첫째 ..., 둘째 ...' 형식으로 구체적으로. 가짜 수치 금지.",
-  "interview_points": ["첫째, 취준생/주니어 마케터가 지금 당장 할 수 있는 구체적인 시나리오 (2-3문장, 가짜 수치 금지)", "둘째, 또 다른 실생활 시나리오 (자연스러운 한국어)"],
+  "interview_points": ["면접에서 그대로 말할 수 있는 완성형 한 마디 (1~2문장). 이 아티클의 트렌드나 사례를 인용하며 자기 생각으로 마무리. 예시 형식: '최근 ◯◯가 ~하는 걸 보면서 ~라고 느꼈습니다. 저라면 ~하겠습니다.' 가짜 수치 금지, 과제 지시 금지", "두 번째 한 마디 — 첫 번째와 다른 각도(소비자/브랜드/데이터 중 하나)에서"],
   "marketing_terms": [{"term": "아티클에 실제 등장하는 영어 약어/전문 개념어", "definition": "아티클 맥락 + 마케팅 의미 2문장"}]
 }`,
     maxTokens: 4000,
@@ -134,7 +133,8 @@ ${article.content.substring(0, 3000)}
     why_it_matters: String(parsed.why_it_matters ?? ""),
     practical_applications: String(parsed.practical_applications ?? ""),
     framework_analysis: String(parsed.framework_analysis ?? ""),
-    portfolio_usage: String(parsed.portfolio_usage ?? ""),
+    // portfolio_usage는 과제형 출력이라 폐기 — 면접 한 마디(interview_points)로 통합 (DB 컬럼 호환 위해 빈 값 유지)
+    portfolio_usage: "",
     interview_points: Array.isArray(parsed.interview_points) ? parsed.interview_points : [],
     marketing_terms: Array.isArray(parsed.marketing_terms) ? parsed.marketing_terms : [],
   }
@@ -147,7 +147,8 @@ ${article.content.substring(0, 3000)}
   ])
 
   return {
-    slug: slugify(article.title),
+    // 한국어 hook 기반 슬러그 (한국어 검색 정렬), hook 없으면 원문 제목
+    slug: slugify(analysis.hook) || slugify(article.title),
     category: CATEGORY_LABELS[classification.category] ?? classification.category,
     tags: classification.tags ?? [],
     keywords: classification.keywords ?? [],

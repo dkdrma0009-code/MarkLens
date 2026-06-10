@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { generateQuestions, type QuizQuestion } from "@/lib/ai/quiz"
+import { generateQuestions, buildTrendDigest, type QuizQuestion } from "@/lib/ai/quiz"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -48,10 +48,16 @@ export async function POST(req: Request) {
     console.warn("[quiz] random_quiz RPC 실패, AI 폴백:", error.message)
   }
 
-  // 풀이 부족하면 AI로 보충 (기존 질문과도 중복 안 되게 합쳐서 다시 선별)
+  // 풀이 부족하면 AI로 보충 — 최근 인사이트 기반 트렌드 문제로 (기존 질문과 중복 배제)
   if (questions.length < n) {
+    const { data: insights } = await supabase
+      .from("insights")
+      .select("hook, summary, why_it_matters")
+      .order("created_at", { ascending: false })
+      .limit(8)
+    const digest = insights?.length ? buildTrendDigest(insights) : undefined
     const missing = n - questions.length
-    const fresh = await generateQuestions(missing + 2, level, type)
+    const fresh = await generateQuestions(missing + 2, level, type, 0, digest)
     questions = pickDistinct([...questions, ...fresh], n)
   }
 

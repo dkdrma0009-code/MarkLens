@@ -19,7 +19,7 @@ export default function AboutPage() {
         </h1>
         <p className="text-lg text-gray-500 dark:text-gray-400 leading-relaxed">
           MarkLens는 글로벌 마케팅 아티클을 AI로 분석해 실무에 바로 쓸 수 있는 인사이트로 전달합니다.
-          단순한 요약이 아니라, 왜 중요한지 · 어떻게 적용할지 · 포트폴리오에 어떻게 녹여낼지를 함께 고민합니다.
+          단순한 요약이 아니라, 왜 중요한지 · 어떻게 적용할지 · 면접에서 어떻게 말할지를 함께 고민합니다.
         </p>
       </section>
 
@@ -46,8 +46,8 @@ export default function AboutPage() {
         <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">누구를 위한 뉴스레터인가요</h2>
         <div className="space-y-3">
           {[
-            { icon: "📚", title: "마케팅을 공부하는 학생", desc: "글로벌 트렌드를 포트폴리오와 면접 답변에 녹여내고 싶다면" },
-            { icon: "🚀", title: "취업을 준비하는 취준생", desc: "실무 사례를 STAR 방식으로 정리해 말할 수 있게 준비하고 싶다면" },
+            { icon: "📚", title: "마케팅을 공부하는 학생", desc: "글로벌 트렌드를 면접 답변에 녹여내고 싶다면" },
+            { icon: "🚀", title: "취업을 준비하는 취준생", desc: "최신 사례를 인용한 '면접 한 마디'를 준비하고 싶다면" },
             { icon: "💼", title: "마케터로 커리어를 시작한 주니어", desc: "빠르게 변하는 마케팅 환경을 매주 따라가고 싶다면" },
           ].map((item) => (
             <div key={item.title} className="flex gap-4 p-5 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
@@ -89,14 +89,12 @@ export default function AboutPage() {
 
       {/* Newsletter sections */}
       <section>
-        <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">뉴스레터 5가지 섹션</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">뉴스레터 구성</h2>
         <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden">
           {[
-            { num: "01", name: "This Week's Signals", desc: "이번 주 가장 중요한 마케팅 신호 3가지" },
-            { num: "02", name: "Case of the Week", desc: "이번 주 최고의 마케팅 사례와 숨겨진 전략" },
-            { num: "03", name: "AI Marketing Brief", desc: "마케터가 주목해야 할 AI 관련 변화와 기회" },
-            { num: "04", name: "Portfolio Insight ✦", desc: "이 사례를 포트폴리오에 담는 STAR 방식 예시" },
-            { num: "05", name: "Career Lens ✦", desc: "현직자 관점의 역량 · 자격증 · 추천 툴" },
+            { num: "01", name: "This Week's Signal", desc: "이번 주 마케팅판의 가장 큰 변화 하나를 깊게" },
+            { num: "02", name: "Case of the Week", desc: "이번 주 가장 눈에 띈 캠페인 사례 분석" },
+            { num: "03", name: "Action of the Week", desc: "오늘 30분 안에 해볼 수 있는 실전 액션" },
           ].map((item) => (
             <div key={item.num} className="flex gap-4 px-5 py-4 bg-white dark:bg-gray-900">
               <span className="text-xs font-mono text-gray-400 dark:text-gray-600 w-6 flex-shrink-0 pt-0.5">{item.num}</span>
