@@ -2,14 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Newspaper, Megaphone, BookOpen, Info } from "lucide-react"
+import { Home, Newspaper, Megaphone, BookOpen, Mic } from "lucide-react"
 
 const NAV_ITEMS = [
-  { href: "/",         label: "홈",      icon: Home },
-  { href: "/insights", label: "인사이트", icon: Newspaper },
-  { href: "/library",  label: "캠페인",  icon: Megaphone },
-  { href: "/learn",    label: "학습",    icon: BookOpen },
-  { href: "/about",    label: "소개",    icon: Info },
+  { href: "/",          label: "홈",      icon: Home },
+  { href: "/insights",  label: "인사이트", icon: Newspaper },
+  { href: "/library",   label: "캠페인",  icon: Megaphone },
+  { href: "/learn",     label: "학습",    icon: BookOpen },
+  { href: "/interview", label: "면접",    icon: Mic },
 ]
 
 export default function MobileBottomNav() {
