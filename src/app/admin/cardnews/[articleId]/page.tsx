@@ -17,7 +17,7 @@ export default async function CardnewsPage({ params }: Props) {
   const [{ data: article }, { data: insight }, { data: card }] = await Promise.all([
     supabase.from("articles").select("title, source_name").eq("id", articleId).single(),
     supabase.from("insights").select("hook, category").eq("article_id", articleId).single(),
-    supabase.from("cardnews").select("slides, category").eq("article_id", articleId).maybeSingle(),
+    supabase.from("cardnews").select("*").eq("article_id", articleId).maybeSingle(),
   ])
 
   if (!article || !insight) notFound()
@@ -38,6 +38,7 @@ export default async function CardnewsPage({ params }: Props) {
         articleId={articleId}
         initialSlides={(card?.slides as Slide[]) ?? null}
         initialCategory={card?.category ?? insight.category ?? "마케팅"}
+        initialCaption={(card as { caption?: string } | null)?.caption ?? null}
       />
     </div>
   )

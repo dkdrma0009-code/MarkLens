@@ -9,14 +9,19 @@ import type { Slide, CoverSlide, KeywordsSlide } from "@/lib/cardnews/types"
 
 const SLIDE_NAMES = ["표지", "무슨 일?", "왜 중요한가", "당장 해볼 것", "키워드", "CTA"]
 
+// AI 캡션이 없을 때의 폴백 (레퍼런스 구조 유지)
 function defaultCaption(slides: Slide[] | null, category: string): string {
   const cover = slides?.[0]?.type === "cover" ? (slides[0] as CoverSlide) : null
   const headline = cover ? cover.headline.join(" ") : "이번 주 마케팅 인사이트"
   const tag = category.replace(/\s+/g, "")
-  return `${headline}
+  return `💬 ${headline}
 
-저장해두고 출퇴근길에 다시 보세요 👀
-"면접에서 이렇게 말해보세요" 풀버전은 프로필 링크에서
+이번 주 마케팅판에서 가장 눈에 띈 변화를 6장으로 정리했어요.
+우리 브랜드라면 어떻게 적용해볼 수 있을까요?
+
+"면접에서 이렇게 말해보세요" 풀버전은 프로필 링크에서 🔍
+
+트렌드를 실전으로 바꾸는 마크렌즈 | @marklens 🔍
 
 #마케팅 #${tag} #마케팅트렌드 #마케팅공부 #취준 #마케터 #MarkLens`
 }
@@ -25,9 +30,10 @@ interface Props {
   articleId: string
   initialSlides: Slide[] | null
   initialCategory: string
+  initialCaption?: string | null
 }
 
-export default function CardnewsStudio({ articleId, initialSlides, initialCategory }: Props) {
+export default function CardnewsStudio({ articleId, initialSlides, initialCategory, initialCaption }: Props) {
   const [slides, setSlides] = useState<Slide[] | null>(initialSlides)
   const [category, setCategory] = useState(initialCategory)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -37,7 +43,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
   const [version, setVersion] = useState(0) // 이미지 캐시버스트
   const [copied, setCopied] = useState(false)
   const [previewIdx, setPreviewIdx] = useState(0) // 인스타 캐러셀 위치
-  const [caption, setCaption] = useState(() => defaultCaption(initialSlides, initialCategory))
+  const [caption, setCaption] = useState(() => initialCaption || defaultCaption(initialSlides, initialCategory))
 
   async function generateAll() {
     setGenerating(true)
@@ -54,7 +60,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
       setWarnings(data.warnings ?? [])
       setVersion(v => v + 1)
       setPreviewIdx(0)
-      setCaption(defaultCaption(data.slides, data.category ?? category))
+      setCaption(data.caption || defaultCaption(data.slides, data.category ?? category))
     } catch (e) {
       alert(e instanceof Error ? e.message : "생성 실패")
     } finally {
@@ -88,7 +94,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
       const res = await fetch("/api/admin/cardnews/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId, slides: next, category }),
+        body: JSON.stringify({ articleId, slides: next, category, caption }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -228,10 +234,11 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
             <textarea
               value={caption}
               onChange={e => setCaption(e.target.value)}
-              rows={12}
+              onBlur={() => slides && save(slides)}
+              rows={14}
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm leading-relaxed focus:outline-none focus:border-foreground/40 transition-colors resize-y"
             />
-            <p className="text-xs text-muted-foreground mt-1.5">수정하면 왼쪽 미리보기에 바로 반영돼요. 업로드 시 그대로 붙여넣으세요.</p>
+            <p className="text-xs text-muted-foreground mt-1.5">수정하면 왼쪽 미리보기에 바로 반영되고 자동 저장돼요. 업로드 시 그대로 붙여넣으세요.</p>
           </div>
         </div>
       )}

@@ -164,6 +164,37 @@ JSON으로만 출력: {"candidates": [{ "type": "${type}", ... }, { "type": "${t
   return best
 }
 
+// 인스타 캡션 생성 — 바크 매거진 레퍼런스 구조 (후킹 제목 → 구어체 본문+질문 → 링크 유도 → 시그니처 → 태그)
+const CAPTION_SYSTEM = `너는 마케팅 미디어 'MarkLens'의 인스타그램 에디터다. 카드뉴스 게시물의 캡션을 작성한다.
+
+반드시 아래 구조를 따른다 (줄바꿈 포함):
+1) 이모지 1개 + 핵심 한 줄 제목 — 카드뉴스 헤드라인을 재해석 (복붙 금지)
+2) (빈 줄)
+3) 본문 3~4문장 — 인사이트 핵심을 친근한 해요체로 풀어쓰기. 마지막 문장은 독자가 자기 일에 대입해보게 하는 가벼운 질문으로 마무리
+4) (빈 줄)
+5) "면접에서 이렇게 말해보세요" 풀버전은 프로필 링크에서 🔍 — 아티클에 맞게 자연스럽게 변형 가능
+6) (빈 줄)
+7) 트렌드를 실전으로 바꾸는 마크렌즈 | @marklens 🔍
+8) (빈 줄)
+9) 해시태그 6~7개: #마케팅 #(카테고리) #마케팅트렌드 #마케팅공부 #취준 #마케터 #MarkLens
+
+톤: 부드러운 해요체("~해요", "~거든요"). 과장 표현 금지. 이모지는 제목 1개 + 본문에 최대 1개.
+출력: {"caption": "전체 캡션 텍스트"} JSON만.`
+
+async function generateCaption(a: ArticleInput, slides: Slide[]): Promise<string | null> {
+  const cover = slides[0]?.type === "cover" ? (slides[0] as { headline: string[] }) : null
+  const result = await geminiJson<{ caption: string }>(
+    CAPTION_SYSTEM,
+    `${buildArticleBlock(a)}
+
+카드뉴스 표지 헤드라인: ${cover ? cover.headline.join(" ") : a.hook}
+
+이 카드뉴스의 인스타그램 캡션을 작성하라. JSON만 반환.`,
+    1000
+  )
+  return result?.caption?.trim() || null
+}
+
 // 위반 슬라이드만 골라 최대 2라운드 압축 보정
 async function repairLoop(a: ArticleInput, slides: Slide[]): Promise<Slide[]> {
   for (let round = 0; round < 2; round++) {
@@ -243,8 +274,12 @@ export async function POST(req: Request) {
   const { data } = await generateAll(input)
   if (!data?.slides) return NextResponse.json({ error: "카피 생성 실패" }, { status: 500 })
 
-  // 글자수 위반 슬라이드만 압축 재작성 (최대 2라운드)
-  data.slides = await repairLoop(input, data.slides)
+  // 글자수 위반 슬라이드 압축 재작성과 캡션 생성을 병렬로
+  const [repairedSlides, caption] = await Promise.all([
+    repairLoop(input, data.slides),
+    generateCaption(input, data.slides),
+  ])
+  data.slides = repairedSlides
   const warnings = validateCardnews(data)
 
   const category = data.category || input.category
@@ -256,5 +291,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `저장 실패: ${error.message}` }, { status: 500 })
   }
 
-  return NextResponse.json({ slides: data.slides, category, warnings })
+  // 캡션은 별도 저장 — caption 컬럼이 아직 없어도 본체 저장은 유지
+  if (caption) {
+    const { error: capErr } = await supabase.from("cardnews").update({ caption }).eq("article_id", articleId)
+    if (capErr) warnings.push(`캡션 저장 실패 (cardnews.caption 컬럼 확인): ${capErr.message}`)
+  }
+
+  return NextResponse.json({ slides: data.slides, category, caption, warnings })
 }
