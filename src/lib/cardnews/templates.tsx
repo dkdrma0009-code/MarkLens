@@ -118,7 +118,7 @@ function factSlide(s: FactSlide, total: number) {
   return frame([
     sectionLabel("무슨 일?"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.55, letterSpacing: "-0.01em" }}>
+      <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.55, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>
         {s.body}
       </div>
       {s.source ? (
@@ -133,10 +133,10 @@ function whySlide(s: WhySlide, total: number) {
   return frame([
     sectionLabel("왜 중요한가"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
+      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
         {s.headline}
       </div>
-      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44 }}>
+      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44, wordBreak: "keep-all" }}>
         {s.body}
       </div>
     </div>,
@@ -148,7 +148,7 @@ function applySlide(s: ApplySlide, total: number) {
   return frame([
     sectionLabel("당장 해볼 수 있는 것"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.6, letterSpacing: "-0.01em" }}>
+      <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.6, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>
         {s.body}
       </div>
       <div style={{ display: "flex", fontSize: 32, color: T.SUB, marginTop: 64 }}>
@@ -182,10 +182,10 @@ function ctaSlide(s: CtaSlide, total: number) {
   return frame([
     <div key="spacer" style={{ display: "flex", height: 32 }} />,
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
+      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
         {s.headline}
       </div>
-      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44 }}>
+      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44, wordBreak: "keep-all" }}>
         {s.body}
       </div>
       <div style={{ display: "flex", fontSize: 32, color: T.SUB, marginTop: 72 }}>
