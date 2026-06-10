@@ -1,11 +1,7 @@
-// 대표 이미지를 data URI로 변환 — Satori가 원격 fetch에 실패해 렌더가 깨지는 것 방지
-// ImageResponse(Satori)는 PNG/JPEG만 안정적으로 디코딩한다. WebP/AVIF/SVG/GIF를 넘기면
-// 렌더가 통째로 500으로 터지므로, 매직바이트로 PNG·JPEG만 임베드하고 나머지는 null → 타이포 표지 폴백.
-// (content-type 헤더는 CDN이 잘못 줄 수 있어 실제 바이트로 판별)
-export async function fetchImageDataUri(url: string | null | undefined): Promise<string | null> {
-  if (!url) return null
+// 한 URL을 받아 PNG/JPEG일 때만 data URI로 변환 (매직바이트 판별 — CDN의 잘못된 content-type 무시)
+async function tryFetch(u: string): Promise<string | null> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    const res = await fetch(u, { signal: AbortSignal.timeout(6000) })
     if (!res.ok) return null
     const buf = Buffer.from(await res.arrayBuffer())
     if (buf.length > 8 * 1024 * 1024) return null
@@ -16,4 +12,17 @@ export async function fetchImageDataUri(url: string | null | undefined): Promise
   } catch {
     return null
   }
+}
+
+// 대표 이미지를 data URI로 변환해 표지 배경으로 사용.
+// ImageResponse(Satori)는 PNG/JPEG만 디코딩 가능한데 매체 CDN은 webp/avif로 주는 경우가 많다.
+//  1) 원본 직접 시도 — 이미 PNG/JPEG면 그대로 사용 (외부 의존 없음, 빠름)
+//  2) webp/avif 등이면 이미지 프록시(weserv)로 jpeg 변환해 재시도
+//  3) 둘 다 실패하면 null → 타이포 표지로 폴백
+export async function fetchImageDataUri(url: string | null | undefined): Promise<string | null> {
+  if (!url) return null
+  const direct = await tryFetch(url)
+  if (direct) return direct
+  const proxied = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&output=jpg&w=1080&q=85`
+  return tryFetch(proxied)
 }
