@@ -1,10 +1,25 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, RefreshCw, Download, Sparkles, Copy, Check } from "lucide-react"
+import {
+  Loader2, RefreshCw, Download, Sparkles, Copy, Check,
+  ChevronLeft, ChevronRight, Heart, MessageCircle, Send, Bookmark,
+} from "lucide-react"
 import type { Slide, CoverSlide, KeywordsSlide } from "@/lib/cardnews/types"
 
 const SLIDE_NAMES = ["표지", "무슨 일?", "왜 중요한가", "당장 해볼 것", "키워드", "CTA"]
+
+function defaultCaption(slides: Slide[] | null, category: string): string {
+  const cover = slides?.[0]?.type === "cover" ? (slides[0] as CoverSlide) : null
+  const headline = cover ? cover.headline.join(" ") : "이번 주 마케팅 인사이트"
+  const tag = category.replace(/\s+/g, "")
+  return `${headline}
+
+저장해두고 출퇴근길에 다시 보세요 👀
+"면접에서 이렇게 말해보세요" 풀버전은 프로필 링크에서
+
+#마케팅 #${tag} #마케팅트렌드 #마케팅공부 #취준 #마케터 #MarkLens`
+}
 
 interface Props {
   articleId: string
@@ -21,6 +36,8 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
   const [saving, setSaving] = useState(false)
   const [version, setVersion] = useState(0) // 이미지 캐시버스트
   const [copied, setCopied] = useState(false)
+  const [previewIdx, setPreviewIdx] = useState(0) // 인스타 캐러셀 위치
+  const [caption, setCaption] = useState(() => defaultCaption(initialSlides, initialCategory))
 
   async function generateAll() {
     setGenerating(true)
@@ -36,6 +53,8 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
       setCategory(data.category ?? category)
       setWarnings(data.warnings ?? [])
       setVersion(v => v + 1)
+      setPreviewIdx(0)
+      setCaption(defaultCaption(data.slides, data.category ?? category))
     } catch (e) {
       alert(e instanceof Error ? e.message : "생성 실패")
     } finally {
@@ -89,14 +108,14 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
   }
 
   async function copyCaption() {
-    const tag = category.replace(/\s+/g, "")
-    const caption = `이 얘기, 면접에서 어떻게 말할까?\n\n"면접에서 이렇게 말해보세요" 풀버전은 프로필 링크에서 👀\n\n#마케팅 #${tag} #마케팅트렌드 #마케팅공부 #취준 #마케터 #MarkLens`
     try {
       await navigator.clipboard.writeText(caption)
       setCopied(true)
       setTimeout(() => setCopied(false), 1600)
     } catch {}
   }
+
+  const imgUrl = (i: number) => `/api/admin/cardnews/render?articleId=${articleId}&slide=${i + 1}&v=${version}`
 
   return (
     <div>
@@ -119,13 +138,6 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
             >
               <Download className="w-4 h-4" /> 전체 다운로드 (ZIP)
             </a>
-            <button
-              onClick={copyCaption}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted/50 transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              권장 캡션 복사
-            </button>
             {saving && <span className="text-xs text-muted-foreground">저장 중...</span>}
           </>
         )}
@@ -153,6 +165,77 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
         </div>
       )}
 
+      {/* 인스타그램 피드 미리보기 + 캡션 */}
+      {slides && (
+        <div className="mb-8 grid lg:grid-cols-[minmax(0,400px)_1fr] gap-6 items-start">
+          {/* 피드 목업 */}
+          <div className="border border-border rounded-2xl overflow-hidden bg-background">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+              <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black text-[11px] font-black flex items-center justify-center">M</div>
+              <div>
+                <p className="text-xs font-semibold leading-tight">marklens</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{category}</p>
+              </div>
+            </div>
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imgUrl(previewIdx)} alt={`preview ${previewIdx + 1}`} className="w-full aspect-[4/5] object-cover bg-black" />
+              <span className="absolute top-2.5 right-2.5 bg-black/70 text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
+                {previewIdx + 1}/{slides.length}
+              </span>
+              {previewIdx > 0 && (
+                <button onClick={() => setPreviewIdx(previewIdx - 1)} aria-label="이전 장"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center shadow">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              )}
+              {previewIdx < slides.length - 1 && (
+                <button onClick={() => setPreviewIdx(previewIdx + 1)} aria-label="다음 장"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center shadow">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="px-3.5 py-2.5">
+              <div className="relative flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3 text-foreground">
+                  <Heart className="w-5 h-5" /><MessageCircle className="w-5 h-5" /><Send className="w-5 h-5" />
+                </div>
+                <div className="flex justify-center gap-1 absolute left-1/2 -translate-x-1/2">
+                  {slides.map((_, i) => (
+                    <button key={i} onClick={() => setPreviewIdx(i)} aria-label={`${i + 1}장으로`}
+                      className={`w-1.5 h-1.5 rounded-full ${i === previewIdx ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"}`} />
+                  ))}
+                </div>
+                <Bookmark className="w-5 h-5" />
+              </div>
+              <p className="text-xs leading-relaxed whitespace-pre-wrap line-clamp-4">
+                <span className="font-semibold">marklens</span> {caption}
+              </p>
+            </div>
+          </div>
+
+          {/* 캡션 편집 */}
+          <div className="border border-border rounded-2xl p-4 bg-background">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold">캡션</p>
+              <button onClick={copyCaption}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border font-medium hover:bg-muted/50 transition-colors">
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                복사
+              </button>
+            </div>
+            <textarea
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              rows={12}
+              className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm leading-relaxed focus:outline-none focus:border-foreground/40 transition-colors resize-y"
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">수정하면 왼쪽 미리보기에 바로 반영돼요. 업로드 시 그대로 붙여넣으세요.</p>
+          </div>
+        </div>
+      )}
+
       {/* 6장 그리드 */}
       {slides && (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -160,7 +243,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
             <div key={i} className="border border-border rounded-xl overflow-hidden bg-background">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/api/admin/cardnews/render?articleId=${articleId}&slide=${i + 1}&v=${version}`}
+                src={imgUrl(i)}
                 alt={`slide ${i + 1}`}
                 className="w-full aspect-[4/5] object-cover bg-black"
               />

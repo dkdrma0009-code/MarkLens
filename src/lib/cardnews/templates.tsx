@@ -98,23 +98,25 @@ function highlightLine(line: string, highlight: string | undefined, key: number)
 /* ── 슬라이드 6종 (스펙 4) ── */
 
 function coverSlide(s: CoverSlide, category: string, total: number, coverImage?: string | null) {
-  // 포토 표지: 대표 이미지 풀블리드 + 다크 그라데이션, 헤드라인 하단 배치
-  // img+objectFit은 Satori가 비율을 무시하므로 backgroundSize: cover 사용 (중앙 크롭)
+  // 포토 표지: 상단 16:9 이미지 밴드 + 하단 블랙 타이포 존
+  // OG 이미지는 대부분 가로형(16:9)이라 풀블리드 크롭 시 주제가 잘림 → 밴드로 온전히 노출
   if (coverImage) {
+    const BAND = 640 // 이미지 밴드 높이 (1080×640 ≈ 16:9에 근접, 크롭 최소)
     return frame([
-      <div key="bg" style={{
-        position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, display: "flex",
+      <div key="img" style={{
+        position: "absolute", top: 0, left: 0, width: T.WIDTH, height: BAND, display: "flex",
         backgroundImage: `url(${coverImage})`, backgroundSize: "cover", backgroundPosition: "center",
       }} />,
-      <div key="overlay" style={{
-        position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, display: "flex",
-        background: "linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.45) 30%, rgba(10,10,10,0.62) 55%, rgba(10,10,10,0.95) 100%)",
+      // 밴드 하단을 배경색으로 자연스럽게 블렌딩
+      <div key="fade" style={{
+        position: "absolute", top: BAND - 300, left: 0, width: T.WIDTH, height: 300, display: "flex",
+        background: "linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,0.55) 55%, rgba(10,10,10,1) 100%)",
       }} />,
-      <div key="cat" style={{ display: "flex", width: "100%", fontSize: 30, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em" }}>
-        {category}
-      </div>,
       <div key="spacer" style={{ display: "flex", flexGrow: 1 }} />,
       <div key="text" style={{ display: "flex", flexDirection: "column", width: "100%", marginBottom: 56 }}>
+        <div style={{ display: "flex", width: "100%", fontSize: 30, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em", marginBottom: 28 }}>
+          {category}
+        </div>
         <div style={{ display: "flex", flexDirection: "column", fontSize: 92, fontWeight: 700, lineHeight: 1.18, letterSpacing: "-0.02em" }}>
           {s.headline.map((line, i) => highlightLine(line, s.highlight, i))}
         </div>
