@@ -14,7 +14,8 @@ function tryParse<T>(text: string): T | null {
 
 // Gemini JSON 모드 직접 호출 (빠름/안정) → 실패 시 Claude→OpenAI→Gemini 폴백 체인
 export async function geminiJson<T>(system: string, prompt: string, maxTokens = 2000): Promise<T | null> {
-  for (const model of ["gemini-2.5-flash-lite", "gemini-2.5-flash"]) {
+  // 키가 없으면 Gemini 직접 호출은 건너뛰고 폴백 체인으로 — 불필요한 실패 fetch 2회 방지
+  for (const model of GEMINI_KEY ? ["gemini-2.5-flash-lite", "gemini-2.5-flash"] : []) {
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,

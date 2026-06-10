@@ -12,7 +12,7 @@ async function makeConfirmToken(email: string): Promise<string> {
 }
 
 async function sendConfirmEmail(email: string, confirmUrl: string) {
-  await fetch("https://api.brevo.com/v3/smtp/email", {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
       "api-key": process.env.BREVO_API_KEY!,
@@ -44,6 +44,7 @@ async function sendConfirmEmail(email: string, confirmUrl: string) {
 </html>`,
     }),
   })
+  if (!res.ok) throw new Error(`Brevo error: ${await res.text()}`)
 }
 
 export async function POST(req: Request) {

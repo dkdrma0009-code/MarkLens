@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// 환경변수로 분리 — 미설정 시 기존 프로덕션 ID로 폴백
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-9NCMJC4V6L";
+
 export const metadata: Metadata = {
   verification: {
     google: "io4NM_VvWISWgqikgbn_VSqP24ZW9Kwz367iUoDotCQ",
@@ -48,12 +51,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-9NCMJC4V6L" strategy="afterInteractive" />
+        <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
         <Script id="ga4" strategy="afterInteractive">{`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', 'G-9NCMJC4V6L');
+          gtag('config', '${GA_ID}');
         `}</Script>
         <ThemeProvider>
           {children}

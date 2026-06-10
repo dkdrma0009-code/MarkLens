@@ -152,23 +152,28 @@ export default function InterviewSession() {
     }
   }
 
+  async function generateReport() {
+    setStage("grading")
+    try {
+      const res = await fetch("/api/interview/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, qa }),
+      })
+      const data = await res.json()
+      if (!data.summary) throw new Error()
+      setReport(data)
+      setStage("report")
+    } catch {
+      // 실패 시 report 화면에서 재시도 UI 노출 (report=null)
+      setReport(null)
+      setStage("report")
+    }
+  }
+
   async function next() {
     if (current + 1 >= questions.length) {
-      setStage("grading")
-      try {
-        const res = await fetch("/api/interview/report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role, qa }),
-        })
-        const data = await res.json()
-        if (!data.summary) throw new Error()
-        setReport(data)
-        setStage("report")
-      } catch {
-        alert("리포트 생성에 실패했어요.")
-        setStage("report")
-      }
+      await generateReport()
     } else {
       setCurrent(current + 1)
       setAnswer("")
@@ -362,6 +367,16 @@ export default function InterviewSession() {
   // ── 종합 리포트 ──
   if (stage === "report") return (
     <div>
+      {!report && (
+        <div className="text-center py-12 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6">
+          <p className="text-base font-bold text-gray-700 dark:text-gray-300 mb-2">리포트 생성에 실패했어요</p>
+          <p className="text-sm text-gray-500 mb-5">잠시 후 다시 시도해주세요.</p>
+          <button onClick={generateReport}
+            className="px-6 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
+            <RotateCcw className="w-4 h-4" /> 리포트 다시 생성
+          </button>
+        </div>
+      )}
       {report && (
         <>
           <div className="text-center py-10 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6">

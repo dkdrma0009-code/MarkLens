@@ -21,6 +21,9 @@ export default function NewsletterPage() {
       const data = await res.json()
       if (data.alreadySubscribed) {
         toast.info("이미 구독 중이에요!")
+      } else if (data.emailFailed) {
+        // 구독은 저장됐지만 확인 메일 발송 실패 — 재시도 안내 (subscribed 유지 안 함)
+        toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
       } else {
         setSubscribed(true)
         toast.success("확인 이메일을 보냈습니다!")
