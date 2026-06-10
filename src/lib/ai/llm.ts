@@ -41,16 +41,12 @@ async function callGeminiModel(model: string, prompt: string, system: string, ma
 }
 
 async function callGemini(prompt: string, system: string, maxTokens = 4000): Promise<string> {
-  // 2.5-flash 먼저, 503 과부하 시 2.0-flash로 폴백
+  // 2.5-flash-lite 먼저 (thinking 없음 → 빠름/안정), 실패 시 2.5-flash 폴백
   try {
-    return await callGeminiModel("gemini-2.5-flash", prompt, system, maxTokens)
+    return await callGeminiModel("gemini-2.5-flash-lite", prompt, system, maxTokens)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : ""
-    if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("overloaded")) {
-      console.log("[AI] Gemini 2.5-flash 과부하 → 1.5-flash 재시도")
-      return await callGeminiModel("gemini-1.5-flash", prompt, system, maxTokens)
-    }
-    throw err
+    console.log("[AI] Gemini 2.5-flash-lite 실패 → 2.5-flash 재시도")
+    return await callGeminiModel("gemini-2.5-flash", prompt, system, maxTokens)
   }
 }
 

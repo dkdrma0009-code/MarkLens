@@ -18,8 +18,9 @@ const TYPE_MAP: Record<string, string> = {
 }
 
 // Gemini 직접 호출 — JSON 모드로 파싱 에러 차단
+// 2.5-flash-lite: thinking 없음 → 빠르고 토큰 낭비 없음, 과부하 적음
 async function callGemini(system: string, prompt: string, maxTokens: number): Promise<string> {
-  for (const model of ["gemini-2.5-flash", "gemini-1.5-flash"]) {
+  for (const model of ["gemini-2.5-flash-lite", "gemini-2.5-flash"]) {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
       {
