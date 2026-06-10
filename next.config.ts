@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
     "/api/admin/cardnews/render": ["./assets/fonts/*"],
     "/api/admin/cardnews/download": ["./assets/fonts/*"],
   },
+  // 인스타 바이오 단축링크 — marklens.site/ig → 홈(UTM 추적)
+  async redirects() {
+    return [
+      {
+        source: "/ig",
+        destination: "/?utm_source=instagram&utm_medium=bio&utm_campaign=profile",
+        permanent: false,
+      },
+    ]
+  },
 };
 
 export default nextConfig;
