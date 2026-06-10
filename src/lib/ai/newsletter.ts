@@ -86,9 +86,10 @@ ${insightsSummary}
   try {
     return JSON.parse(sanitized) as NewsletterOutput
   } catch {
-    // 필드별 regex 추출 (따옴표가 포함된 값에도 동작)
+    // 필드별 regex 추출 — 이스케이프된 문자 포함 처리
     function extractField(key: string): string {
-      const pattern = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*[,}])`)
+      // (?:[^"\\]|\\.)*  → 따옴표/백슬래시 외 문자 or 이스케이프 시퀀스
+      const pattern = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`)
       const m = sanitized.match(pattern)
       if (!m) return ""
       return m[1].replace(/\\n/g, " ").replace(/\\"/g, '"').trim()

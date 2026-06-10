@@ -6,20 +6,25 @@ export const maxDuration = 60
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
 
 async function callGemini(system: string, prompt: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: system }] },
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 2000 },
-      }),
-    }
-  )
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+  for (const model of ["gemini-2.5-flash", "gemini-2.0-flash"]) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: system }] },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 2000 },
+        }),
+      }
+    )
+    const data = await res.json()
+    if (!res.ok) continue
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (text) return text
+  }
+  throw new Error("Gemini unavailable")
 }
 
 export async function POST(req: Request) {
