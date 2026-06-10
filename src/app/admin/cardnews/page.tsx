@@ -74,7 +74,7 @@ export default async function CardnewsListPage() {
                           src={`/api/admin/cardnews/render?articleId=${r.article_id}&slide=1&v=${encodeURIComponent(cardAt)}`}
                           alt="표지 미리보기"
                           loading="lazy"
-                          className="w-10 h-[50px] object-cover rounded border border-border bg-black"
+                          className="w-20 h-[100px] object-cover rounded-md border border-border bg-black"
                         />
                       ) : r.article?.image_url ? (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">포토 표지</span>
