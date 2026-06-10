@@ -5,6 +5,7 @@ export interface CoverSlide {
   headline: string[]      // 2~3줄, 줄당 최대 12자
   highlight?: string      // 헤드라인에 실제 포함된 단어 1개
   sub?: string            // 최대 18자
+  usePhoto?: boolean      // 표지 사진 배경 옵트인 (기본 타이포 — 매체 사진 저작권 고려)
 }
 
 export interface FactSlide {

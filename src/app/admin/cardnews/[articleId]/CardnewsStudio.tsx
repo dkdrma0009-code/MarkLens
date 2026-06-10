@@ -113,6 +113,14 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
     setSlides(next)
   }
 
+  // 토글류 — 변경 즉시 저장 + 리렌더 (blur 이벤트 없음)
+  function commit(i: number, patch: Partial<Slide>) {
+    if (!slides) return
+    const next = slides.map((s, j) => (j === i ? ({ ...s, ...patch } as Slide) : s))
+    setSlides(next)
+    save(next)
+  }
+
   async function copyCaption() {
     try {
       await navigator.clipboard.writeText(caption)
@@ -266,7 +274,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
                     이 장만 재생성
                   </button>
                 </div>
-                <SlideEditor slide={s} onChange={patch => update(i, patch)} onBlur={() => save(slides)} />
+                <SlideEditor slide={s} onChange={patch => update(i, patch)} onBlur={() => save(slides)} onCommit={patch => commit(i, patch)} />
               </div>
             </div>
           ))}
@@ -277,10 +285,11 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
 }
 
 /* 슬라이드 타입별 인라인 에디터 */
-function SlideEditor({ slide, onChange, onBlur }: {
+function SlideEditor({ slide, onChange, onBlur, onCommit }: {
   slide: Slide
   onChange: (patch: Partial<Slide>) => void
   onBlur: () => void
+  onCommit: (patch: Partial<Slide>) => void
 }) {
   const cls = "w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-sm focus:outline-none focus:border-foreground/40 transition-colors"
 
@@ -298,6 +307,15 @@ function SlideEditor({ slide, onChange, onBlur }: {
             onChange={e => onChange({ highlight: e.target.value } as Partial<Slide>)} onBlur={onBlur} />
           <input value={s.sub ?? ""} placeholder="서브 (≤18자)" className={cls}
             onChange={e => onChange({ sub: e.target.value } as Partial<Slide>)} onBlur={onBlur} />
+          <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!s.usePhoto}
+              onChange={e => onCommit({ usePhoto: e.target.checked } as Partial<Slide>)}
+              className="w-3.5 h-3.5 accent-indigo-600"
+            />
+            사진 표지 사용 (매체 이미지 — 저작권 확인 후)
+          </label>
         </div>
       )
     }
