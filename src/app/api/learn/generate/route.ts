@@ -76,7 +76,8 @@ function tryParse(text: string): { questions: any[] } | null {
   }
 }
 
-const SYSTEM = `너는 마케팅 전문 교육자야. 반드시 아래 JSON 형식으로만 응답해. 마크다운이나 설명 없이 순수 JSON만.
+const SYSTEM = `너는 한국의 마케팅 전문 교육자야. 모든 문제·보기·정답·해설을 반드시 한국어로만 작성해. 영어로 쓰지 마. (전문 용어는 한국어 표기 후 괄호 안에 영어 병기 허용)
+반드시 아래 JSON 형식으로만 응답해. 마크다운이나 설명 없이 순수 JSON만.
 
 {
   "questions": [
@@ -101,12 +102,12 @@ const SYSTEM = `너는 마케팅 전문 교육자야. 반드시 아래 JSON 형�
 // 청크 1개 생성 — Gemini 직접 호출 후 실패 시 폴백 체인
 async function generateChunk(n: number, level: string, type: string, seed: number): Promise<any[]> {
   const maxTokens = Math.min(n * 280 + 500, 4000)
-  const prompt = `마케팅 문제 ${n}개를 생성해줘.
+  const prompt = `한국어로 마케팅 문제 ${n}개를 생성해줘.
 난이도: ${LEVEL_MAP[level] ?? level}
 유형: ${TYPE_MAP[type] ?? type}
 주제 다양성 시드: ${seed} (이 번호에 맞춰 서로 다른 마케팅 주제·개념으로 출제해서 중복을 피해줘)
 
-JSON만 반환해. 다른 텍스트 없이.`
+모든 내용은 반드시 한국어로. JSON만 반환해. 다른 텍스트 없이.`
 
   try {
     const text = await callGemini(SYSTEM, prompt, maxTokens)
