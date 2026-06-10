@@ -25,8 +25,8 @@ export default async function CardnewsPage({ params }: Props) {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <Link href="/admin/insights" className="text-xs text-muted-foreground hover:underline">
-          ← 인사이트 관리
+        <Link href="/admin/cardnews" className="text-xs text-muted-foreground hover:underline">
+          ← 카드뉴스 관리
         </Link>
         <h1 className="text-xl font-semibold tracking-tight mt-2">카드뉴스 생성</h1>
         <p className="text-sm text-muted-foreground mt-1 line-clamp-1">

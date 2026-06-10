@@ -99,11 +99,13 @@ function highlightLine(line: string, highlight: string | undefined, key: number)
 
 function coverSlide(s: CoverSlide, category: string, total: number, coverImage?: string | null) {
   // 포토 표지: 대표 이미지 풀블리드 + 다크 그라데이션, 헤드라인 하단 배치
+  // img+objectFit은 Satori가 비율을 무시하므로 backgroundSize: cover 사용 (중앙 크롭)
   if (coverImage) {
     return frame([
-      // eslint-disable-next-line @next/next/no-img-element
-      <img key="bg" src={coverImage} alt="" width={T.WIDTH} height={T.HEIGHT}
-        style={{ position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, objectFit: "cover" }} />,
+      <div key="bg" style={{
+        position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, display: "flex",
+        backgroundImage: `url(${coverImage})`, backgroundSize: "cover", backgroundPosition: "center",
+      }} />,
       <div key="overlay" style={{
         position: "absolute", top: 0, left: 0, width: T.WIDTH, height: T.HEIGHT, display: "flex",
         background: "linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.45) 30%, rgba(10,10,10,0.62) 55%, rgba(10,10,10,0.95) 100%)",

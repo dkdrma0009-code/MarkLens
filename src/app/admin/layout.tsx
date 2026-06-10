@@ -4,13 +4,14 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, FileText, Lightbulb, Mail,
-  BarChart2, Rss, Users, MessageSquare
+  BarChart2, Rss, Users, MessageSquare, Image as ImageIcon
 } from "lucide-react"
 
 const navItems = [
   { href: "/admin",              label: "대시보드", icon: LayoutDashboard },
   { href: "/admin/articles",     label: "아티클",   icon: FileText },
   { href: "/admin/insights",     label: "인사이트", icon: Lightbulb },
+  { href: "/admin/cardnews",     label: "카드뉴스", icon: ImageIcon },
   { href: "/admin/newsletter",   label: "뉴스레터", icon: Mail },
   { href: "/admin/subscribers",  label: "구독자",   icon: Users },
   { href: "/admin/sources",      label: "RSS",      icon: Rss },
