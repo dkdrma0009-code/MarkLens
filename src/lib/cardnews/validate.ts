@@ -38,6 +38,11 @@ export function validateCardnews(data: Cardnews): string[] {
   return errors
 }
 
+// 슬라이드 1장 전체 검증 (글자수 + 금지어) — 생성 라우트의 슬라이드 단위 보정용
+export function validateSlideAll(s: Slide, n: number): string[] {
+  return [...validateSlide(s, n), ...checkBannedWords(s, n)]
+}
+
 export function validateSlide(s: Slide, n: number): string[] {
   const errors: string[] = []
   switch (s.type) {

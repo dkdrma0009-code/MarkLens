@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { geminiJson } from "@/lib/ai/gemini"
-import { validateCardnews, validateSlide } from "@/lib/cardnews/validate"
+import { validateCardnews, validateSlideAll } from "@/lib/cardnews/validate"
 import { SLIDE_ORDER, type Cardnews, type Slide } from "@/lib/cardnews/types"
 import { NextResponse } from "next/server"
 
@@ -37,6 +37,11 @@ const SYSTEM = `당신은 마케팅 미디어 'MarkLens'의 카드뉴스 에디�
 - keywords: 2~3개. word는 최대 12자, desc는 최대 22자.
 - cta는 고정 패턴 유지하되 headline은 아티클에 맞게 변형 가능.
 - 전체 톤: 간결한 경어체("~합니다"). 이모지 금지. 과장 표현("충격", "대박") 금지.
+
+[글자수 엄수 — 가장 중요]
+- 글자수는 공백·문장부호·영문자 전부 포함해서 센다. 제한을 1자라도 넘기면 디자인이 깨져 사용 불가.
+- 제한의 90% 이내를 목표로 짧게 써라. 길어질 것 같으면 문장을 쪼개지 말고 내용을 빼라.
+- 긴 영문 용어(예: Demand Gen, Asset Studio)는 cover.headline에 넣지 마라. sub나 body에 배치하라.
 
 [출력]
 - 지정된 JSON 스키마로만 출력한다. JSON 외 어떤 텍스트도 출력하지 않는다.`
@@ -107,10 +112,20 @@ ${errors.map(e => `- ${e}`).join("\n")}`,
   return { data, warnings: errors }
 }
 
+const LIMIT_RULES: Record<Slide["type"], string> = {
+  cover: "headline 각 줄 ≤12자(공백 포함) 2~3줄 배열, sub ≤18자, highlight는 헤드라인에 실제 포함된 단어 1개",
+  fact: "body ≤90자(공백·문장부호 포함) 2~3문장, source 유지",
+  why: "headline ≤16자, body ≤90자",
+  apply: "body ≤80자 1~2문장",
+  keywords: "키워드 2~3개, word ≤12자, desc ≤22자",
+  cta: "고정 패턴 유지, headline은 아티클에 맞게 변형 가능",
+}
+
 async function generateOne(a: ArticleInput, type: Slide["type"], current: Slide): Promise<{ slide: Slide | null; warnings: string[] }> {
   const prompt = `${buildArticleBlock(a)}
 
 카드뉴스의 "${type}" 슬라이드 1장만 새로 작성하라. 기존 버전과 다른 각도로.
+제한: ${LIMIT_RULES[type]}
 기존 버전: ${JSON.stringify(current)}
 
 JSON으로만 출력: {"slide": { "type": "${type}", ... }}`
@@ -118,7 +133,54 @@ JSON으로만 출력: {"slide": { "type": "${type}", ... }}`
   const result = await geminiJson<{ slide: Slide }>(SYSTEM, prompt, 800)
   if (!result?.slide || result.slide.type !== type) return { slide: null, warnings: ["재생성 실패"] }
   const idx = SLIDE_ORDER.indexOf(type)
-  return { slide: result.slide, warnings: validateSlide(result.slide, idx + 1) }
+  return { slide: result.slide, warnings: validateSlideAll(result.slide, idx + 1) }
+}
+
+// 글자수 초과 슬라이드 압축 재작성 — 후보 3개를 받아 검증 통과분을 서버가 선택
+async function repairSlide(a: ArticleInput, type: Slide["type"], current: Slide, errors: string[]): Promise<Slide | null> {
+  const idx = SLIDE_ORDER.indexOf(type) + 1
+  const prompt = `${buildArticleBlock(a)}
+
+아래 "${type}" 슬라이드 카피가 글자수 제한을 초과했다. 핵심 의미는 유지하면서 훨씬 짧게 압축한 버전 3개를 써라. 각 버전은 표현을 다르게.
+위반 사항: ${errors.join(" / ")}
+제한: ${LIMIT_RULES[type]}
+글자수는 공백·문장부호 포함. 제한의 80% 길이를 목표로 과감하게 줄여라. 수식어부터 빼라.
+기존: ${JSON.stringify(current)}
+
+JSON으로만 출력: {"candidates": [{ "type": "${type}", ... }, { "type": "${type}", ... }, { "type": "${type}", ... }]}`
+
+  const result = await geminiJson<{ candidates: Slide[] }>(SYSTEM, prompt, 1500)
+  const candidates = (result?.candidates ?? []).filter(c => c?.type === type)
+  if (!candidates.length) return null
+
+  // 완전 통과 후보 우선, 없으면 위반이 가장 적은 후보
+  let best: Slide | null = null
+  let bestErrs = Infinity
+  for (const c of candidates) {
+    const n = validateSlideAll(c, idx).length
+    if (n === 0) return c
+    if (n < bestErrs) { best = c; bestErrs = n }
+  }
+  return best
+}
+
+// 위반 슬라이드만 골라 최대 2라운드 압축 보정
+async function repairLoop(a: ArticleInput, slides: Slide[]): Promise<Slide[]> {
+  for (let round = 0; round < 2; round++) {
+    const bad = slides
+      .map((s, i) => ({ i, errs: validateSlideAll(s, i + 1) }))
+      .filter(x => x.errs.length > 0)
+    if (!bad.length) break
+
+    await Promise.all(bad.map(async ({ i, errs }) => {
+      const type = SLIDE_ORDER[i]
+      const fixed = await repairSlide(a, type, slides[i], errs)
+      if (fixed && validateSlideAll(fixed, i + 1).length < errs.length) {
+        slides[i] = fixed
+      }
+    }))
+  }
+  return slides
 }
 
 export async function POST(req: Request) {
@@ -157,8 +219,17 @@ export async function POST(req: Request) {
 
     const slides = existing.slides as Slide[]
     const type = SLIDE_ORDER[slideIndex - 1]
-    const { slide, warnings } = await generateOne(input, type, slides[slideIndex - 1])
+    let { slide, warnings } = await generateOne(input, type, slides[slideIndex - 1])
     if (!slide) return NextResponse.json({ error: "재생성 실패" }, { status: 500 })
+
+    // 글자수 위반 시 압축 보정 1회
+    if (warnings.length) {
+      const fixed = await repairSlide(input, type, slide, warnings)
+      if (fixed && validateSlideAll(fixed, slideIndex).length < warnings.length) {
+        slide = fixed
+        warnings = validateSlideAll(fixed, slideIndex)
+      }
+    }
 
     slides[slideIndex - 1] = slide
     const { error } = await supabase.from("cardnews").upsert({
@@ -169,8 +240,12 @@ export async function POST(req: Request) {
   }
 
   // ── 전체 생성 ──
-  const { data, warnings } = await generateAll(input)
+  const { data } = await generateAll(input)
   if (!data?.slides) return NextResponse.json({ error: "카피 생성 실패" }, { status: 500 })
+
+  // 글자수 위반 슬라이드만 압축 재작성 (최대 2라운드)
+  data.slides = await repairLoop(input, data.slides)
+  const warnings = validateCardnews(data)
 
   const category = data.category || input.category
   const { error } = await supabase.from("cardnews").upsert({
