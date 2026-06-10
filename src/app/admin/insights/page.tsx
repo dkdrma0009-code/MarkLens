@@ -10,7 +10,7 @@ export default async function AdminInsightsPage() {
 
   const { data: insights } = await supabase
     .from("insights")
-    .select("id, slug, hook, category, view_count, created_at, article:articles(title, source_name, status)")
+    .select("id, slug, hook, category, view_count, created_at, article_id, article:articles(title, source_name, status)")
     .order("created_at", { ascending: false })
     .limit(200)
 
@@ -21,6 +21,7 @@ export default async function AdminInsightsPage() {
     category?: string | null
     view_count?: number | null
     created_at: string
+    article_id: string
     article?: { title?: string | null; source_name?: string | null; status?: string | null } | null
   }
 
@@ -54,6 +55,7 @@ export default async function AdminInsightsPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">조회수</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">생성일</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카드뉴스</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -86,6 +88,14 @@ export default async function AdminInsightsPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                     {formatDate(insight.created_at)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <Link
+                      href={`/admin/cardnews/${insight.article_id}`}
+                      className="text-xs px-2 py-1 rounded-md border border-border text-muted-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      카드뉴스
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <InsightActions insightId={insight.id} />
