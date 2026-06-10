@@ -7,6 +7,11 @@ function sentences(content: string): string[] {
   return content.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
 }
 
+function readingTime(issue: any): number {
+  const text = [issue.intro, issue.week_signals, issue.case_of_week, issue.ai_brief].filter(Boolean).join(" ")
+  return Math.max(1, Math.ceil(text.split(/\s+/).length / 200))
+}
+
 function signalSection(content: string): string {
   const [lead, ...rest] = sentences(content)
   return `
@@ -65,6 +70,7 @@ function buildHtml(issue: any, heroImage: string | null = null): string {
   const issueNumMatch = issue.title.match(/^#(\d+)/)
   const issueNum = issueNumMatch ? issueNumMatch[1] : ""
   const cleanTitle = issue.title.replace(/^#\d+\s*[—\-–]\s*/, "").trim()
+  const mins = readingTime(issue)
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -82,11 +88,16 @@ function buildHtml(issue: any, heroImage: string | null = null): string {
   <tr><td style="background:#0d0d0d;border-radius:16px 16px 0 0;padding:32px 32px 28px;text-align:center;">
     <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#4a4a4a;letter-spacing:0.18em;text-transform:uppercase;${F}">MarkLens Weekly${issueNum ? ` · Issue #${issueNum}` : ""}</p>
     <h1 style="margin:10px 0 14px;font-size:26px;font-weight:900;color:#ffffff;line-height:1.3;letter-spacing:-0.5px;${F}">${cleanTitle}</h1>
-    <p style="margin:0;font-size:11px;color:#4a4a4a;${F}">${today}</p>
+    <p style="margin:0;font-size:11px;color:#4a4a4a;${F}">${today} &nbsp;·&nbsp; 읽는 시간 약 ${mins}분</p>
   </td></tr>
 
   <!-- 히어로 이미지 -->
   ${heroImage ? `<tr><td style="padding:0;background:#0d0d0d;"><img src="${heroImage}" alt="" width="600" style="width:100%;display:block;max-height:260px;object-fit:cover;"/></td></tr>` : ""}
+
+  <!-- 에디터 인트로 -->
+  ${issue.intro ? `<tr><td style="background:#ffffff;padding:22px 28px 18px;border-bottom:1px solid #f0f0f0;">
+    <p style="margin:0;font-size:15px;color:#333;line-height:1.9;${F}">${issue.intro}</p>
+  </td></tr>` : ""}
 
   <!-- 본문 (3섹션, 흰 배경) -->
   <tr><td style="background:#ffffff;padding:4px 0 0;">

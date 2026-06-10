@@ -31,6 +31,7 @@ interface NewsletterInput {
 
 interface NewsletterOutput {
   title: string
+  intro: string
   week_signals: string
   case_of_week: string
   ai_brief: string
@@ -53,6 +54,7 @@ ${insightsSummary}
 순수 JSON만 반환하세요:
 {
   "title": "#${input.issueNumber} — [이번 주 핵심 키워드 3~5단어]",
+  "intro": "2~3문장. '야, 이번 주 마케팅...' 또는 '지난 한 주도...' 로 시작. 친구한테 말하듯이. 이번 호 3가지를 자연스럽게 예고하는 오프닝.",
   "week_signals": "4~5문장. 이번 주 마케팅 최대 변화. 브랜드/사례 구체적으로.",
   "case_of_week": "4~5문장. 실제 브랜드명 필수. 가장 흥미로운 캠페인 상세 분석.",
   "ai_brief": "4~5문장. 오늘 30분 안에 할 수 있는 구체적 액션 + 포트폴리오 활용법."
@@ -96,6 +98,7 @@ ${insightsSummary}
     }
     const result: NewsletterOutput = {
       title: extractField("title") || `#${input.issueNumber} — 이번 주 마케팅 인사이트`,
+      intro: extractField("intro"),
       week_signals: extractField("week_signals"),
       case_of_week: extractField("case_of_week"),
       ai_brief: extractField("ai_brief"),

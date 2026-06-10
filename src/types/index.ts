@@ -53,6 +53,7 @@ export interface NewsletterIssue {
   id: string
   issue_number: number
   title: string
+  intro?: string
   week_signals?: string
   case_of_week?: string
   ai_brief?: string
