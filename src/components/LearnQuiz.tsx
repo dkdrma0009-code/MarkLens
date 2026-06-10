@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle, XCircle, ChevronRight, RotateCcw, BookOpen } from "lucide-react"
+import { CheckCircle, XCircle, ChevronRight, RotateCcw, BookOpen, Share2 } from "lucide-react"
 
 type QuestionType = "multiple_choice" | "short_answer"
 
@@ -119,6 +119,78 @@ export default function LearnQuiz() {
     setQuestions([])
     setResults([])
     setCurrent(0)
+  }
+
+  // 점수 카드 PNG 생성 (1080x1080, 인스타 스토리/카톡 공유용)
+  function drawScoreCard(score: number, total: number): HTMLCanvasElement {
+    const S = 1080
+    const c = document.createElement("canvas")
+    c.width = S; c.height = S
+    const ctx = c.getContext("2d")!
+    const pct = Math.round((score / total) * 100)
+    const levelLabel = LEVELS.find(l => l.key === level)?.label ?? ""
+    const msg = pct === 100 ? "완벽해요 🏆" : pct >= 70 ? "마케팅 감각 있는데요 👍" : "오늘도 한 뼘 성장 📚"
+
+    // 배경
+    ctx.fillStyle = "#0d0d0d"; ctx.fillRect(0, 0, S, S)
+    ctx.fillStyle = "#6366f1"; ctx.fillRect(0, 0, S, 12)
+    ctx.textAlign = "center"
+
+    // 브랜드
+    ctx.fillStyle = "#888"
+    ctx.font = "600 34px sans-serif"
+    ctx.fillText("MARKLENS · 마케팅 트렌드 퀴즈", S / 2, 150)
+
+    // 난이도 배지
+    ctx.fillStyle = "#6366f1"
+    ctx.font = "700 30px sans-serif"
+    ctx.fillText(`${levelLabel} 난이도`, S / 2, 240)
+
+    // 점수 (거대)
+    ctx.fillStyle = "#ffffff"
+    ctx.font = "900 320px sans-serif"
+    ctx.fillText(`${score}`, S / 2 - 70, 600)
+    ctx.fillStyle = "#555"
+    ctx.font = "900 140px sans-serif"
+    ctx.fillText(`/${total}`, S / 2 + 180, 600)
+
+    // 메시지
+    ctx.fillStyle = "#f0f0f0"
+    ctx.font = "800 64px sans-serif"
+    ctx.fillText(msg, S / 2, 760)
+
+    // CTA
+    ctx.fillStyle = "#777"
+    ctx.font = "500 38px sans-serif"
+    ctx.fillText("너의 마케팅 감각은? marklens.site/learn", S / 2, 960)
+
+    return c
+  }
+
+  async function shareResult(score: number, total: number) {
+    const card = drawScoreCard(score, total)
+    const text = `마케팅 트렌드 퀴즈에서 ${score}/${total} 맞췄어요! 너의 마케팅 감각은? 👉 marklens.site/learn`
+    const blob: Blob | null = await new Promise(res => card.toBlob(res, "image/png"))
+
+    // 1) 이미지 파일 네이티브 공유 (모바일 → 인스타/카톡)
+    if (blob) {
+      const file = new File([blob], "marklens-quiz.png", { type: "image/png" })
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+      if (nav.canShare?.({ files: [file] }) && navigator.share) {
+        try { await navigator.share({ files: [file], text, title: "MarkLens 마케팅 트렌드 퀴즈" }); return }
+        catch { return } // 사용자가 취소
+      }
+    }
+    // 2) 텍스트+링크 공유 (이미지 미지원 환경)
+    if (navigator.share) {
+      try { await navigator.share({ text, url: "https://marklens.site/learn", title: "MarkLens 마케팅 트렌드 퀴즈" }); return }
+      catch { return }
+    }
+    // 3) 데스크톱 폴백 — 이미지 다운로드
+    const a = document.createElement("a")
+    a.href = card.toDataURL("image/png")
+    a.download = "marklens-quiz.png"
+    a.click()
   }
 
   const q = questions[current]
@@ -291,6 +363,12 @@ export default function LearnQuiz() {
           </div>
         </div>
       )}
+
+      {/* 공유 (성장 루프) */}
+      <button onClick={() => shareResult(score, questions.length)}
+        className="w-full mb-3 py-4 rounded-2xl bg-indigo-600 text-white text-base font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+        <Share2 className="w-5 h-5" /> 결과 공유하기
+      </button>
 
       {/* 버튼 */}
       <div className="flex gap-3">
