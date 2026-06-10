@@ -147,7 +147,7 @@ function coverSlide(s: CoverSlide, category: string, total: number, coverImage?:
 
 function factSlide(s: FactSlide, total: number) {
   return frame([
-    sectionLabel("무슨 일?"),
+    sectionLabel(s.label ?? "무슨 일?"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
       <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.55, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>
         {s.body}
@@ -162,7 +162,7 @@ function factSlide(s: FactSlide, total: number) {
 
 function whySlide(s: WhySlide, total: number) {
   return frame([
-    sectionLabel("왜 중요한가"),
+    sectionLabel(s.label ?? "왜 중요한가"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
       <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
         {s.headline}
@@ -177,7 +177,7 @@ function whySlide(s: WhySlide, total: number) {
 
 function applySlide(s: ApplySlide, total: number) {
   return frame([
-    sectionLabel("당장 해볼 수 있는 것"),
+    sectionLabel(s.label ?? "당장 해볼 수 있는 것"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
       <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.6, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>
         {s.body}
@@ -192,7 +192,7 @@ function applySlide(s: ApplySlide, total: number) {
 
 function keywordsSlide(s: KeywordsSlide, total: number) {
   return frame([
-    sectionLabel("이 뉴스 뒤에 깔린 흐름"),
+    sectionLabel(s.label ?? "이 뉴스 뒤에 깔린 흐름"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center", gap: 64 }}>
       {s.keywords.map((k, i) => (
         <div key={i} style={{ display: "flex", flexDirection: "column" }}>

@@ -11,22 +11,26 @@ export interface FactSlide {
   type: "fact"
   body: string            // 2~3문장, 총 90자 이내
   source?: string
+  label?: string          // 상단 섹션 라벨 override (미지정 시 기본 "무슨 일?")
 }
 
 export interface WhySlide {
   type: "why"
   headline: string        // 최대 16자
   body: string            // 총 90자 이내
+  label?: string          // 상단 섹션 라벨 override (미지정 시 기본 "왜 중요한가")
 }
 
 export interface ApplySlide {
   type: "apply"
   body: string            // 총 80자 이내
+  label?: string          // 상단 섹션 라벨 override (미지정 시 기본 "당장 해볼 수 있는 것")
 }
 
 export interface KeywordsSlide {
   type: "keywords"
   keywords: { word: string; desc?: string }[]  // 2~3개, word 12자 / desc 22자
+  label?: string          // 상단 섹션 라벨 override (미지정 시 기본 "이 뉴스 뒤에 깔린 흐름")
 }
 
 export interface CtaSlide {
