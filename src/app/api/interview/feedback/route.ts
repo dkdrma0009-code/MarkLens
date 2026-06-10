@@ -1,4 +1,5 @@
 import { geminiJson } from "@/lib/ai/gemini"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -13,6 +14,9 @@ const SYSTEM = `너는 친절하지만 솔직한 한국 마케팅 면접 코치�
 JSON만 반환: {"good":"...","improve":"...","model_answer":"..."}`
 
 export async function POST(req: Request) {
+  const limited = checkRateLimit(req, { key: "interview-feedback", limit: 20, windowMs: 60_000 })
+  if (limited) return limited
+
   const { question, answer, role } = await req.json()
   if (!question || !answer) {
     return NextResponse.json({ error: "question, answer 필수" }, { status: 400 })

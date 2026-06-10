@@ -43,16 +43,21 @@ export async function GET(req: Request) {
   const rawSlug = insight?.slug ?? `cardnews-${articleId.slice(0, 6)}`
   const asciiSlug = /^[\w\-]+$/.test(rawSlug) ? rawSlug : `cardnews-${articleId.slice(0, 6)}`
 
+  // 6장을 병렬 렌더링 후 ZIP에 순서대로 추가
+  const buffers = await Promise.all(
+    slides.map((slide, i) =>
+      new ImageResponse(renderSlide(slide, category, slides.length, { coverImage: i === 0 ? coverImage : null }), {
+        width: TOKENS.WIDTH,
+        height: TOKENS.HEIGHT,
+        fonts,
+      }).arrayBuffer()
+    )
+  )
+
   const zip = new JSZip()
-  for (let i = 0; i < slides.length; i++) {
-    const img = new ImageResponse(renderSlide(slides[i], category, slides.length, { coverImage: i === 0 ? coverImage : null }), {
-      width: TOKENS.WIDTH,
-      height: TOKENS.HEIGHT,
-      fonts,
-    })
-    const buf = await img.arrayBuffer()
+  buffers.forEach((buf, i) => {
     zip.file(`${asciiSlug}-${String(i + 1).padStart(2, "0")}.png`, buf)
-  }
+  })
 
   const out = await zip.generateAsync({ type: "arraybuffer" })
   return new Response(out, {

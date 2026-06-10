@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { geminiJson } from "@/lib/ai/gemini"
 import { buildTrendDigest } from "@/lib/ai/quiz"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -20,6 +21,9 @@ const SYSTEM = `너는 한국 기업의 마케팅 직무 면접관이야. 취준
 JSON만 반환: {"questions":[{"question":"...","kind":"trend"},{"question":"...","kind":"role"},{"question":"...","kind":"behavioral"}]}`
 
 export async function POST(req: Request) {
+  const limited = checkRateLimit(req, { key: "interview-questions", limit: 10, windowMs: 60_000 })
+  if (limited) return limited
+
   const { role, count } = await req.json()
   const n = Math.min(Math.max(Number(count) || 5, 3), 7)
 

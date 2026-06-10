@@ -1,4 +1,5 @@
 import { geminiJson } from "@/lib/ai/gemini"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -14,14 +15,25 @@ const SYSTEM = `너는 한국 마케팅 면접 코치야. 모의면접 전체 �
 JSON만 반환: {"score":70,"summary":"...","strengths":["...","..."],"improvements":["...","..."],"soundbite":"..."}`
 
 export async function POST(req: Request) {
+  const limited = checkRateLimit(req, { key: "interview-report", limit: 10, windowMs: 60_000 })
+  if (limited) return limited
+
   const { role, qa } = await req.json()
   if (!Array.isArray(qa) || !qa.length) {
     return NextResponse.json({ error: "qa 필수" }, { status: 400 })
   }
 
-  const transcript = qa
-    .map((x: { question: string; answer: string }, i: number) =>
-      `Q${i + 1}. ${x.question}\nA${i + 1}. ${String(x.answer).slice(0, 1500)}`)
+  // question/answer가 모두 있는 항목만 사용 — undefined가 프롬프트에 섞이는 것 방지
+  const validQa = qa.filter(
+    (x): x is { question: string; answer: string } =>
+      !!x && typeof x.question === "string" && x.question.trim() !== "" && x.answer != null
+  )
+  if (!validQa.length) {
+    return NextResponse.json({ error: "유효한 면접 기록이 없습니다" }, { status: 400 })
+  }
+
+  const transcript = validQa
+    .map((x, i) => `Q${i + 1}. ${x.question}\nA${i + 1}. ${String(x.answer).slice(0, 1500)}`)
     .join("\n\n")
 
   const result = await geminiJson<{

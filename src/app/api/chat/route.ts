@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { NextResponse } from "next/server"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 export const maxDuration = 60
 
@@ -29,10 +30,15 @@ async function callGemini(system: string, prompt: string): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    const limited = checkRateLimit(req, { key: "chat", limit: 30, windowMs: 60_000 })
+    if (limited) return limited
+
     const { messages, context } = await req.json()
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "messages required" }, { status: 400 })
     }
+    // 글 본문은 서버에서 길이 제한 — 과도한 프롬프트 주입/토큰 비용 방어
+    const safeContext = context ? String(context).slice(0, 6000) : ""
 
     // 최근 6개 메시지만 유지
     const recentMessages = messages.slice(-6)
@@ -44,7 +50,7 @@ export async function POST(req: Request) {
 - 자연스러운 한국어로 답해
 - 반드시 완성된 문장으로 끝내야 해. 절대 중간에 끊기지 말 것
 - 3~5문장 이내로 핵심만 전달해
-- 마크다운 금지${context ? `\n\n[글 내용]\n${context}` : ""}`
+- 마크다운 금지${safeContext ? `\n\n[글 내용]\n${safeContext}` : ""}`
 
     const prompt = recentMessages
       .map((m: { role: string; content: string }) =>

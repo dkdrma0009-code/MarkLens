@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateQuestions, buildTrendDigest, type QuizQuestion } from "@/lib/ai/quiz"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -27,6 +28,9 @@ function pickDistinct(questions: QuizQuestion[], n: number): QuizQuestion[] {
 // 미리 쌓아둔 풀에서 랜덤 추출 → 즉시 응답 (수십 ms)
 // 유사문제 배제 후 부족하면 AI로 보충
 export async function POST(req: Request) {
+  const limited = checkRateLimit(req, { key: "learn-generate", limit: 20, windowMs: 60_000 })
+  if (limited) return limited
+
   const { count, level, type } = await req.json()
   const n = Math.min(Math.max(Number(count) || 10, 1), 30)
 
