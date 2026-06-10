@@ -91,54 +91,41 @@ function buildHtml(issue: NewsletterIssue, unsubscribeUrl = "", heroImage: strin
   const issueNum = issueNumMatch ? issueNumMatch[1] : ""
   const cleanTitle = issue.title.replace(/^#\d+\s*[—\-–]\s*/, "").trim()
 
-  // 01 — This Week's Signal: 다크 임팩트 카드
   function signalSection(content: string): string {
     const [lead, ...rest] = sentences(content)
     return `
-    <tr><td style="padding:0 24px 20px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0d0d0d;border-radius:14px;overflow:hidden;">
-        <tr><td style="padding:24px 26px 6px;">
-          <p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6366f1;${F}">📡 01 · This Week's Signal</p>
-          <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;line-height:1.4;letter-spacing:-0.3px;${F}">${lead ?? ""}</p>
-          ${rest.map(s => `<p style="margin:0 0 12px;font-size:14px;color:#999;line-height:1.85;${F}">${s}</p>`).join("")}
-        </td></tr>
-        <tr><td style="height:16px;"></td></tr>
-      </table>
+    <tr><td style="background:#111116;padding:32px 28px 26px;">
+      <p style="margin:0 0 12px;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#818cf8;${F}">📡 01 · This Week's Signal</p>
+      <p style="margin:0 0 18px;font-size:22px;font-weight:800;color:#f9f9f9;line-height:1.45;letter-spacing:-0.4px;${F}">${lead ?? ""}</p>
+      ${rest.map(s => `<p style="margin:0 0 12px;font-size:15px;color:#aaa;line-height:1.8;${F}">${s}</p>`).join("")}
     </td></tr>`
   }
 
-  // 02 — Case of the Week: 왼쪽 컬러 바 + 회색 배경
   function caseSection(content: string): string {
     const [lead, ...rest] = sentences(content)
     return `
-    <tr><td style="padding:0 24px 20px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:14px;overflow:hidden;border:1px solid #e8e8e8;">
+    <tr><td style="background:#f5f7fa;padding:0;">
+      <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="width:5px;background:#0891b2;font-size:0;">&nbsp;</td>
-          <td style="background:#f7f7f7;padding:24px 22px 18px;">
-            <p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0891b2;${F}">🔍 02 · Case of the Week</p>
-            <p style="margin:0 0 14px;font-size:18px;font-weight:800;color:#0a0a0a;line-height:1.4;${F}">${lead ?? ""}</p>
-            ${rest.map(s => `<p style="margin:0 0 10px;font-size:14px;color:#444;line-height:1.85;${F}">${s}</p>`).join("")}
+          <td style="width:4px;background:#0891b2;font-size:0;">&nbsp;</td>
+          <td style="padding:30px 26px 24px;">
+            <p style="margin:0 0 12px;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#0891b2;${F}">🔍 02 · Case of the Week</p>
+            <p style="margin:0 0 18px;font-size:21px;font-weight:800;color:#111;line-height:1.45;${F}">${lead ?? ""}</p>
+            ${rest.map(s => `<p style="margin:0 0 12px;font-size:15px;color:#444;line-height:1.8;${F}">${s}</p>`).join("")}
           </td>
         </tr>
       </table>
     </td></tr>`
   }
 
-  // 03 — Action of the Week: 앰버 카드
   function actionSection(content: string): string {
     const [lead, ...rest] = sentences(content)
     return `
-    <tr><td style="padding:0 24px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-radius:14px;overflow:hidden;border:1px solid #fde68a;">
-        <tr><td style="padding:24px 22px 6px;">
-          <p style="margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#d97706;${F}">🎯 03 · Action of the Week</p>
-          <p style="margin:0 0 6px;font-size:11px;color:#b45309;${F}">오늘 30분 안에 할 수 있어요</p>
-          <p style="margin:0 0 14px;font-size:17px;font-weight:800;color:#78350f;line-height:1.4;${F}">${lead ?? ""}</p>
-          ${rest.map(s => `<p style="margin:0 0 10px;font-size:14px;color:#78350f;line-height:1.85;${F}">${s}</p>`).join("")}
-        </td></tr>
-        <tr><td style="height:16px;"></td></tr>
-      </table>
+    <tr><td style="background:#fffbeb;border-top:2px solid #fde68a;padding:30px 28px 24px;">
+      <p style="margin:0 0 6px;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#d97706;${F}">🎯 03 · Action of the Week</p>
+      <p style="margin:0 0 10px;font-size:12px;color:#b45309;font-weight:600;${F}">오늘 30분 안에 할 수 있어요 ⏱</p>
+      <p style="margin:0 0 18px;font-size:21px;font-weight:800;color:#78350f;line-height:1.45;${F}">${lead ?? ""}</p>
+      ${rest.map(s => `<p style="margin:0 0 12px;font-size:15px;color:#92400e;line-height:1.8;${F}">${s}</p>`).join("")}
     </td></tr>`
   }
 
@@ -164,17 +151,13 @@ function buildHtml(issue: NewsletterIssue, unsubscribeUrl = "", heroImage: strin
   <!-- 히어로 이미지 -->
   ${heroImage ? `<tr><td style="padding:0;background:#0d0d0d;"><img src="${heroImage}" alt="" width="600" style="width:100%;display:block;max-height:260px;object-fit:cover;"/></td></tr>` : ""}
 
-  <!-- 본문 -->
-  <tr><td style="background:#ffffff;border-radius:${heroImage ? "0" : "0"};padding:24px 0 8px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      ${issue.week_signals ? signalSection(issue.week_signals) : ""}
-      ${issue.case_of_week ? caseSection(issue.case_of_week) : ""}
-      ${issue.ai_brief ? actionSection(issue.ai_brief) : ""}
-    </table>
-  </td></tr>
+  <!-- 3섹션 -->
+  ${issue.week_signals ? signalSection(issue.week_signals) : ""}
+  ${issue.case_of_week ? caseSection(issue.case_of_week) : ""}
+  ${issue.ai_brief ? actionSection(issue.ai_brief) : ""}
 
   <!-- CTA -->
-  <tr><td style="background:#ffffff;padding:0 24px 32px;text-align:center;">
+  <tr><td style="background:#ffffff;padding:28px 32px 36px;text-align:center;">
     <a href="https://marklens.site/insights"
       style="display:inline-block;background:#0d0d0d;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;padding:14px 36px;border-radius:100px;${F}">
       마케팅 인사이트 더 보기 →
