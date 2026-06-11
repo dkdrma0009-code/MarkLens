@@ -56,10 +56,76 @@ export default function InterviewSession() {
   const [speechSupported, setSpeechSupported] = useState(false)
   const recRef = useRef<{ stop: () => void } | null>(null)
 
+  // ── 화상 모드 (v2.1) — 영상은 브라우저에만 저장, 서버 전송 없음 ──
+  const [videoMode, setVideoMode] = useState(false)
+  const [camStream, setCamStream] = useState<MediaStream | null>(null)
+  const [camError, setCamError] = useState(false)
+  const [clipRecording, setClipRecording] = useState(false)
+  const [clips, setClips] = useState<(string | null)[]>([])
+  const camVideoRef = useRef<HTMLVideoElement | null>(null)
+  const clipRecRef = useRef<MediaRecorder | null>(null)
+  const clipChunksRef = useRef<Blob[]>([])
+  const camStreamRef = useRef<MediaStream | null>(null)
+
+  function stopCamera() {
+    try { clipRecRef.current?.state === "recording" && clipRecRef.current.stop() } catch {}
+    camStreamRef.current?.getTracks().forEach(t => t.stop())
+    camStreamRef.current = null
+    setCamStream(null)
+    setClipRecording(false)
+  }
+
+  function startClip() {
+    const stream = camStreamRef.current
+    if (!stream || clipRecRef.current?.state === "recording") return
+    try {
+      clipChunksRef.current = []
+      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm" })
+      mr.ondataavailable = e => { if (e.data.size > 0) clipChunksRef.current.push(e.data) }
+      clipRecRef.current = mr
+      mr.start()
+      setClipRecording(true)
+    } catch { /* 미지원 — 화상 없이 진행 */ }
+  }
+
+  function stopClip(saveIndex: number) {
+    const mr = clipRecRef.current
+    if (!mr || mr.state !== "recording") return
+    mr.onstop = () => {
+      const blob = new Blob(clipChunksRef.current, { type: "video/webm" })
+      const url = URL.createObjectURL(blob)
+      setClips(prev => {
+        const next = [...prev]
+        next[saveIndex] = url
+        return next
+      })
+    }
+    try { mr.stop() } catch {}
+    setClipRecording(false)
+  }
+
+  // 질문이 바뀌고 답변 입력 상태가 되면 자동으로 해당 답변 녹화 시작
+  useEffect(() => {
+    if (stage === "interview" && videoMode && camStream && !feedback && !grading) {
+      startClip()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, current, feedback, camStream])
+
+  // 미러 프리뷰 연결
+  useEffect(() => {
+    if (camVideoRef.current && camStream) {
+      camVideoRef.current.srcObject = camStream
+    }
+  }, [camStream, stage, current, feedback])
+
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>
     setSpeechSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition))
-    return () => { try { recRef.current?.stop() } catch {} }
+    return () => {
+      try { recRef.current?.stop() } catch {}
+      camStreamRef.current?.getTracks().forEach(t => t.stop())
+    }
   }, [])
 
   function toggleMic() {
@@ -109,6 +175,24 @@ export default function InterviewSession() {
 
   async function start() {
     setStage("loading")
+
+    // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행)
+    clips.forEach(u => { if (u) URL.revokeObjectURL(u) })
+    setClips([])
+    setCamError(false)
+    if (videoMode && !camStreamRef.current) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, facingMode: "user" },
+          audio: true,
+        })
+        camStreamRef.current = stream
+        setCamStream(stream)
+      } catch {
+        setCamError(true)
+      }
+    }
+
     try {
       const res = await fetch("/api/interview/questions", {
         method: "POST",
@@ -133,6 +217,7 @@ export default function InterviewSession() {
   async function submitAnswer() {
     if (!answer.trim() || grading) return
     if (recording) { try { recRef.current?.stop() } catch {}; setRecording(false) }
+    stopClip(current) // 화상 모드: 이 답변의 녹화 저장
     setGrading(true)
     const q = questions[current]
     try {
@@ -153,6 +238,7 @@ export default function InterviewSession() {
   }
 
   async function generateReport() {
+    stopCamera() // 면접 종료 — 카메라 해제 (녹화 클립은 유지)
     setStage("grading")
     try {
       const res = await fetch("/api/interview/report", {
@@ -261,6 +347,27 @@ export default function InterviewSession() {
         </div>
       </div>
 
+      <div>
+        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">면접 방식</p>
+        <div className="flex gap-3">
+          <button onClick={() => setVideoMode(false)}
+            className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${!videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
+            <p className="text-sm font-bold">기본</p>
+            <p className={`text-xs mt-0.5 ${!videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>타이핑 · 음성 답변</p>
+          </button>
+          <button onClick={() => setVideoMode(true)}
+            className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
+            <p className="text-sm font-bold">📹 화상 면접</p>
+            <p className={`text-xs mt-0.5 ${videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>카메라 켜고 실전처럼</p>
+          </button>
+        </div>
+        {videoMode && (
+          <p className="text-xs text-gray-400 mt-2">
+            🔒 영상은 내 브라우저에만 저장돼요 — 서버로 전송되지 않고, 탭을 닫으면 사라집니다.
+          </p>
+        )}
+      </div>
+
       <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
         💡 최근 마케팅 트렌드를 인용한 질문이 섞여 나와요. 실제 면접처럼 소리 내어 답해보세요.
         {speechSupported ? " 마이크 버튼으로 음성 답변도 가능해요." : " (음성 답변은 크롬 브라우저에서 지원돼요)"}
@@ -292,6 +399,22 @@ export default function InterviewSession() {
         <div className="h-full bg-black dark:bg-white rounded-full transition-all"
           style={{ width: `${((current + (feedback ? 1 : 0)) / questions.length) * 100}%` }} />
       </div>
+
+      {/* 화상 모드 — 미러 프리뷰 */}
+      {videoMode && camStream && (
+        <div className="relative w-full mb-4 rounded-2xl overflow-hidden bg-black">
+          <video ref={camVideoRef} autoPlay muted playsInline
+            className="w-full max-h-64 object-cover" style={{ transform: "scaleX(-1)" }} />
+          {clipRecording && (
+            <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> REC
+            </span>
+          )}
+        </div>
+      )}
+      {videoMode && camError && (
+        <p className="text-xs text-amber-600 mb-4">⚠️ 카메라를 사용할 수 없어 기본 모드로 진행해요 (권한을 확인해주세요)</p>
+      )}
 
       {/* 면접관 질문 */}
       <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
@@ -415,6 +538,25 @@ export default function InterviewSession() {
             </div>
           )}
 
+          {clips.some(Boolean) && (
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">📹 내 답변 다시보기</h2>
+              <p className="text-xs text-gray-400 mb-4">영상은 이 브라우저에만 있어요 — 보관하려면 다운로드하세요. 탭을 닫으면 사라집니다.</p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {clips.map((url, i) => url && (
+                  <div key={i} className="rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                    <video src={url} controls playsInline className="w-full aspect-video object-cover bg-black" />
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <p className="text-xs font-semibold text-gray-500 line-clamp-1 flex-1 pr-2">Q{i + 1}. {qa[i]?.question ?? ""}</p>
+                      <a href={url} download={`marklens-면접답변-${i + 1}.webm`}
+                        className="text-xs font-semibold text-indigo-600 hover:underline whitespace-nowrap">저장</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button onClick={shareReport}
             className="w-full mb-3 py-4 rounded-2xl bg-emerald-600 text-white text-base font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
             <Share2 className="w-5 h-5" /> 결과 공유하기
@@ -427,7 +569,7 @@ export default function InterviewSession() {
           className="flex-1 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
           <RotateCcw className="w-4 h-4" /> 같은 직무로 다시
         </button>
-        <button onClick={() => setStage("settings")}
+        <button onClick={() => { stopCamera(); setStage("settings") }}
           className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity">
           직무 바꾸기
         </button>
