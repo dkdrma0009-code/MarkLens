@@ -66,9 +66,12 @@ export default function InterviewSession() {
   const [qa, setQa] = useState<{ question: string; answer: string }[]>([])
   const [report, setReport] = useState<Report | null>(null)
   const [copied, setCopied] = useState(false)
-  const [metrics, setMetrics] = useState<AnswerMetrics[]>([])
+  const [metrics, setMetrics] = useState<(AnswerMetrics | null)[]>([])
   const qStartRef = useRef<number>(0)
   const voiceUsedRef = useRef(false)
+  const stopRequestedRef = useRef(false) // 화상 모드 STT 자동 재시작 제어
+  const videoModeRef = useRef(false)
+  const answerRef = useRef("")
 
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
@@ -123,10 +126,12 @@ export default function InterviewSession() {
     setClipRecording(false)
   }
 
-  // 질문이 바뀌고 답변 입력 상태가 되면 자동으로 해당 답변 녹화 시작
+  // 질문이 바뀌고 답변 입력 상태가 되면: 녹화 + 음성 받아적기 자동 시작 (화상 모드)
   useEffect(() => {
     if (stage === "interview" && videoMode && camStream && !feedback && !grading) {
+      stopRequestedRef.current = false
       startClip()
+      if (speechSupported) startSpeech()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, current, feedback, camStream])
@@ -136,8 +141,12 @@ export default function InterviewSession() {
     if (stage === "interview" && !feedback) {
       qStartRef.current = Date.now()
       voiceUsedRef.current = false
+      answerRef.current = ""
     }
   }, [stage, current, feedback])
+
+  useEffect(() => { videoModeRef.current = videoMode }, [videoMode])
+  useEffect(() => { answerRef.current = answer }, [answer])
 
   // 미러 프리뷰 연결
   useEffect(() => {
@@ -161,6 +170,11 @@ export default function InterviewSession() {
       setRecording(false)
       return
     }
+    startSpeech()
+  }
+
+  function startSpeech() {
+    if (recording) return
     const w = window as unknown as Record<string, new () => unknown>
     const SR = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as new () => {
       lang: string; continuous: boolean; interimResults: boolean
@@ -168,12 +182,13 @@ export default function InterviewSession() {
       onend: (() => void) | null; onerror: (() => void) | null
       start: () => void; stop: () => void
     }
+    if (!SR) return
     const rec = new SR()
     rec.lang = "ko-KR"
     rec.continuous = true
     rec.interimResults = true
     voiceUsedRef.current = true
-    let base = answer
+    let base = answerRef.current
     rec.onresult = (e) => {
       let interim = "", final = ""
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -182,13 +197,40 @@ export default function InterviewSession() {
         else interim += t
       }
       if (final) base = (base + " " + final).trim()
-      setAnswer((base + " " + interim).trim())
+      const text = (base + " " + interim).trim()
+      answerRef.current = text
+      setAnswer(text)
     }
-    rec.onend = () => setRecording(false)
+    rec.onend = () => {
+      setRecording(false)
+      // 화상 모드: 침묵으로 STT가 끊겨도 답변 중이면 자동 재시작
+      if (videoModeRef.current && !stopRequestedRef.current) {
+        setTimeout(() => { if (!stopRequestedRef.current) startSpeech() }, 250)
+      }
+    }
     rec.onerror = () => setRecording(false)
     recRef.current = rec
-    rec.start()
-    setRecording(true)
+    try { rec.start(); setRecording(true) } catch { /* 이미 실행 중 등 */ }
+  }
+
+  // 화상 모드: 받아적기 초기화 후 재시작
+  function retrySpeak() {
+    stopRequestedRef.current = true
+    try { recRef.current?.stop() } catch {}
+    setRecording(false)
+    answerRef.current = ""
+    setAnswer("")
+    setTimeout(() => { stopRequestedRef.current = false; startSpeech() }, 300)
+  }
+
+  // 피드백 후 같은 질문 재도전 (짧은 답변 구제 — 질문 낭비 없음)
+  function retryAnswer() {
+    setQa(prev => prev.slice(0, current))
+    setMetrics(prev => { const n = [...prev]; n[current] = null; return n })
+    setClips(prev => { const u = prev[current]; if (u) URL.revokeObjectURL(u); const n = [...prev]; n[current] = null; return n })
+    answerRef.current = ""
+    setAnswer("")
+    setFeedback(null)
   }
 
   // ── 질문 읽어주기 (TTS) ──
@@ -245,6 +287,7 @@ export default function InterviewSession() {
 
   async function submitAnswer() {
     if (!answer.trim() || grading) return
+    stopRequestedRef.current = true // STT 자동 재시작 차단
     if (recording) { try { recRef.current?.stop() } catch {}; setRecording(false) }
     stopClip(current) // 화상 모드: 이 답변의 녹화 저장
 
@@ -402,7 +445,7 @@ export default function InterviewSession() {
           <button onClick={() => setVideoMode(true)}
             className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
             <p className="text-sm font-bold">📹 화상 면접</p>
-            <p className={`text-xs mt-0.5 ${videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>카메라 켜고 실전처럼</p>
+            <p className={`text-xs mt-0.5 ${videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>카메라 켜고 말로만 답변</p>
           </button>
         </div>
         {videoMode && (
@@ -472,8 +515,34 @@ export default function InterviewSession() {
         </div>
       </div>
 
-      {/* 답변 입력 */}
-      {!feedback && (
+      {/* 답변 — 화상 모드: 마이크 온리 (실시간 받아적기) */}
+      {!feedback && videoMode && (
+        <div className="space-y-3">
+          <div className="rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 min-h-[140px]">
+            <p className="text-xs font-semibold text-gray-400 mb-2.5">
+              {recording ? "🎙 듣고 있어요 — 카메라를 보고 말씀하세요" : "🎙 마이크 연결 중..."}
+            </p>
+            {answer ? (
+              <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">{answer}</p>
+            ) : (
+              <p className="text-base text-gray-300 dark:text-gray-600">말씀하시면 여기에 실시간으로 받아 적혀요</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={retrySpeak} disabled={grading}
+              className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap">
+              🔁 다시 말하기
+            </button>
+            <button onClick={submitAnswer} disabled={answer.trim().length < 10 || grading}
+              className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : "답변 완료"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 답변 — 기본 모드: 타이핑 + 선택적 마이크 */}
+      {!feedback && !videoMode && (
         <div className="space-y-3">
           <div className="relative">
             <textarea
@@ -532,10 +601,12 @@ export default function InterviewSession() {
             )}
           </div>
 
-          <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950 p-5">
-            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-1.5">👍 잘한 점</p>
-            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{feedback.good}</p>
-          </div>
+          {feedback.good?.trim() && (
+            <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950 p-5">
+              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-1.5">👍 잘한 점</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{feedback.good}</p>
+            </div>
+          )}
           <div className="rounded-2xl bg-amber-50 dark:bg-amber-950 p-5">
             <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1.5">🔧 아쉬운 점</p>
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{feedback.improve}</p>
@@ -544,6 +615,12 @@ export default function InterviewSession() {
             <p className="text-sm font-bold text-gray-500 mb-1.5">💬 이렇게 답하면 더 좋아요</p>
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{feedback.model_answer}</p>
           </div>
+          {(metrics[current]?.chars ?? 99) < 30 && (
+            <button onClick={retryAnswer}
+              className="w-full py-3.5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors">
+              ✍️ 답변이 짧았어요 — 이 질문 다시 답변하기
+            </button>
+          )}
           <button onClick={next}
             className="w-full py-4 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
             {current + 1 >= questions.length ? "종합 리포트 보기" : "다음 질문"}
@@ -584,8 +661,8 @@ export default function InterviewSession() {
           </div>
 
           {/* 스피치 요약 (음성/화상 답변이 있을 때) */}
-          {metrics.filter(Boolean).length > 0 && (() => {
-            const ms = metrics.filter(Boolean)
+          {metrics.some(Boolean) && (() => {
+            const ms = metrics.filter((m): m is AnswerMetrics => !!m)
             const avgSec = Math.round(ms.reduce((a, m) => a + m.sec, 0) / ms.length)
             const voiced = ms.filter(m => m.voice && m.sec >= 5)
             const avgRate = voiced.length ? Math.round(voiced.reduce((a, m) => a + m.chars / (m.sec / 60), 0) / voiced.length) : null
