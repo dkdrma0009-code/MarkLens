@@ -14,6 +14,22 @@ interface Feedback {
   good: string
   improve: string
   model_answer: string
+  star?: { s: boolean; t: boolean; a: boolean; r: boolean } | null
+}
+
+// 답변별 스피치 지표 (클라이언트 측정 — 서버 전송 없음)
+interface AnswerMetrics {
+  sec: number      // 답변 소요 시간
+  chars: number    // 글자 수 (공백 제외)
+  fillers: number  // 필러 단어 횟수
+  voice: boolean   // 음성 답변 여부 (말속도 지표는 음성일 때만 의미)
+}
+
+const FILLER_WORDS = ["음", "어", "그", "이제", "막", "약간", "뭐", "어떤"]
+
+function countFillers(text: string): number {
+  const tokens = text.split(/\s+/)
+  return tokens.filter(t => FILLER_WORDS.includes(t.replace(/[,.]/g, ""))).length
 }
 
 interface Report {
@@ -50,6 +66,9 @@ export default function InterviewSession() {
   const [qa, setQa] = useState<{ question: string; answer: string }[]>([])
   const [report, setReport] = useState<Report | null>(null)
   const [copied, setCopied] = useState(false)
+  const [metrics, setMetrics] = useState<AnswerMetrics[]>([])
+  const qStartRef = useRef<number>(0)
+  const voiceUsedRef = useRef(false)
 
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
@@ -112,6 +131,14 @@ export default function InterviewSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, current, feedback, camStream])
 
+  // 답변 타이머 시작 (질문 표시 시점)
+  useEffect(() => {
+    if (stage === "interview" && !feedback) {
+      qStartRef.current = Date.now()
+      voiceUsedRef.current = false
+    }
+  }, [stage, current, feedback])
+
   // 미러 프리뷰 연결
   useEffect(() => {
     if (camVideoRef.current && camStream) {
@@ -145,6 +172,7 @@ export default function InterviewSession() {
     rec.lang = "ko-KR"
     rec.continuous = true
     rec.interimResults = true
+    voiceUsedRef.current = true
     let base = answer
     rec.onresult = (e) => {
       let interim = "", final = ""
@@ -179,6 +207,7 @@ export default function InterviewSession() {
     // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행)
     clips.forEach(u => { if (u) URL.revokeObjectURL(u) })
     setClips([])
+    setMetrics([])
     setCamError(false)
     if (videoMode && !camStreamRef.current) {
       try {
@@ -218,6 +247,21 @@ export default function InterviewSession() {
     if (!answer.trim() || grading) return
     if (recording) { try { recRef.current?.stop() } catch {}; setRecording(false) }
     stopClip(current) // 화상 모드: 이 답변의 녹화 저장
+
+    // 스피치 지표 측정
+    const sec = Math.round((Date.now() - qStartRef.current) / 1000)
+    const m: AnswerMetrics = {
+      sec,
+      chars: answer.replace(/\s/g, "").length,
+      fillers: countFillers(answer),
+      voice: voiceUsedRef.current,
+    }
+    setMetrics(prev => {
+      const next = [...prev]
+      next[current] = m
+      return next
+    })
+
     setGrading(true)
     const q = questions[current]
     try {
@@ -457,6 +501,37 @@ export default function InterviewSession() {
       {/* 질문별 피드백 */}
       {feedback && (
         <div className="space-y-4">
+          {/* 스피치 지표 + STAR 구조 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {metrics[current] && (
+              <>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                  ⏱ {metrics[current].sec >= 60 ? `${Math.floor(metrics[current].sec / 60)}분 ${metrics[current].sec % 60}초` : `${metrics[current].sec}초`}
+                </span>
+                {metrics[current].voice && metrics[current].sec >= 5 && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                    🗣 분당 {Math.round(metrics[current].chars / (metrics[current].sec / 60))}자 {(() => { const v = Math.round(metrics[current].chars / (metrics[current].sec / 60)); return v > 400 ? "(빠른 편)" : v < 200 ? "(느린 편)" : "(적정)" })()}
+                  </span>
+                )}
+                {metrics[current].voice && metrics[current].fillers > 0 && (
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${metrics[current].fillers >= 5 ? "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}`}>
+                    🤔 필러 {metrics[current].fillers}회
+                  </span>
+                )}
+              </>
+            )}
+            {feedback.star && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                STAR
+                {(["s", "t", "a", "r"] as const).map(k => (
+                  <span key={k} className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${feedback.star![k] ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-400"}`}>
+                    {k.toUpperCase()}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
+
           <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950 p-5">
             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-1.5">👍 잘한 점</p>
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{feedback.good}</p>
@@ -507,6 +582,34 @@ export default function InterviewSession() {
             <p className="text-6xl font-black text-gray-900 dark:text-gray-100 mb-2">{report.score}<span className="text-3xl text-gray-400">점</span></p>
             <p className="text-gray-500 text-base px-8 leading-relaxed">{report.summary}</p>
           </div>
+
+          {/* 스피치 요약 (음성/화상 답변이 있을 때) */}
+          {metrics.filter(Boolean).length > 0 && (() => {
+            const ms = metrics.filter(Boolean)
+            const avgSec = Math.round(ms.reduce((a, m) => a + m.sec, 0) / ms.length)
+            const voiced = ms.filter(m => m.voice && m.sec >= 5)
+            const avgRate = voiced.length ? Math.round(voiced.reduce((a, m) => a + m.chars / (m.sec / 60), 0) / voiced.length) : null
+            const totalFillers = ms.reduce((a, m) => a + m.fillers, 0)
+            return (
+              <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5 mb-6">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">🎙 스피치 분석</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{avgSec >= 60 ? `${Math.floor(avgSec / 60)}분+` : `${avgSec}초`}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">평균 답변 시간</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{avgRate ? `${avgRate}자` : "—"}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">분당 말속도 {avgRate ? (avgRate > 400 ? "(빠름)" : avgRate < 200 ? "(느림)" : "(적정)") : "(음성 답변 없음)"}</p>
+                  </div>
+                  <div>
+                    <p className={`text-2xl font-black ${totalFillers >= 10 ? "text-red-500" : "text-gray-900 dark:text-gray-100"}`}>{totalFillers}회</p>
+                    <p className="text-xs text-gray-400 mt-0.5">필러 단어 (음·어·그…)</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           <div className="grid sm:grid-cols-2 gap-4 mb-6">
             <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950 p-5">
