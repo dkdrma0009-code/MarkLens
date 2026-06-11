@@ -13,9 +13,9 @@
   "clips": [
     { "file": "../ad-work/ad2/Blue_ice_crystal_mid-air_202606111454.mp4", "in": 1.0, "out": 3.5, "_": "샷1 횡단보도 — 결정 등장" },
     { "file": "../ad-work/ad2/Blue_ice_crystal_passes_workers_202606111454.mp4", "in": 2.0, "out": 4.0, "_": "샷2 지하철 — 땀 닦는 직장인+결정 전경" },
-    { "file": "../ad-work/ad2/Blue_ice_crystal_street_basketball_202606111454.mp4", "in": 1.5, "out": 3.5, "_": "샷3 농구장 — 검정 도입부 건너뛰고 클로즈업까지" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_street_basketball_202606111534.mp4", "in": 1.5, "out": 3.5, "_": "샷3 농구장 — 검정 도입부 건너뛰고 클로즈업까지" },
     { "file": "../ad-work/ad2/Blue_ice_crystal_descends_on_202606111455.mp4", "in": 0.5, "out": 3.0, "_": "샷4 하강·호버 — 웜→쿨 전환, 잔글씨 붕괴 전까지" },
-    { "file": "../ad-work/ad2/Ice_crystal_touches_energy_drink_202606111455.mp4", "in": 0.5, "out": 2.5, "_": "샷5 빙결 버스트 — 호버→임팩트" },
+    { "file": "../ad-work/ad2/Ice_crystal_touches_energy_drink_202606111618.mp4", "in": 1.0, "out": 4.5, "_": "샷5 (5-2) 호버→착지→버스트 — 버스트 피크가 ~4초라 창 넓게, 길면 out 당기기" },
     { "file": "../ad-work/ad2/Untitled_Scene_06-11_02_17_40_202606111459_3.mp4", "in": 5.5, "out": 8.0, "_": "샷6 Day1 서리 엔딩 — 끝부분, 서리 결정 만개 구간" }
   ],
   "overlay": "../ad-work/ad2/overlay.png",
