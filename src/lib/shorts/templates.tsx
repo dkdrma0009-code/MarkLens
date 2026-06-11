@@ -257,16 +257,26 @@ export function renderAdOverlay(opts: {
 /* 엔드카드: 실제 제품컷 + 카피 + 스펙광고 고지 — 영상 마지막 2~3초용 풀프레임 */
 export function renderAdEndcard(opts: {
   image: string | null   // 실제 제품 사진 (data URI)
+  imageDims?: { width: number; height: number } | null // 원본 픽셀 크기 (contain 박스 계산용)
   title?: string         // 기본 "이 광고, AI로 만들었습니다"
   sub?: string           // 보조 카피
   handle?: string
 }): React.ReactElement {
-  const { image, title = "이 광고, AI로 만들었습니다", sub, handle = "@marklens.site" } = opts
+  const { image, imageDims, title = "이 광고, AI로 만들었습니다", sub, handle = "@marklens.site" } = opts
+  // Satori는 backgroundSize:"contain"을 지원하지 않는다 — 원본 비율로 560×760 안에 맞는 박스를 직접 계산
+  const box = { width: 560, height: 760 }
+  if (imageDims && imageDims.width > 0 && imageDims.height > 0) {
+    const scale = Math.min(560 / imageDims.width, 760 / imageDims.height)
+    box.width = Math.round(imageDims.width * scale)
+    box.height = Math.round(imageDims.height * scale)
+  }
   return (
     <div style={{ width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column", alignItems: "center", background: T.BG, fontFamily: T.FONT, paddingTop: 200, paddingBottom: 110 }}>
       <div style={{ display: "flex", fontSize: 52, fontWeight: 700, color: "#F2F0EB", fontFamily: "Playfair", letterSpacing: "0.04em" }}>MarkLens</div>
       {image ? (
-        <div style={{ display: "flex", width: 560, height: 760, marginTop: 90, backgroundImage: `url(${image})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
+        <div style={{ display: "flex", width: 560, height: 760, marginTop: 90, alignItems: "center", justifyContent: "center" }}>
+          <div style={{ display: "flex", width: box.width, height: box.height, backgroundImage: `url(${image})`, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat" }} />
+        </div>
       ) : (
         <div style={{ display: "flex", flexGrow: 1 }} />
       )}

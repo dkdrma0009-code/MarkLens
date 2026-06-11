@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { renderCampaignFrame, renderAdOverlay, renderAdEndcard, VTOKENS } from "@/lib/shorts/templates"
 import { loadFonts, loadAdFonts } from "@/lib/cardnews/fonts"
-import { fetchImageDataUri } from "@/lib/cardnews/image"
+import { fetchImageDataUri, fetchImageWithDims } from "@/lib/cardnews/image"
 
 export const maxDuration = 60
 
@@ -44,10 +44,11 @@ export async function GET(req: Request) {
   }
 
   if (kind === "ad-endcard") {
-    const img = await fetchImageDataUri(searchParams.get("img"))
+    const img = await fetchImageWithDims(searchParams.get("img"))
     return new ImageResponse(
       renderAdEndcard({
-        image: img,
+        image: img?.dataUri ?? null,
+        imageDims: img,
         title: searchParams.get("title") ?? undefined,
         sub: searchParams.get("sub") ?? undefined,
         handle: searchParams.get("handle") ?? undefined,

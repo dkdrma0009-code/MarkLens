@@ -1,5 +1,5 @@
-// 한 URL을 받아 PNG/JPEG일 때만 data URI로 변환 (매직바이트 판별 — CDN의 잘못된 content-type 무시)
-async function tryFetch(u: string): Promise<string | null> {
+// 한 URL을 받아 PNG/JPEG일 때만 버퍼로 (매직바이트 판별 — CDN의 잘못된 content-type 무시)
+async function tryFetchBuf(u: string): Promise<{ buf: Buffer; isPng: boolean } | null> {
   try {
     const res = await fetch(u, { signal: AbortSignal.timeout(6000) })
     if (!res.ok) return null
@@ -8,9 +8,53 @@ async function tryFetch(u: string): Promise<string | null> {
     const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
     const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff
     if (!isPng && !isJpeg) return null
-    return `data:${isPng ? "image/png" : "image/jpeg"};base64,${buf.toString("base64")}`
+    return { buf, isPng }
   } catch {
     return null
+  }
+}
+
+async function tryFetch(u: string): Promise<string | null> {
+  const r = await tryFetchBuf(u)
+  if (!r) return null
+  return `data:${r.isPng ? "image/png" : "image/jpeg"};base64,${r.buf.toString("base64")}`
+}
+
+// 픽셀 크기 추출 (Satori는 contain을 지원하지 않아 명시적 박스 계산에 필요)
+function pngDims(buf: Buffer): { width: number; height: number } | null {
+  if (buf.length < 24) return null
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) }
+}
+
+function jpegDims(buf: Buffer): { width: number; height: number } | null {
+  let p = 2
+  while (p + 9 < buf.length) {
+    if (buf[p] !== 0xff) { p++; continue }
+    const marker = buf[p + 1]
+    // SOF0~SOF15 (단, DHT/JPG/DAC 제외)에 프레임 크기가 들어있다
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { height: buf.readUInt16BE(p + 5), width: buf.readUInt16BE(p + 7) }
+    }
+    p += 2 + buf.readUInt16BE(p + 2)
+  }
+  return null
+}
+
+// data URI + 픽셀 크기 — 엔드카드처럼 contain 박스를 직접 계산해야 하는 곳용
+export async function fetchImageWithDims(
+  url: string | null | undefined
+): Promise<{ dataUri: string; width: number; height: number } | null> {
+  if (!url) return null
+  let r = await tryFetchBuf(url)
+  if (!r) {
+    r = await tryFetchBuf(`https://images.weserv.nl/?url=${encodeURIComponent(url)}&output=jpg&w=1080&q=85`)
+  }
+  if (!r) return null
+  const dims = r.isPng ? pngDims(r.buf) : jpegDims(r.buf)
+  if (!dims || !dims.width || !dims.height) return null
+  return {
+    dataUri: `data:${r.isPng ? "image/png" : "image/jpeg"};base64,${r.buf.toString("base64")}`,
+    ...dims,
   }
 }
 
