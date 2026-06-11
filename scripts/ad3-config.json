@@ -1,0 +1,24 @@
+{
+  "_readme": [
+    "3호 '빙하에서 짠' 조립 설정 — 원테이크 베이스 + 펭귄 확장 + 페이크 브랜드 카드 + 엔드카드.",
+    "파일명은 플레이스홀더: Flow 다운로드 후 실제 파일명으로 교체하고 in/out을 프레임 보고 조정.",
+    "구조: 베이스(틸트다운→충돌→동상 리빌) → fake-card.png 0.8s(가짜 엔딩인 척) → 펭귄 확장(반전: 짠→원샷) → 엔드카드.",
+    "keepClipAudio: Veo 원본 충돌음·펭귄 소리를 살림. music.mp3 확보 시 music에 채우면 amix로 깔림.",
+    "fake-card.png: 동아제약 로고 + Energy On! + '팬메이드 광고' 고지 — 로고 PNG 받으면 제작.",
+    "실행: node scripts/assemble-ad.mjs scripts/ad3-config.json"
+  ],
+  "output": "../ad-work/ad3/ad3-final.mp4",
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "grade": true,
+  "keepClipAudio": true,
+  "clips": [
+    { "file": "../ad-work/ad3/base.mp4", "in": 0.0, "out": 8.0, "_": "베이스 8s — 하늘→틸트다운→충돌 쾅→동상 리빌. 도입 검정 누출 있으면 in을 0.3~0.5로" },
+    { "file": "../ad-work/ad3/fake-card.png", "still": true, "duration": 0.8, "transition": "fade", "transDur": 0.15, "_": "페이크 동아제약 카드 — 가짜 엔딩인 척" },
+    { "file": "../ad-work/ad3/penguin.mp4", "in": 8.0, "out": 14.0, "transition": "fade", "transDur": 0.2, "_": "펭귄 확장(반전) — 확장본이 베이스 포함 전체 길이면 in을 확장 시작점으로, 별도 클립이면 0부터" }
+  ],
+  "overlay": null,
+  "endcard": { "image": "../ad-work/ad3/endcard.png", "duration": 2.5, "transition": "fade", "transDur": 0.4 },
+  "music": null
+}

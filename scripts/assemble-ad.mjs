@@ -9,10 +9,14 @@
 //   zoom?: "in" | "out",          // 펀치인/아웃 (zoomAmount 기본 1.10)
 //   zoomAmount?: 1.10,
 //   transition?: "cut"|"fadewhite"|"fade",  // 이전 컷에서 이 컷으로 들어올 때 (기본 cut)
-//   transDur?: 0.12 }
+//   transDur?: 0.12,
+//   still?: true, duration?: 0.7 }            // 스틸 이미지 클립 (페이크 브랜드 카드 등) — in/out 불필요
 // endcard: { image, duration, transition?: "fade", transDur?: 0.4 }
 // music: { file, volume, fadeOut, offset? }   // offset = 트랙의 비트 시작점(초)
 // grade: true                                  // eq 채도/대비 + unsharp
+// keepClipAudio: true | { volume: 1.0 }        // Veo 원본 오디오(충돌음 등)를 영상 트랜지션과 같은 길이로
+//                                              // 크로스페이드해 이어붙임. music과 함께 쓰면 amix로 합성.
+//                                              // 스틸 클립 구간은 자동으로 무음 처리.
 
 import { spawnSync } from "node:child_process"
 import { readFileSync, existsSync } from "node:fs"
@@ -56,7 +60,12 @@ const args = ["-y"]
 const inputs = []
 
 for (const c of cfg.clips) {
-  args.push("-i", rel(c.file))
+  if (c.still) {
+    // 스틸 이미지를 (목표 길이 + 여유 1초)짜리 영상 입력으로 — xfade 블렌드 구간 프레임 확보
+    args.push("-loop", "1", "-t", String((c.duration ?? 0.7) + 1), "-i", rel(c.file))
+  } else {
+    args.push("-i", rel(c.file))
+  }
   inputs.push("clip")
 }
 let overlayIdx = -1
@@ -89,9 +98,11 @@ const snap = (sec) => Math.round(sec * FPS) / FPS
 
 cfg.clips.forEach((c, i) => {
   const speed = c.speed ?? 1.0
-  const d = snap((c.out - c.in) / speed)
+  const d = c.still ? snap(c.duration ?? 0.7) : snap((c.out - c.in) / speed)
   durs.push(d)
-  let chain = `[${i}:v]trim=start=${c.in}:end=${c.out},setpts=(PTS-STARTPTS)/${speed},${norm}`
+  let chain = c.still
+    ? `[${i}:v]${norm}`
+    : `[${i}:v]trim=start=${c.in}:end=${c.out},setpts=(PTS-STARTPTS)/${speed},${norm}`
   if (c.zoom === "in" || c.zoom === "out") {
     const amt = c.zoomAmount ?? 1.10
     const frames = Math.max(1, Math.round(d * FPS))
@@ -150,8 +161,43 @@ if (endcardIdx >= 0) {
   prev = "outv"
 }
 
-// ── 음악 ──
+// ── 오디오: 클립 원본(keepClipAudio) / 음악 / 둘 다(amix) ──
 const maps = ["-map", "[outv]"]
+const audioOuts = []
+
+if (cfg.keepClipAudio) {
+  const cVol = typeof cfg.keepClipAudio === "object" ? (cfg.keepClipAudio.volume ?? 1.0) : 1.0
+  cfg.clips.forEach((c, i) => {
+    if (c.still) {
+      // 스틸 클립은 오디오 스트림이 없으므로 같은 길이의 무음을 생성해 체인을 유지
+      filters.push(`anullsrc=channel_layout=stereo:sample_rate=48000,atrim=duration=${durs[i].toFixed(4)}[a${i}]`)
+      return
+    }
+    const speed = c.speed ?? 1.0
+    let chain = `[${i}:a]atrim=start=${c.in}:end=${c.out},asetpts=PTS-STARTPTS,` +
+      `aformat=sample_rates=48000:channel_layouts=stereo`
+    if (speed !== 1.0) chain += `,atempo=${speed}`
+    filters.push(chain + `[a${i}]`)
+  })
+  // 영상 xfade와 동일한 트랜지션 길이로 acrossfade → 타임라인이 본편과 일치
+  let aprev = "a0"
+  for (let i = 1; i < cfg.clips.length; i++) {
+    const t = cfg.clips[i].transition ?? "cut"
+    const rawTd = t === "cut" ? CUT_DUR : (cfg.clips[i].transDur ?? (t === "fadewhite" ? 0.12 : 0.3))
+    const td = Math.max(CUT_DUR, snap(rawTd))
+    filters.push(`[${aprev}][a${i}]acrossfade=d=${td.toFixed(4)}[ax${i}]`)
+    aprev = `ax${i}`
+  }
+  // 엔드카드 진입(또는 본편 끝)에서 페이드아웃, 총 길이까지 무음 패딩
+  const aFadeD = 0.4
+  const aFadeSt = Math.max(0, bodyDur - aFadeD)
+  filters.push(
+    `[${aprev}]afade=t=out:st=${aFadeSt.toFixed(3)}:d=${aFadeD},` +
+    `apad=whole_dur=${totalDur.toFixed(3)},volume=${cVol}[clipa]`
+  )
+  audioOuts.push("clipa")
+}
+
 if (musicIdx >= 0) {
   const vol = cfg.music.volume ?? 1.0
   const fade = cfg.music.fadeOut ?? 1.5
@@ -159,9 +205,17 @@ if (musicIdx >= 0) {
   const fadeStart = Math.max(0, totalDur - fade)
   filters.push(
     `[${musicIdx}:a]atrim=${offset}:${offset + totalDur},asetpts=PTS-STARTPTS,` +
-    `afade=t=in:st=0:d=0.3,afade=t=out:st=${fadeStart.toFixed(3)}:d=${fade},volume=${vol}[outa]`
+    `aformat=sample_rates=48000:channel_layouts=stereo,` +
+    `afade=t=in:st=0:d=0.3,afade=t=out:st=${fadeStart.toFixed(3)}:d=${fade},volume=${vol}[musa]`
   )
+  audioOuts.push("musa")
+}
+
+if (audioOuts.length === 2) {
+  filters.push(`[${audioOuts[0]}][${audioOuts[1]}]amix=inputs=2:duration=longest:normalize=0[outa]`)
   maps.push("-map", "[outa]")
+} else if (audioOuts.length === 1) {
+  maps.push("-map", `[${audioOuts[0]}]`)
 }
 
 args.push(
@@ -171,7 +225,7 @@ args.push(
   "-c:v", "libx264", "-crf", "18", "-preset", "medium",
   "-pix_fmt", "yuv420p"
 )
-if (musicIdx >= 0) args.push("-c:a", "aac", "-b:a", "192k")
+if (maps.length > 2) args.push("-c:a", "aac", "-b:a", "192k")
 args.push("-movflags", "+faststart", rel(cfg.output ?? "ad-final.mp4"))
 
 console.log(`클립 ${cfg.clips.length}개 · 본편 ${bodyDur.toFixed(1)}s` +

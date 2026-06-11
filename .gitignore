@@ -4,6 +4,7 @@
 /scripts/*
 !/scripts/assemble-ad.mjs
 !/scripts/ad2-config.json
+!/scripts/ad3-config.json
 
 # ad video working files (clips, mp3, output)
 /ad-work/
