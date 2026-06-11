@@ -1,24 +1,24 @@
 {
   "_readme": [
-    "2호 '한여름의 얼음 결정' 조립 설정.",
-    "남은 준비물: ad-work/ad2/에 (1) shot6 = Day1 R6-EXT2 서리 엔딩 mp4,",
-    "(2) /admin/adkit에서 overlay.png + endcard.png, (3) music.mp3 (없으면 music을 null로)",
-    "영상 보면서 in/out(초)만 손보기 — 현재 값은 프레임 판독 기반 추천 초안",
+    "2호 '한여름의 얼음 결정' 조립 설정 v2 — 가속 컷 리듬 + 펀치인 + 화이트 플래시.",
+    "리듬 설계: 여정부(샷1~3) 점점 타이트하게 → 샷4에서 호흡 풀고(웜→쿨) → 샷5 버스트 → 샷6 서리 → 엔드카드 페이드.",
+    "music.mp3 생기면 music을 {\"file\":\"../ad-work/ad2/music.mp3\",\"volume\":0.9,\"fadeOut\":1.5,\"offset\":0}로 교체.",
     "실행: node scripts/assemble-ad.mjs scripts/ad2-config.json"
   ],
   "output": "../ad-work/ad2/ad2-final.mp4",
   "width": 1080,
   "height": 1920,
   "fps": 30,
+  "grade": true,
   "clips": [
-    { "file": "../ad-work/ad2/Blue_ice_crystal_mid-air_202606111454.mp4", "in": 1.0, "out": 3.5, "_": "샷1 횡단보도 — 결정 등장" },
-    { "file": "../ad-work/ad2/Blue_ice_crystal_passes_workers_202606111454.mp4", "in": 2.0, "out": 4.0, "_": "샷2 지하철 — 땀 닦는 직장인+결정 전경" },
-    { "file": "../ad-work/ad2/Blue_ice_crystal_street_basketball_202606111534.mp4", "in": 1.5, "out": 3.5, "_": "샷3 농구장 — 검정 도입부 건너뛰고 클로즈업까지" },
-    { "file": "../ad-work/ad2/Blue_ice_crystal_descends_on_202606111455.mp4", "in": 0.5, "out": 3.0, "_": "샷4 하강·호버 — 웜→쿨 전환, 잔글씨 붕괴 전까지" },
-    { "file": "../ad-work/ad2/Ice_crystal_touches_energy_drink_202606111618.mp4", "in": 1.0, "out": 4.5, "_": "샷5 (5-2) 호버→착지→버스트 — 버스트 피크가 ~4초라 창 넓게, 길면 out 당기기" },
-    { "file": "../ad-work/ad2/Untitled_Scene_06-11_02_17_40_202606111459_3.mp4", "in": 5.5, "out": 8.0, "_": "샷6 Day1 서리 엔딩 — 끝부분, 서리 결정 만개 구간" }
+    { "file": "../ad-work/ad2/Blue_ice_crystal_mid-air_202606111454.mp4", "in": 1.0, "out": 3.2, "zoom": "in", "zoomAmount": 1.08, "_": "샷1 횡단보도 등장 2.2s" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_passes_workers_202606111454.mp4", "in": 2.2, "out": 3.7, "zoom": "in", "zoomAmount": 1.10, "_": "샷2 지하철 1.5s — 리듬 가속" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_street_basketball_202606111534.mp4", "in": 2.0, "out": 3.5, "zoom": "in", "zoomAmount": 1.10, "_": "샷3 농구장 1.5s — 검정 도입부 스킵" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_descends_on_202606111455.mp4", "in": 0.5, "out": 3.0, "transition": "fadewhite", "transDur": 0.15, "zoom": "in", "zoomAmount": 1.05, "_": "샷4 하강·호버 2.5s — 화이트 플래시로 장면 전환, 호흡 풀기" },
+    { "file": "../ad-work/ad2/Ice_crystal_touches_energy_drink_202606111618.mp4", "in": 1.2, "out": 4.4, "zoom": "in", "zoomAmount": 1.06, "_": "샷5 착지→버스트 3.2s" },
+    { "file": "../ad-work/ad2/Untitled_Scene_06-11_02_17_40_202606111459_3.mp4", "in": 5.8, "out": 7.8, "transition": "fadewhite", "transDur": 0.12, "zoom": "out", "zoomAmount": 1.08, "_": "샷6 서리 만개 2.0s — 줌아웃으로 마무리 호흡" }
   ],
   "overlay": "../ad-work/ad2/overlay.png",
-  "endcard": { "image": "../ad-work/ad2/endcard.png", "duration": 2.5 },
-  "music": { "file": "../ad-work/ad2/music.mp3", "volume": 0.9, "fadeOut": 1.5 }
+  "endcard": { "image": "../ad-work/ad2/endcard.png", "duration": 2.5, "transition": "fade", "transDur": 0.4 },
+  "music": null
 }
