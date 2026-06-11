@@ -1,23 +1,22 @@
 {
   "_readme": [
     "2호 '한여름의 얼음 결정' 조립 설정.",
-    "1) 베스트 6개를 ad-work/ad2/ 폴더에 아래 파일명으로 저장",
-    "2) /admin/adkit에서 overlay.png, endcard.png 다운로드 후 같은 폴더에",
-    "3) 음악 mp3도 같은 폴더에 (없으면 music을 null로)",
-    "4) 영상 보면서 in/out(초)만 손보기 — 현재 값은 프레임 판독 기반 추천 초안",
-    "5) 실행: node scripts/assemble-ad.mjs scripts/ad2-config.json"
+    "남은 준비물: ad-work/ad2/에 (1) shot6 = Day1 R6-EXT2 서리 엔딩 mp4,",
+    "(2) /admin/adkit에서 overlay.png + endcard.png, (3) music.mp3 (없으면 music을 null로)",
+    "영상 보면서 in/out(초)만 손보기 — 현재 값은 프레임 판독 기반 추천 초안",
+    "실행: node scripts/assemble-ad.mjs scripts/ad2-config.json"
   ],
   "output": "../ad-work/ad2/ad2-final.mp4",
   "width": 1080,
   "height": 1920,
   "fps": 30,
   "clips": [
-    { "file": "../ad-work/ad2/ad2-shot1.mp4", "in": 1.0, "out": 3.5, "_": "횡단보도 — 결정 등장" },
-    { "file": "../ad-work/ad2/ad2-shot2.mp4", "in": 2.0, "out": 4.0, "_": "지하철 — 땀 닦는 직장인+결정 전경" },
-    { "file": "../ad-work/ad2/ad2-shot3.mp4", "in": 1.5, "out": 3.5, "_": "농구장 — 검정 도입부 건너뛰고 클로즈업까지" },
-    { "file": "../ad-work/ad2/ad2-shot4.mp4", "in": 0.5, "out": 3.0, "_": "하강·호버 — 웜→쿨 전환, 잔글씨 붕괴 전까지" },
-    { "file": "../ad-work/ad2/ad2-shot5.mp4", "in": 0.5, "out": 2.5, "_": "빙결 버스트 — 호버→임팩트" },
-    { "file": "../ad-work/ad2/ad2-shot6.mp4", "in": 0.0, "out": 2.0, "_": "Day1 R6-EXT2 서리 엔딩" }
+    { "file": "../ad-work/ad2/Blue_ice_crystal_mid-air_202606111454.mp4", "in": 1.0, "out": 3.5, "_": "샷1 횡단보도 — 결정 등장" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_passes_workers_202606111454.mp4", "in": 2.0, "out": 4.0, "_": "샷2 지하철 — 땀 닦는 직장인+결정 전경" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_street_basketball_202606111454.mp4", "in": 1.5, "out": 3.5, "_": "샷3 농구장 — 검정 도입부 건너뛰고 클로즈업까지" },
+    { "file": "../ad-work/ad2/Blue_ice_crystal_descends_on_202606111455.mp4", "in": 0.5, "out": 3.0, "_": "샷4 하강·호버 — 웜→쿨 전환, 잔글씨 붕괴 전까지" },
+    { "file": "../ad-work/ad2/Ice_crystal_touches_energy_drink_202606111455.mp4", "in": 0.5, "out": 2.5, "_": "샷5 빙결 버스트 — 호버→임팩트" },
+    { "file": "../ad-work/ad2/ad2-shot6.mp4", "in": 0.0, "out": 2.0, "_": "샷6 Day1 R6-EXT2 서리 엔딩 (다운로드 필요)" }
   ],
   "overlay": "../ad-work/ad2/overlay.png",
   "endcard": { "image": "../ad-work/ad2/endcard.png", "duration": 2.5 },
