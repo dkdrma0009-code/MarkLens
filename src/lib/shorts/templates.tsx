@@ -201,6 +201,86 @@ export function renderCampaignFrame(opts: {
   )
 }
 
+/* ── AI 광고 매거진 패키징 (ai.favmag 레퍼런스 문법) ──
+   오버레이: 상하 레터박스 + 세리프 마스트헤드 + 헤드라인. 중앙은 투명 → CapCut/Shotstack에서 영상 위에 얹음 */
+export function renderAdOverlay(opts: {
+  masthead?: string    // 기본 "MarkLens"
+  tagline?: string     // 이탤릭 세리프 한 줄 (예: "1 image + 1 prompt = 24s spec ad")
+  headline1: string    // 한글 헤드라인 1줄
+  headline2?: string   // 2줄째 (강조 줄)
+  highlight?: string   // 헤드라인 내 강조 단어
+  handle?: string      // 하단 핸들 (기본 @marklens.site)
+}): React.ReactElement {
+  const { masthead = "MarkLens", tagline, headline1, headline2, highlight, handle = "@marklens.site" } = opts
+
+  function hl(line: string, key: number) {
+    if (!highlight || !line.includes(highlight)) {
+      return <div key={key} style={{ display: "flex", color: "#fff" }}>{line}</div>
+    }
+    const i = line.indexOf(highlight)
+    return (
+      <div key={key} style={{ display: "flex" }}>
+        {line.slice(0, i) ? <span style={{ color: "#fff" }}>{line.slice(0, i)}</span> : null}
+        <span style={{ color: T.ACCENT }}>{highlight}</span>
+        {line.slice(i + highlight.length) ? <span style={{ color: "#fff" }}>{line.slice(i + highlight.length)}</span> : null}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column", background: "transparent", fontFamily: T.FONT }}>
+      {/* 상단 레터박스 — 마스트헤드 + 태그라인 + 헤드라인 */}
+      <div style={{ width: T.WIDTH, height: 470, display: "flex", flexDirection: "column", alignItems: "center", background: "#0A0A0A", paddingTop: 96 }}>
+        <div style={{ display: "flex", fontSize: 72, fontWeight: 700, color: "#F2F0EB", fontFamily: "Playfair", letterSpacing: "0.04em" }}>
+          {masthead}
+        </div>
+        {tagline ? (
+          <div style={{ display: "flex", fontSize: 30, fontWeight: 500, fontStyle: "italic", color: T.SUB, fontFamily: "Playfair", marginTop: 14, letterSpacing: "0.03em" }}>
+            {tagline}
+          </div>
+        ) : null}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 40, fontSize: 58, fontWeight: 700, lineHeight: 1.32, letterSpacing: "-0.01em", textAlign: "center", wordBreak: "keep-all", fontFamily: "Pretendard" }}>
+          {[headline1, headline2].filter(Boolean).map((line, i) => hl(line as string, i))}
+        </div>
+      </div>
+      {/* 중앙 투명 — 영상 노출 영역 */}
+      <div style={{ display: "flex", flexGrow: 1 }} />
+      {/* 하단 레터박스 */}
+      <div style={{ width: T.WIDTH, height: 190, display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0A0A0A", paddingLeft: T.PADDING, paddingRight: T.PADDING }}>
+        <div style={{ display: "flex", fontSize: 34, fontWeight: 600, color: T.SUB, letterSpacing: "0.14em" }}>MARKLENS</div>
+        <div style={{ display: "flex", fontSize: 32, color: T.SUB }}>{handle}</div>
+      </div>
+    </div>
+  )
+}
+
+/* 엔드카드: 실제 제품컷 + 카피 + 스펙광고 고지 — 영상 마지막 2~3초용 풀프레임 */
+export function renderAdEndcard(opts: {
+  image: string | null   // 실제 제품 사진 (data URI)
+  title?: string         // 기본 "이 광고, AI로 만들었습니다"
+  sub?: string           // 보조 카피
+  handle?: string
+}): React.ReactElement {
+  const { image, title = "이 광고, AI로 만들었습니다", sub, handle = "@marklens.site" } = opts
+  return (
+    <div style={{ width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column", alignItems: "center", background: T.BG, fontFamily: T.FONT, paddingTop: 200, paddingBottom: 110 }}>
+      <div style={{ display: "flex", fontSize: 52, fontWeight: 700, color: "#F2F0EB", fontFamily: "Playfair", letterSpacing: "0.04em" }}>MarkLens</div>
+      {image ? (
+        <div style={{ display: "flex", width: 560, height: 760, marginTop: 90, backgroundImage: `url(${image})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
+      ) : (
+        <div style={{ display: "flex", flexGrow: 1 }} />
+      )}
+      <div style={{ display: "flex", fontSize: 64, fontWeight: 700, color: "#fff", marginTop: 90, textAlign: "center", wordBreak: "keep-all", lineHeight: 1.3, fontFamily: "Pretendard" }}>{title}</div>
+      {sub ? (
+        <div style={{ display: "flex", fontSize: 40, color: T.BODY, marginTop: 28, textAlign: "center", wordBreak: "keep-all", fontFamily: "Pretendard" }}>{sub}</div>
+      ) : null}
+      <div style={{ display: "flex", flexGrow: 1 }} />
+      <div style={{ display: "flex", fontSize: 30, color: T.SUB }}>AI 스펙 광고 (팬메이드) · 브랜드 공식 광고가 아닙니다</div>
+      <div style={{ display: "flex", fontSize: 34, color: T.ACCENT, fontWeight: 600, marginTop: 22 }}>{handle} · 매주 월요일 7:30</div>
+    </div>
+  )
+}
+
 /* ── 진입점 ── */
 export function renderShortScene(slide: Slide, category: string, opts?: { coverImage?: string | null }): React.ReactElement {
   switch (slide.type) {

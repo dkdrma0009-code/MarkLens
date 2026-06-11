@@ -1,8 +1,8 @@
 import { ImageResponse } from "next/og"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { renderCampaignFrame, VTOKENS } from "@/lib/shorts/templates"
-import { loadFonts } from "@/lib/cardnews/fonts"
+import { renderCampaignFrame, renderAdOverlay, renderAdEndcard, VTOKENS } from "@/lib/shorts/templates"
+import { loadFonts, loadAdFonts } from "@/lib/cardnews/fonts"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 
 export const maxDuration = 60
@@ -17,10 +17,45 @@ async function isAuthorized(req: Request): Promise<boolean> {
 }
 
 // 캠페인 논평 숏츠 "정지 프레임" 미리보기 — Shotstack 없이 레이아웃/스타일 검증용
+// kind=ad-overlay  : AI 광고 매거진 오버레이 PNG (중앙 투명 — CapCut 레이어용)
+//   ?headline1=&headline2=&highlight=&tagline=&masthead=&handle=
+// kind=ad-endcard  : 엔드카드 풀프레임 (실제 제품컷 + 스펙광고 고지)
+//   ?img=<제품이미지URL>&title=&sub=
 export async function GET(req: Request) {
   if (!await isAuthorized(req)) return new Response("Unauthorized", { status: 401 })
 
   const { searchParams } = new URL(req.url)
+  const kind = searchParams.get("kind")
+
+  if (kind === "ad-overlay") {
+    const headline1 = searchParams.get("headline1")
+    if (!headline1) return new Response("headline1 required", { status: 400 })
+    return new ImageResponse(
+      renderAdOverlay({
+        masthead: searchParams.get("masthead") ?? undefined,
+        tagline: searchParams.get("tagline") ?? undefined,
+        headline1,
+        headline2: searchParams.get("headline2") ?? undefined,
+        highlight: searchParams.get("highlight") ?? undefined,
+        handle: searchParams.get("handle") ?? undefined,
+      }),
+      { width: VTOKENS.WIDTH, height: VTOKENS.HEIGHT, fonts: await loadAdFonts() }
+    )
+  }
+
+  if (kind === "ad-endcard") {
+    const img = await fetchImageDataUri(searchParams.get("img"))
+    return new ImageResponse(
+      renderAdEndcard({
+        image: img,
+        title: searchParams.get("title") ?? undefined,
+        sub: searchParams.get("sub") ?? undefined,
+        handle: searchParams.get("handle") ?? undefined,
+      }),
+      { width: VTOKENS.WIDTH, height: VTOKENS.HEIGHT, fonts: await loadAdFonts() }
+    )
+  }
+
   const articleId = searchParams.get("articleId")
   if (!articleId) return new Response("articleId required", { status: 400 })
 
