@@ -48,6 +48,28 @@ export default function AdKitStudio() {
   const [appliedOverlay, setAppliedOverlay] = useState<OverlayForm>(OVERLAY_DEFAULT)
   const [appliedEndcard, setAppliedEndcard] = useState<EndcardForm>(ENDCARD_DEFAULT)
   const [v, setV] = useState(0)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState("")
+
+  async function uploadImage(file: File) {
+    setUploading(true)
+    setUploadError("")
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch("/api/admin/adkit/upload", { method: "POST", body: fd })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "업로드 실패")
+      setEndcard(e => ({ ...e, img: json.url }))
+      // 업로드 직후 미리보기에 바로 반영
+      setAppliedEndcard(e => ({ ...e, img: json.url }))
+      setV(x => x + 1)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "업로드 실패")
+    } finally {
+      setUploading(false)
+    }
+  }
 
   function apply() {
     setAppliedOverlay(overlay)
@@ -92,7 +114,12 @@ export default function AdKitStudio() {
         <div className="border border-border rounded-xl p-4 space-y-3 bg-background">
           <p className="text-sm font-bold">엔드카드 (마지막 2~3초)</p>
           <div className="space-y-2">
-            <label className={label}>제품 이미지 URL (비우면 텍스트만)</label>
+            <label className={label}>제품 이미지 (파일 업로드 또는 URL — 비우면 텍스트만)</label>
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
+              className="w-full text-xs text-muted-foreground file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border file:border-border file:bg-background file:text-xs file:font-medium file:text-foreground hover:file:bg-muted/50 file:transition-colors file:cursor-pointer"
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f) }} />
+            {uploading && <p className="text-xs text-muted-foreground">업로드 중…</p>}
+            {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
             <input className={input} placeholder="https://..." value={endcard.img} onChange={e => setEndcard({ ...endcard, img: e.target.value })} />
             <label className={label}>타이틀</label>
             <input className={input} value={endcard.title} onChange={e => setEndcard({ ...endcard, title: e.target.value })} />
