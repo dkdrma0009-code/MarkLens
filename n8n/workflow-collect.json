@@ -27,7 +27,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://marklens.site/api/webhooks/collect?secret=marklens-n8n-2025",
+        "url": "https://marklens.site/api/webhooks/collect?secret=__N8N_WEBHOOK_SECRET__",
         "options": {
           "timeout": 60000
         }
@@ -69,7 +69,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://marklens.site/api/webhooks/analyze-pending?secret=marklens-n8n-2025",
+        "url": "https://marklens.site/api/webhooks/analyze-pending?secret=__N8N_WEBHOOK_SECRET__",
         "options": {
           "timeout": 120000
         }

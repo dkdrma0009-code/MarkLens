@@ -5,6 +5,7 @@
 !/scripts/assemble-ad.mjs
 !/scripts/ad2-config.json
 !/scripts/ad3-config.json
+!/scripts/build-n8n-workflows.mjs
 
 # ad video working files (clips, mp3, output)
 /ad-work/
@@ -55,3 +56,6 @@ next-env.d.ts
 
 # python
 __pycache__/
+
+# n8n import files with injected secret
+/n8n/dist/

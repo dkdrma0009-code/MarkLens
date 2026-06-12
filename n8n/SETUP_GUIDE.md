@@ -13,14 +13,18 @@
 
 ---
 
-## Step 1 — n8n Variables 설정
+## Step 1 — 임포트 파일 생성 (시크릿 주입)
 
-n8n Cloud → 좌측 메뉴 → **Variables** → 다음 두 개 추가:
+repo의 `n8n/*.json`은 시크릿이 `__N8N_WEBHOOK_SECRET__` 플레이스홀더로 비워진 **템플릿**이다.
+실제 값(.env.local의 `N8N_WEBHOOK_SECRET`)을 끼운 임포트용 파일을 로컬에서 생성:
 
-| Key | Value |
-|-----|-------|
-| `MARKLENS_URL` | `https://marklens.vercel.app` |
-| `N8N_WEBHOOK_SECRET` | `marklens-n8n-2025` |
+```bash
+node scripts/build-n8n-workflows.mjs
+# → n8n/dist/*.json 생성 (gitignore — 절대 커밋 금지)
+```
+
+> ⚠️ 시크릿 값은 Vercel 환경변수 `N8N_WEBHOOK_SECRET`과 반드시 일치해야 한다.
+> 시크릿 교체 시 순서: ① Vercel 환경변수 변경 + 재배포 → ② .env.local 갱신 → ③ 이 스크립트 재실행 → ④ n8n 재임포트.
 
 ---
 
@@ -29,13 +33,15 @@ n8n Cloud → 좌측 메뉴 → **Variables** → 다음 두 개 추가:
 ### 워크플로우 1: RSS 수집 & AI 분석
 
 1. n8n → **Workflows** → **Add Workflow** → 우측 상단 `...` → **Import from file**
-2. `n8n/workflow-collect.json` 파일 선택
+2. **`n8n/dist/workflow-collect.json`** 파일 선택 (dist 폴더의 것!)
 3. 임포트 후 **Active** 토글 켜기
 
 ### 워크플로우 2: 뉴스레터 자동 생성
 
-1. 동일한 방법으로 `n8n/workflow-newsletter.json` 임포트
+1. 동일한 방법으로 **`n8n/dist/workflow-newsletter.json`** 임포트
 2. **Active** 토글 켜기
+
+> 기존에 같은 이름의 워크플로가 있으면 먼저 비활성화/삭제 후 임포트 (중복 실행 방지).
 
 ---
 
@@ -80,5 +86,5 @@ Vercel 배포 전 로컬에서 테스트하려면:
 
 1. ngrok 설치: `npm install -g ngrok`
 2. 터널 생성: `ngrok http 3000`
-3. n8n Variables의 `MARKLENS_URL`을 ngrok URL로 임시 변경
-4. 테스트 후 다시 Vercel URL로 변경
+3. n8n 워크플로의 HTTP 노드 URL(`https://marklens.site/...`)을 ngrok URL로 임시 수정
+4. 테스트 후 다시 원래 URL로 복원

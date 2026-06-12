@@ -23,7 +23,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://marklens.site/api/newsletter/generate?secret=marklens-n8n-2025",
+        "url": "https://marklens.site/api/newsletter/generate?secret=__N8N_WEBHOOK_SECRET__",
         "options": {
           "timeout": 120000
         }
@@ -37,7 +37,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://marklens.site/api/newsletter/send?secret=marklens-n8n-2025",
+        "url": "https://marklens.site/api/newsletter/send?secret=__N8N_WEBHOOK_SECRET__",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ issueId: $json.issue.id }) }}",
