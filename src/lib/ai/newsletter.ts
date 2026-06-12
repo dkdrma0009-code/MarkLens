@@ -1,13 +1,13 @@
 import { generateText } from "@/lib/ai/llm"
 
 const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly 수석 에디터입니다.
-뉴닉, Morning Brew 감성. 친구한테 "야 이거 봤어?" 하는 톤으로.
+뉴닉, Morning Brew 감성 — 친근하지만 반말 금지.
 
 핵심 원칙:
 - 각 섹션 4~5문장. 읽을 거리가 있어야 함
 - 구체적인 브랜드명, 캠페인명, 도구명 반드시 포함
 - 추상적 표현 금지
-- "~거예요, ~해요, ~죠" 부드러운 경어체
+- 전체를 "~거예요, ~해요, ~죠" 부드러운 경어체로 통일. "~했어", "~봤어?" 같은 반말 절대 금지
 - 마크다운 (**, *, #) 절대 금지
 - 가상 수치 / 출처 없는 통계 금지
 - 인물 이름 창작 금지 (실제 확인된 브랜드만)
@@ -16,7 +16,9 @@ const VOICE_SYSTEM_PROMPT = `당신은 MarkLens Weekly 수석 에디터입니다
 섹션 공식:
 week_signals: 이번 주 마케팅 가장 큰 변화 → 왜 지금인지 → 어떤 브랜드/사례가 보여주는지 → 마케터에게 의미 → 액션 힌트 (4~5문장)
 case_of_week: [실제 브랜드명]이 [뭘 했는지] → 어떻게 실행했는지 구체적으로 → 왜 신선한지 → 다른 브랜드와 뭐가 다른지 → 내가 배울 점 (4~5문장, 실제 브랜드명 필수)
-ai_brief: 이번 주 트렌드 기반 오늘 30분 안에 할 수 있는 액션 → 구체적 방법 → 포트폴리오 활용법 → 왜 지금 이게 경쟁력인지 (4~5문장)`
+ai_brief: 이번 주 트렌드 기반 오늘 30분 안에 할 수 있는 액션 → 구체적 방법 → 포트폴리오 활용법 → 왜 지금 이게 경쟁력인지 (4~5문장)
+portfolio_insight: 이번 주 사례 중 하나를 취준생 포트폴리오에 담는 법 → STAR 구조(상황·과제·행동·결과)로 정리하는 예시 → 면접에서 그대로 쓸 수 있는 답변 한 문장 (4~5문장)
+career_lens: 이번 주 트렌드가 마케터에게 요구하는 역량 → 현직 관점에서 왜 중요한지 → 추천 액션 1~2개 (자격증/사이드 프로젝트/툴 학습 중 구체적으로) (4~5문장)`
 
 interface NewsletterInput {
   issueNumber: number
@@ -35,6 +37,8 @@ interface NewsletterOutput {
   week_signals: string
   case_of_week: string
   ai_brief: string
+  portfolio_insight: string
+  career_lens: string
 }
 
 export async function generateNewsletter(input: NewsletterInput): Promise<NewsletterOutput> {
@@ -54,10 +58,12 @@ ${insightsSummary}
 순수 JSON만 반환하세요:
 {
   "title": "#${input.issueNumber} — [이번 주 핵심 키워드 3~5단어]",
-  "intro": "2~3문장. '야, 이번 주 마케팅...' 또는 '지난 한 주도...' 로 시작. 친구한테 말하듯이. 이번 호 3가지를 자연스럽게 예고하는 오프닝.",
+  "intro": "2~3문장. '이번 주 마케팅 소식, 다들 보셨어요?' 또는 '지난 한 주도...' 처럼 경어체로 시작. 이번 호 내용을 자연스럽게 예고하는 오프닝.",
   "week_signals": "4~5문장. 이번 주 마케팅 최대 변화. 브랜드/사례 구체적으로.",
   "case_of_week": "4~5문장. 실제 브랜드명 필수. 가장 흥미로운 캠페인 상세 분석.",
-  "ai_brief": "4~5문장. 오늘 30분 안에 할 수 있는 구체적 액션 + 포트폴리오 활용법."
+  "ai_brief": "4~5문장. 오늘 30분 안에 할 수 있는 구체적 액션 + 포트폴리오 활용법.",
+  "portfolio_insight": "4~5문장. 이번 주 사례 하나를 STAR 구조로 포트폴리오에 담는 법 + 면접 답변 예시 한 문장.",
+  "career_lens": "4~5문장. 이번 트렌드가 요구하는 역량 + 추천 자격증/프로젝트/툴 구체적으로."
 }`,
   })
 
@@ -102,6 +108,8 @@ ${insightsSummary}
       week_signals: extractField("week_signals"),
       case_of_week: extractField("case_of_week"),
       ai_brief: extractField("ai_brief"),
+      portfolio_insight: extractField("portfolio_insight"),
+      career_lens: extractField("career_lens"),
     }
     if (!result.week_signals && !result.case_of_week) {
       throw new Error("JSON parse failed and regex extraction found no content")

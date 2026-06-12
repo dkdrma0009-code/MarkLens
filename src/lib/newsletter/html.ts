@@ -7,7 +7,8 @@ function sentences(content: string): string[] {
 }
 
 export function readingTime(issue: NewsletterIssue): number {
-  const text = [issue.intro, issue.week_signals, issue.case_of_week, issue.ai_brief].filter(Boolean).join(" ")
+  const text = [issue.intro, issue.week_signals, issue.case_of_week, issue.ai_brief, issue.portfolio_insight, issue.career_lens]
+    .filter(Boolean).join(" ")
   return Math.max(1, Math.ceil(text.split(/\s+/).length / 200))
 }
 
@@ -64,6 +65,40 @@ function actionSection(content: string): string {
   </td></tr>`
 }
 
+function portfolioSection(content: string): string {
+  const [lead, ...rest] = sentences(content)
+  return `
+  <tr><td style="padding:0 28px;"><hr style="border:none;border-top:1px dashed #e0e0e0;margin:0;"/></td></tr>
+  <tr><td style="padding:20px 28px 4px;text-align:center;">
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+      <td style="background:#7c3aed;border-radius:100px;padding:9px 24px;">
+        <span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:0.04em;${F}">✦ Portfolio Insight</span>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:16px 28px 20px;">
+    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#111;line-height:1.5;${F}">${lead ?? ""}</p>
+    ${rest.map(s => `<p style="margin:0 0 12px;font-size:15px;color:#444;line-height:1.85;${F}">${s}</p>`).join("")}
+  </td></tr>`
+}
+
+function careerSection(content: string): string {
+  const [lead, ...rest] = sentences(content)
+  return `
+  <tr><td style="padding:0 28px;"><hr style="border:none;border-top:1px dashed #e0e0e0;margin:0;"/></td></tr>
+  <tr><td style="padding:20px 28px 4px;text-align:center;">
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+      <td style="background:#059669;border-radius:100px;padding:9px 24px;">
+        <span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:0.04em;${F}">✦ Career Lens</span>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:16px 28px 28px;">
+    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#111;line-height:1.5;${F}">${lead ?? ""}</p>
+    ${rest.map(s => `<p style="margin:0 0 12px;font-size:15px;color:#444;line-height:1.85;${F}">${s}</p>`).join("")}
+  </td></tr>`
+}
+
 // 발송용(unsubscribeUrl 전달)과 미리보기용(미전달 → 비활성 표시)이 공유하는 단일 빌더.
 export function buildNewsletterHtml(
   issue: NewsletterIssue,
@@ -106,12 +141,14 @@ export function buildNewsletterHtml(
     <p style="margin:0;font-size:15px;color:#333;line-height:1.9;${F}">${issue.intro}</p>
   </td></tr>` : ""}
 
-  <!-- 본문 (3섹션, 흰 배경) -->
+  <!-- 본문 (5섹션, 흰 배경 — portfolio/career는 값 있을 때만) -->
   <tr><td style="background:#ffffff;padding:4px 0 0;">
     <table width="100%" cellpadding="0" cellspacing="0">
       ${issue.week_signals ? signalSection(issue.week_signals) : ""}
       ${issue.case_of_week ? caseSection(issue.case_of_week) : ""}
       ${issue.ai_brief ? actionSection(issue.ai_brief) : ""}
+      ${issue.portfolio_insight ? portfolioSection(issue.portfolio_insight) : ""}
+      ${issue.career_lens ? careerSection(issue.career_lens) : ""}
     </table>
   </td></tr>
 
