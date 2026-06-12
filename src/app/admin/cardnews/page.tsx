@@ -1,42 +1,84 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { formatDate } from "@/lib/utils"
-import Link from "next/link"
+import CardnewsTable, { type CardnewsRow } from "./CardnewsTable"
 
 export const dynamic = "force-dynamic"
+
+interface CardRecord {
+  article_id: string
+  updated_at: string
+  posted_at?: string | null
+  first_slide?: { usePhoto?: boolean } | null
+}
 
 export default async function CardnewsListPage() {
   const supabase = createAdminClient()
 
-  const [{ data: insights }, { data: cards }] = await Promise.all([
-    supabase
-      .from("insights")
-      .select("article_id, hook, category, created_at, article:articles!inner(title, status, image_url)")
-      .eq("article.status", "published")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase.from("cardnews").select("article_id, updated_at"),
-  ])
+  const insightsQuery = supabase
+    .from("insights")
+    .select("article_id, hook, category, created_at, article:articles!inner(title, status, image_url)")
+    .eq("article.status", "published")
+    .order("created_at", { ascending: false })
+    .limit(100)
+
+  // posted_at 컬럼이 아직 없으면(42703) 컬럼 빼고 재시도 — UI는 동작 유지
+  let cards: CardRecord[] = []
+  let postedColumnMissing = false
+  {
+    const { data, error } = await supabase
+      .from("cardnews")
+      .select("article_id, updated_at, posted_at, first_slide:slides->0")
+    if (error) {
+      postedColumnMissing = true
+      const { data: fallback } = await supabase
+        .from("cardnews")
+        .select("article_id, updated_at, first_slide:slides->0")
+      cards = (fallback ?? []) as CardRecord[]
+    } else {
+      cards = (data ?? []) as CardRecord[]
+    }
+  }
+
+  const { data: insights } = await insightsQuery
 
   type Row = {
     article_id: string
     hook?: string | null
     category?: string | null
     created_at: string
-    article?: { title?: string | null; status?: string | null; image_url?: string | null } | null
+    article?: { title?: string | null } | null
   }
 
-  const rows = (insights ?? []) as Row[]
-  const cardMap = new Map((cards ?? []).map(c => [c.article_id, c.updated_at]))
-  const doneCount = rows.filter(r => cardMap.has(r.article_id)).length
+  const cardMap = new Map(cards.map(c => [c.article_id, c]))
+  const rows: CardnewsRow[] = ((insights ?? []) as Row[]).map(r => {
+    const card = cardMap.get(r.article_id)
+    return {
+      articleId: r.article_id,
+      hook: r.hook ?? null,
+      title: r.article?.title ?? null,
+      category: r.category ?? null,
+      createdAt: r.created_at,
+      cardAt: card?.updated_at ?? null,
+      postedAt: card?.posted_at ?? null,
+      usePhoto: card?.first_slide?.usePhoto === true,
+    }
+  })
+
+  const doneCount = rows.filter(r => r.cardAt).length
 
   return (
     <div className="p-8">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight">카드뉴스 관리</h1>
         <p className="text-sm text-muted-foreground mt-1">
           발행된 인사이트 <span className="font-medium text-foreground">{rows.length}개</span>
           {" · "}카드뉴스 생성됨 <span className="font-medium text-foreground">{doneCount}개</span>
         </p>
+        {postedColumnMissing && (
+          <p className="text-xs text-amber-600 mt-2">
+            ⚠ 업로드 완료 기능을 쓰려면 Supabase SQL Editor에서 실행:{" "}
+            <code className="bg-amber-50 px-1 rounded">alter table cardnews add column if not exists posted_at timestamptz;</code>
+          </p>
+        )}
       </div>
 
       {rows.length === 0 ? (
@@ -44,66 +86,7 @@ export default async function CardnewsListPage() {
           발행된 인사이트가 없습니다.
         </div>
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden bg-background">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/30">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">인사이트</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">표지</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">발행일</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((r) => {
-                const cardAt = cardMap.get(r.article_id)
-                return (
-                  <tr key={r.article_id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3 max-w-sm">
-                      <p className="font-medium line-clamp-2 leading-snug">{r.hook ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{r.article?.title ?? "—"}</p>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{r.category ?? "—"}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {/* 생성본은 실제 표지(updated_at 캐시버스트), 미생성은 인사이트 기반 표지 프리뷰 */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/admin/cardnews/render?articleId=${r.article_id}&slide=1&v=${encodeURIComponent(cardAt ?? r.created_at)}`}
-                        alt="표지 미리보기"
-                        loading="lazy"
-                        className="w-20 h-[100px] object-cover rounded-md border border-border bg-black"
-                      />
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {cardAt ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">
-                          생성됨 · {formatDate(cardAt)}
-                        </span>
-                      ) : (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">미생성</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(r.created_at)}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Link
-                        href={`/admin/cardnews/${r.article_id}`}
-                        className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
-                          cardAt
-                            ? "border border-border text-muted-foreground hover:bg-muted/50"
-                            : "bg-foreground text-background hover:opacity-90"
-                        }`}
-                      >
-                        {cardAt ? "편집" : "만들기"}
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <CardnewsTable initialRows={rows} />
       )}
     </div>
   )
