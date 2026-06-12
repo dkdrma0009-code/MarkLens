@@ -24,23 +24,24 @@ export async function POST(req: Request) {
   }
 
   // question/answer가 모두 있는 항목만 사용 — undefined가 프롬프트에 섞이는 것 방지
+  // 배열 길이·질문 길이 상한 — 무제한 페이로드로 토큰 비용 태우는 것 차단
   const validQa = qa.filter(
     (x): x is { question: string; answer: string } =>
       !!x && typeof x.question === "string" && x.question.trim() !== "" && x.answer != null
-  )
+  ).slice(0, 10)
   if (!validQa.length) {
     return NextResponse.json({ error: "유효한 면접 기록이 없습니다" }, { status: 400 })
   }
 
   const transcript = validQa
-    .map((x, i) => `Q${i + 1}. ${x.question}\nA${i + 1}. ${String(x.answer).slice(0, 1500)}`)
+    .map((x, i) => `Q${i + 1}. ${x.question.slice(0, 500)}\nA${i + 1}. ${String(x.answer).slice(0, 1500)}`)
     .join("\n\n")
 
   const result = await geminiJson<{
     score: number; summary: string; strengths: string[]; improvements: string[]; soundbite: string
   }>(
     SYSTEM,
-    `직무: ${role ?? "마케팅"}\n\n[면접 기록]\n${transcript}\n\nJSON만 반환해.`,
+    `직무: ${String(role ?? "마케팅").slice(0, 100)}\n\n[면접 기록]\n${transcript}\n\nJSON만 반환해.`,
     1200
   )
 

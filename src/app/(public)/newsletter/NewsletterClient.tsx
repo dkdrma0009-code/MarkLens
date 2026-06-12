@@ -61,6 +61,7 @@ export default function NewsletterClient() {
             <input
               type="email"
               required
+              aria-label="이메일 주소"
               placeholder="이메일 주소를 입력하세요"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

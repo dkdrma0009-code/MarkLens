@@ -38,6 +38,7 @@ export default function ShareButtons({ slug, title }: Props) {
         onClick={shareTwitter}
         className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all"
         title="X(트위터)에 공유"
+        aria-label="X(트위터)에 공유"
       >
         <XIcon />
       </button>
@@ -46,6 +47,7 @@ export default function ShareButtons({ slug, title }: Props) {
         onClick={shareLinkedIn}
         className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all"
         title="LinkedIn에 공유"
+        aria-label="LinkedIn에 공유"
       >
         <LinkedInIcon />
       </button>
@@ -54,6 +56,7 @@ export default function ShareButtons({ slug, title }: Props) {
         onClick={copyLink}
         className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all"
         title="링크 복사"
+        aria-label={copied ? "링크 복사됨" : "링크 복사"}
       >
         {copied ? (
           <Check className="w-3.5 h-3.5 text-emerald-500" />

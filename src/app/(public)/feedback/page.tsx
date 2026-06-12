@@ -95,6 +95,8 @@ export default function FeedbackPage() {
                   onClick={() => setRating(n)}
                   onMouseEnter={() => setHovered(n)}
                   onMouseLeave={() => setHovered(0)}
+                  aria-label={`별점 ${n}점`}
+                  aria-pressed={rating === n}
                   className="text-3xl transition-transform hover:scale-110"
                 >
                   <span className={(hovered || rating) >= n ? "opacity-100" : "opacity-25"}>
@@ -149,6 +151,7 @@ export default function FeedbackPage() {
                   key={r}
                   type="button"
                   onClick={() => setRole(role === r ? "" : r)}
+                  aria-pressed={role === r}
                   className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
                     role === r
                       ? "bg-gray-900 dark:bg-white text-white dark:text-black border-gray-900 dark:border-white"
@@ -172,6 +175,7 @@ export default function FeedbackPage() {
                   key={s.value}
                   type="button"
                   onClick={() => setWillSubscribe(willSubscribe === s.value ? "" : s.value)}
+                  aria-pressed={willSubscribe === s.value}
                   className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
                     willSubscribe === s.value
                       ? "bg-gray-900 dark:bg-white text-white dark:text-black border-gray-900 dark:border-white"

@@ -41,7 +41,7 @@ export default async function HomePage() {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.12] mb-5 text-gray-900 dark:text-gray-100">
             마케팅 트렌드를 읽고,<br />
-            <span className="text-gray-300 dark:text-gray-700">실무를 준비하다.</span>
+            <span className="text-gray-500 dark:text-gray-500">실무를 준비하다.</span>
           </h1>
           <p className="text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-8">
             글로벌 마케팅 아티클을 AI로 분석해 왜 중요한지, 어떻게 적용할 수 있는지,

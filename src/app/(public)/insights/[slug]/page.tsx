@@ -80,8 +80,27 @@ export default async function InsightDetailPage({ params }: Props) {
   const article = insight.article
   const meta = getCategoryMeta(insight.category)
 
+  // 구글 리치 스니펫용 Article 구조화 데이터
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: insight.hook ?? article?.title ?? "",
+    description: insight.summary ?? undefined,
+    ...(article?.image_url ? { image: [article.image_url] } : {}),
+    datePublished: insight.created_at,
+    mainEntityOfPage: `${base}/insights/${slug}`,
+    author: { "@type": "Organization", name: "MarkLens", url: base },
+    publisher: { "@type": "Organization", name: "MarkLens", url: base },
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-14">
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* Back */}
       <Link href="/insights"

@@ -24,7 +24,8 @@ export async function POST(req: Request) {
   const limited = checkRateLimit(req, { key: "interview-questions", limit: 10, windowMs: 60_000 })
   if (limited) return limited
 
-  const { role, count } = await req.json()
+  const { role: rawRole, count } = await req.json()
+  const role = String(rawRole ?? "마케팅").slice(0, 100) // 프롬프트 주입 페이로드 상한
   const n = Math.min(Math.max(Number(count) || 5, 3), 7)
 
   const supabase = createAdminClient()

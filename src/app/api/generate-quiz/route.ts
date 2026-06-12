@@ -1,7 +1,18 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
+
+// 어드민 세션 또는 웹훅 시크릿 — 무인증 호출은 Gemini 비용·퀴즈 덮어쓰기 악용 가능
+async function isAuthorized(req: Request): Promise<boolean> {
+  const { searchParams } = new URL(req.url)
+  if (searchParams.get("secret") === process.env.N8N_WEBHOOK_SECRET) return true
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  return !!user && user.email?.trim().toLowerCase() === adminEmail
+}
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
 
@@ -35,8 +46,12 @@ answer는 정답 인덱스(0~3). 난이도는 본문 읽으면 알 수 있지만
 }
 
 export async function POST(req: Request) {
+  if (!await isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { insightId, content } = await req.json()
-  if (!insightId || !content) {
+  if (!insightId || typeof content !== "string" || !content) {
     return NextResponse.json({ error: "insightId and content required" }, { status: 400 })
   }
 
