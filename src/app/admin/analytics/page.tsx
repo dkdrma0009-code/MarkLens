@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import Link from "next/link"
 import InsightActions from "@/app/admin/insights/InsightActions"
+import { getGa4Overview } from "@/lib/ga4"
+import Ga4Panel from "@/components/admin/Ga4Panel"
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +26,7 @@ export default async function AdminAnalyticsPage() {
     { count: sentNewsletters },
     { data: insights },
     { data: feedbacks },
+    ga4,
   ] = await Promise.all([
     supabase.from("articles").select("*", { count: "exact", head: true }),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
@@ -39,6 +42,7 @@ export default async function AdminAnalyticsPage() {
     supabase
       .from("feedback")
       .select("insight_id, rating"),
+    getGa4Overview(),
   ])
 
   // 인사이트별 좋아요(helpful) 수 집계
@@ -69,6 +73,9 @@ export default async function AdminAnalyticsPage() {
         <h1 className="text-xl font-semibold tracking-tight">분석</h1>
         <p className="text-sm text-muted-foreground mt-1">플랫폼 운영 지표</p>
       </div>
+
+      {/* GA4 트래픽 */}
+      <Ga4Panel overview={ga4} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
