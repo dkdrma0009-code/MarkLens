@@ -1,5 +1,11 @@
+import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import InsightsClient from "./InsightsClient"
+
+export const metadata: Metadata = {
+  title: "인사이트 — MarkLens",
+  description: "글로벌 마케팅 아티클에서 추출한 실무 인사이트. 브랜딩·퍼포먼스·콘텐츠·AI 마케팅 트렌드를 매일 업데이트합니다.",
+}
 
 export const revalidate = 3600
 

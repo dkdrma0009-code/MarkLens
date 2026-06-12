@@ -1,6 +1,12 @@
+import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 import Link from "next/link"
+
+export const metadata: Metadata = {
+  title: "캠페인 라이브러리 — MarkLens",
+  description: "Muse by Clio · Adweek · Campaign Brief · Creative Review에서 엄선한 실제 브랜드 & 캠페인 사례 모음.",
+}
 
 export const revalidate = 3600
 
