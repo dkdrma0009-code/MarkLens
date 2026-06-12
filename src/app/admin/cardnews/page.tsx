@@ -45,7 +45,7 @@ export default async function CardnewsListPage() {
     hook?: string | null
     category?: string | null
     created_at: string
-    article?: { title?: string | null } | null
+    article?: { title?: string | null; image_url?: string | null } | null
   }
 
   const cardMap = new Map(cards.map(c => [c.article_id, c]))
@@ -59,7 +59,8 @@ export default async function CardnewsListPage() {
       createdAt: r.created_at,
       cardAt: card?.updated_at ?? null,
       postedAt: card?.posted_at ?? null,
-      usePhoto: card?.first_slide?.usePhoto === true,
+      // 사진이 기본 — 명시적으로 끈 카드(false)이거나 기사 이미지가 없으면 타이포
+      usePhoto: card?.first_slide?.usePhoto !== false && !!r.article?.image_url,
     }
   })
 

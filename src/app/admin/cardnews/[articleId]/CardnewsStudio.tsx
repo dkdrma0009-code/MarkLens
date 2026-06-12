@@ -310,11 +310,11 @@ function SlideEditor({ slide, onChange, onBlur, onCommit }: {
           <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
-              checked={!!s.usePhoto}
+              checked={s.usePhoto !== false}
               onChange={e => onCommit({ usePhoto: e.target.checked } as Partial<Slide>)}
               className="w-3.5 h-3.5 accent-indigo-600"
             />
-            사진 표지 사용 (매체 이미지 — 저작권 확인 후)
+            사진 표지 사용 (기본 — 이미지 없으면 자동 타이포 폴백)
           </label>
         </div>
       )

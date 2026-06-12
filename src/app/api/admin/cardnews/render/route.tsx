@@ -71,8 +71,8 @@ export async function GET(req: Request) {
       isPreview = true
     }
 
-    // 표지 사진은 옵트인 (기본 타이포 — 매체 사진 저작권 고려)
-    if (slideNum === 1 && (slides[0] as { usePhoto?: boolean })?.usePhoto) {
+    // 표지는 기사 사진이 기본, 없거나 fetch 실패 시 타이포 폴백 (usePhoto: false = 명시적 타이포)
+    if (slideNum === 1 && (slides[0] as { usePhoto?: boolean })?.usePhoto !== false) {
       const { data: article } = await supabase.from("articles").select("image_url").eq("id", articleId).single()
       coverImage = await fetchImageDataUri(article?.image_url)
     }

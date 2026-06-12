@@ -189,7 +189,7 @@ export default function CardnewsTable({ initialRows }: { initialRows: CardnewsRo
                       className="w-20 h-[100px] object-cover rounded-md border border-border bg-black"
                     />
                     <p className="text-[10px] text-center mt-1 text-muted-foreground">
-                      {!r.cardAt ? "프리뷰" : r.usePhoto ? "📷 기사 사진" : "Aa 타이포"}
+                      {r.usePhoto ? "📷 기사 사진" : "Aa 타이포"}{!r.cardAt ? " · 프리뷰" : ""}
                     </p>
                   </td>
                   <td className="px-4 py-3 max-w-sm">
