@@ -111,6 +111,35 @@ CREATE TABLE IF NOT EXISTS ad_clips (
 [텍스트] 고대비 인쇄체만 생존 후보. 음각·양각·저대비·곡선 장식체는 뭉개짐 전제
 ```
 
+Day 2~3 추가 확정분 (얼박사 "빙하에서 짠" + 운석 시퀀스 검증):
+
+```
+[인물 정지] AI 인물의 언캐니 해소 2단계 — 동작 부여로 안 되면 "동상화":
+       "frozen completely solid like a statue, motionless, captured mid-toast,
+        does not move, blink, or speak". 동작 동사(smiles, raises, waves)가
+        하나라도 있으면 말하기/손흔들기로 번짐. 정지 지시는 부정형까지 명시
+[결빙感] 인물 결빙은 자세 지시보다 "frost on his eyebrows and jacket"이 강력 —
+       서리 디테일이 '얼어붙은 지 오래' 서사를 한 프레임에 전달
+[밀봉 한계] "sealed inside solid ice / no cave, no opening / like an insect in amber"를
+       다 써도 모델은 거의 항상 구멍(동굴)을 파서 인물을 보여줌. 3연속 실패로 경향 확정
+       → 밀봉이 필수면 콘셉트를 바꾸고, 아니면 구멍을 천연 액자 프레임으로 수용
+[시선 유도] 오프닝 카메라 워크는 피사체 추적이 아니라 시선 서사로:
+       "camera points straight up at the night sky — only stars fill the frame —
+        then tilts down following the fall" (하늘만으로 시작해야 틸트다운이 강제됨)
+[카메라 보상] 피사체가 동상(정지)이면 카메라가 천천히 push-in — 화면은 움직이고
+       피사체는 멈춘 대비가 정지 개그를 강화 + 라벨 클로즈업 확보
+[negative] 운석·얼음 소재는 "rocky, lava, molten, warm tones, orange fire" 필수 —
+       기본 경향이 불타는 바위. 꼬리 색은 프롬프트에 blue-white 명시 병행
+[블록 분리] 스타일 블록은 룩(전 샷 공통)과 피사체 명세(해당 샷만)로 분리.
+       피사체 소멸 후 샷에 명세가 남아 있으면 환각 유발 (예: 충돌 후 회전 지시)
+[A/B 운용] 같은 프롬프트 x2 대신 산문 vs 구조화(타임스탬프 비트) x1씩 —
+       같은 비용으로 스타일 적합성 정보를 추가 획득
+[릴스 훅] 첫 1~2초 안에 주인공 등장 명시 ("already in frame as the shot opens") —
+       빈 배경 오프닝은 스킵 유발
+[세로 동선] 9:16은 낙하·폭발·솟아오름 등 수직 모션과 구도를 일치시키고,
+       핵심 액션을 세로 중앙 70% 세이프존에 배치 (인스타 UI 가림 방지)
+```
+
 ### 콘셉트 템플릿 (brief 생성용)
 | 콘셉트 | 샷 구조 | 검증 상태 |
 |---|---|---|
@@ -118,6 +147,8 @@ CREATE TABLE IF NOT EXISTS ad_clips (
 | `macro` | 콘덴세이션 클로즈업 비트 (1~2초 컷용) | ✅ Day 1 |
 | `journey` | 라벨 없는 주인공 오브젝트가 장면들 관통 → 제품 착지 | ✅ Day 2 (얼음 결정 샷1~2: 참조 재첨부로 동일 주인공 유지 확인) |
 | `luxury` | 정면 고정 + 실크/파티클 (저대비 로고 제품용) | ✅ Day 1 (구찌) |
+| `frozen_statue` | 충돌 스펙터클 → 동상처럼 얼어붙은 인물 리빌 → 미세 움직임 펀치라인 (+페이크 엔딩→반전) | 🔄 Day 3 (빙하에서 짠 — 베이스 합격, 확장 대기) |
+| `meteor_reveal` | 수직 낙하 시퀀스(우주→하늘→POV) → 충돌 → 제품 솟아오름 히어로 | 📋 설계 완료 (ad-meteor/ — API 빌링 후 실행) |
 
 > 갱신 절차: 노션 실험 로그의 "확정 패턴"이 늘면 이 섹션과 `src/lib/ads/prompts.ts`를 함께 갱신
 
