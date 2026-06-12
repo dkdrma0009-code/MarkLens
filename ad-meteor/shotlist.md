@@ -1,29 +1,47 @@
 # '얼박사' 얼음 운석 시퀀스 — Veo 3.1 Fast 샷리스트
 
-> 얼음 운석이 우주에서 떨어져 북극에 충돌, 그 자리에서 얼박사 캔이 드러나는 30~40초 광고.
+> 얼음 운석이 우주에서 떨어져 북극에 충돌, 그 자리에서 얼박사 캔이 드러나는 광고.
+> **확정 목표 길이: 본편 15~20초 + 엔드카드 3~5초.**
 > 샷별 8초 클립을 Veo 3.1 fast로 생성 → 편집으로 연결. **최종 출력: 인스타그램 릴스 9:16 세로.**
 >
 > - 모든 샷은 **9:16 세로로 직접 생성** (가로 생성 후 크롭 금지)
 > - 레퍼런스: `ice_meteor.png`(운석 질감 기준), `can.png`(제품 캔 — S5-B 입력)
-> - 실행: `generate_clips.py` + `config.py` (shotlist 확정 후 작성)
+> - 실행: `generate_clips.py` + `config.py` — 프롬프트 조립·negative 오버라이드는 config가 자동 처리
 
 ---
 
-## [공통 스타일 블록] — 모든 샷 프롬프트의 **끝에 그대로 복사해 붙임**
+## [공통 룩 블록] — **모든 샷** 프롬프트의 끝에 붙임
 
 ```
-Vertical 9:16 composition, main subject and key action kept within the central 70% of the frame height. The ice meteor: a car-sized mass of translucent blue-white ice with glowing internal fractures and a frosted surface, slowly rotating clockwise, trailing a long blue-white glowing tail with refractive glints. Cold blue palette, icy cyan highlights, deep navy shadows. Photorealistic, hyper-detailed, cinematic commercial, shallow depth of field, 24fps film look.
+Vertical 9:16 composition, main subject and key action kept within the central 70% of the frame height. Cold blue palette, icy cyan highlights, deep navy shadows. Photorealistic, hyper-detailed, cinematic commercial, shallow depth of field, 24fps film look.
 ```
 
-운석 일관성 명세(모든 샷 동일 기술): **차 한 대 크기 / blue-white 발광 꼬리 / 시계방향 회전.**
+## [운석 명세 블록] — **S1~S4, S5-A에만** 룩 블록 바로 앞에 붙임
 
-## [공통 부정 프롬프트] — API의 `negative_prompt` 파라미터로 전달
+```
+The ice meteor: a car-sized mass of translucent blue-white ice with glowing internal fractures and a frosted surface, slowly rotating clockwise, trailing a long blue-white glowing tail with refractive glints.
+```
+
+- 운석 일관성 명세: **차 한 대 크기 / blue-white 발광 꼬리 / 시계방향 회전**
+- **S5-A에는 `slowly rotating clockwise,` 를 제거한 버전** 사용 (충돌·리빌 순간이라 회전 지시가 방해)
+- **S5-B에는 붙이지 않음** (운석이 이미 소멸한 시점)
+- 프롬프트 조립 순서: `샷 프롬프트 + 운석 명세(해당 샷만) + 룩 블록`
+
+## [부정 프롬프트] — API `negative_prompt` 파라미터, **샷별 오버라이드 가능**
+
+기본 (S1~S4, S5-A):
 
 ```
 rocky, lava, molten, warm tones, orange fire, cartoon, blurry, low quality, text, watermark, distorted logo
 ```
 
-> 의도: 운석이 "불타는 바위"로 흘러가는 걸 차단 (orange fire/molten/rocky) — 꼬리는 반드시 blue-white.
+S5-B 전용 오버라이드 — **text 계열 제거**(라벨 보존 목적과 충돌), camera shake/label distortion 추가:
+
+```
+rocky, lava, molten, warm tones, orange fire, cartoon, blurry, low quality, camera shake, label distortion
+```
+
+> 기본 negative의 의도: 운석이 "불타는 바위"로 흘러가는 걸 차단 (orange fire/molten/rocky) — 꼬리는 반드시 blue-white.
 
 ## [세이프존 메모]
 
@@ -72,6 +90,7 @@ Extreme close-up of the rotating ice meteor filling the vertical frame, its fros
 - **③ 사운드:** low whoosh → roaring acceleration + ice cracking (램프와 동기화)
 - **④ 다음 샷 전환:** 수직 light streak의 모션을 그대로 받아 S4 POV로 **motion match cut**
 - **⑤ 길이:** 8s 생성 → 사용 약 3~4s (슬로모션 1.5s + 램프 1.5~2s, 앞뒤 여유 트림)
+- **플랜 B:** 1회 시도 후 램프가 안 나오면 **일정한 슬로모션 버전으로 재생성** (프롬프트에서 speed ramp 문장 제거), 급가속은 편집 단계의 속도 램프(setpts)로 처리
 
 ## S4 — 별똥별 1인칭 POV 수직 급강하
 
@@ -126,7 +145,7 @@ The can from the reference image stays fixed dead-center in the vertical frame, 
 | 3 | S3 | ~3-4s | motion match cut |
 | 4 | S4 | ~2-3s | whiteout flash |
 | 5 | S5 | ~5-6s | 정지 → 로고 합성·엔드카드 |
-| | **합계** | **~15-20s 본편** + 엔드카드 | 30~40초 목표 시 S1/S3/S5 사용 구간 확대 |
+| | **합계** | **본편 15~20s + 엔드카드 3~5s = 총 ~18-25s** | 확정 목표 |
 
 ## 판정 기준
 
