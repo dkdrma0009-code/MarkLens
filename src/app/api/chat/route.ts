@@ -66,30 +66,26 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
         }
 
+        // Gemini 주력 (2026-06-12 전환) — 실패 시에만 Claude 스트리밍 폴백
         try {
-          const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-          const claudeStream = claude.messages.stream({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 2000,
-            system,
-            messages: [{ role: "user", content: prompt }],
-          })
+          const text = await callGemini(system, prompt)
+          send(text)
+        } catch {
+          try {
+            const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+            const claudeStream = claude.messages.stream({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 2000,
+              system,
+              messages: [{ role: "user", content: prompt }],
+            })
 
-          for await (const chunk of claudeStream) {
-            if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
-              send(chunk.delta.text)
+            for await (const chunk of claudeStream) {
+              if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+                send(chunk.delta.text)
+              }
             }
-          }
-        } catch (e) {
-          const isCreditError = e instanceof Error && /credit|billing|quota|balance/i.test(e.message)
-          if (isCreditError) {
-            try {
-              const text = await callGemini(system, prompt)
-              send(text)
-            } catch {
-              send("죄송해요, 잠시 문제가 있어요. 다시 시도해주세요.")
-            }
-          } else {
+          } catch {
             send("죄송해요, 잠시 문제가 있어요. 다시 시도해주세요.")
           }
         }

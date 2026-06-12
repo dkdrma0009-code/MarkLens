@@ -74,7 +74,8 @@ async function callOpenAI(system: string, prompt: string, maxTokens: number): Pr
   return res.choices[0].message.content ?? ""
 }
 
-// 우선순위: Claude → OpenAI → Gemini
+// 우선순위: Gemini → Claude → OpenAI
+// (2026-06-12 Gemini 주력 전환 — Claude/OpenAI 크레딧 소진. 충전하면 자동으로 폴백 보험 역할 복귀)
 // 실패한 provider는 30분간 건너뛰어 불필요한 대기 없음
 export async function generateText({
   system,
@@ -85,6 +86,17 @@ export async function generateText({
   prompt: string
   maxTokens?: number
 }): Promise<string> {
+  if (available("gemini")) {
+    try {
+      const result = await callGemini(prompt, system, maxTokens)
+      console.log("[AI] Gemini 사용")
+      return result
+    } catch (err) {
+      markFailed("gemini")
+      console.warn("[AI] Gemini 오류:", err instanceof Error ? err.message : err)
+    }
+  }
+
   if (available("claude")) {
     try {
       const result = await callClaude(system, prompt, maxTokens)
@@ -96,17 +108,7 @@ export async function generateText({
     }
   }
 
-  if (available("openai")) {
-    try {
-      const result = await callOpenAI(system, prompt, maxTokens)
-      console.log("[AI] OpenAI 사용")
-      return result
-    } catch (err) {
-      markFailed("openai")
-      if (!isCreditError(err)) console.warn("[AI] OpenAI 오류:", err instanceof Error ? err.message : err)
-    }
-  }
-
-  console.log("[AI] Gemini 사용")
-  return callGemini(prompt, system, maxTokens)
+  // 최후 폴백 — 실패 시 에러를 그대로 올려 호출부가 인지하게 함
+  console.log("[AI] OpenAI 사용")
+  return callOpenAI(system, prompt, maxTokens)
 }
