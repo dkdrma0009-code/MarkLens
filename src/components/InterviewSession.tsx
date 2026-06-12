@@ -258,6 +258,16 @@ export default function InterviewSession() {
     } catch { setSpeaking(false); onEnd?.() }
   }
 
+  // 질문 다시 듣기 — 듣는 동안 마이크를 멈췄다가 발화가 끝나면 재개(에코로 오인식 방지)
+  function replayQuestion() {
+    stopRequestedRef.current = true
+    try { recRef.current?.stop() } catch {}
+    setRecording(false)
+    speak(questions[current]?.question ?? "", () => {
+      if (speechSupported) { stopRequestedRef.current = false; startSpeech() }
+    })
+  }
+
   async function start() {
     setStage("loading")
 
@@ -502,54 +512,44 @@ export default function InterviewSession() {
           style={{ width: `${((current + (feedback ? 1 : 0)) / questions.length) * 100}%` }} />
       </div>
 
-      {/* 화상 모드 — 실제 화상면접 2분할 (면접관 / 나) */}
+      {/* 화상 모드 — 카메라 풀뷰 (질문은 면접관 음성으로만 전달) */}
       {videoMode && (
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          {/* 면접관 */}
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-gray-800 to-gray-950 flex flex-col items-center justify-center aspect-[3/4]">
-            <div className={`w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-4xl transition-all duration-300 ${speaking ? "ring-4 ring-emerald-400/60 scale-105" : ""}`}>🧑‍💼</div>
-            <p className="text-white text-sm font-bold mt-3">AI 면접관</p>
-            <p className="text-white/45 text-[11px] mt-0.5">{role}</p>
-            <span className={`absolute bottom-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
-              speaking ? "bg-emerald-500/90 text-white" : recording ? "bg-white/15 text-white" : "bg-white/10 text-white/60"
-            }`}>
-              {speaking ? "🔊 말하는 중" : recording ? "🎙 듣는 중" : "잠시만요"}
+        <div className="relative w-full mb-5 rounded-2xl overflow-hidden bg-black aspect-[4/3]">
+          {camStream ? (
+            <video ref={camVideoRef} autoPlay muted playsInline
+              className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white/40 text-sm px-4 text-center">
+              {camError ? "카메라를 사용할 수 없어요 (권한을 확인해주세요)" : "카메라 연결 중…"}
+            </div>
+          )}
+          {/* 상태 (상단 중앙) — 면접관이 말하는 중 / 내가 답할 차례 */}
+          <span className={`absolute top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full whitespace-nowrap ${
+            speaking ? "bg-emerald-500/90 text-white" : recording ? "bg-black/65 text-white" : "bg-black/55 text-white/70"
+          }`}>
+            {speaking ? "🔊 면접관이 질문하고 있어요" : recording ? "🎙 말씀하세요" : "잠시만요…"}
+          </span>
+          {clipRecording && (
+            <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> REC
             </span>
-          </div>
-          {/* 나 */}
-          <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
-            {camStream ? (
-              <video ref={camVideoRef} autoPlay muted playsInline
-                className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/40 text-xs px-2 text-center">
-                {camError ? "카메라를 사용할 수 없어요" : "카메라 연결 중…"}
-              </div>
-            )}
-            {clipRecording && (
-              <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 bg-black/70 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> REC
-              </span>
-            )}
-            <span className="absolute bottom-2.5 left-2.5 bg-black/55 text-white text-[11px] font-medium px-2 py-0.5 rounded-md">나</span>
-          </div>
+          )}
         </div>
-      )}
-      {videoMode && camError && (
-        <p className="text-xs text-amber-600 mb-4">⚠️ 카메라를 사용할 수 없어 기본 모드로 진행해요 (권한을 확인해주세요)</p>
       )}
 
-      {/* 면접관 질문 */}
-      <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl flex-shrink-0">🧑‍💼</span>
-          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1">{q.question}</p>
-          <button onClick={() => speak(q.question)} aria-label="질문 읽어주기"
-            className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors">
-            <Volume2 className="w-4 h-4" />
-          </button>
+      {/* 면접관 질문 — 기본 모드만 텍스트로 표시 (화상 모드는 음성으로만) */}
+      {!videoMode && (
+        <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🧑‍💼</span>
+            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1">{q.question}</p>
+            <button onClick={() => speak(q.question)} aria-label="질문 읽어주기"
+              className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors">
+              <Volume2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 답변 — 화상 모드: 마이크 온리 (실시간 받아적기) */}
       {!feedback && videoMode && (
@@ -565,6 +565,10 @@ export default function InterviewSession() {
             )}
           </div>
           <div className="flex gap-2">
+            <button onClick={replayQuestion} disabled={grading || speaking} aria-label="질문 다시 듣기"
+              className="px-3.5 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-40">
+              🔊
+            </button>
             <button onClick={retrySpeak} disabled={grading}
               className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap">
               🔁 다시 말하기
