@@ -7,6 +7,9 @@
   python ad-meteor/generate_clips.py --out ad-work/meteor --shot S3    # 단일 샷 재생성
   python ad-meteor/generate_clips.py --out ad-work/meteor --shot S5 --image ad-work/meteor/can.png
       # --image 지정 시 S5가 image-to-video(S5-B 프롬프트·전용 negative)로 전환
+      # 기본은 reference(asset) 모드 — 캔을 재료로 참조하고 장면은 프롬프트가 구성.
+      # --mode first_frame 으로 첫 프레임 모드 선택 가능 (이미지가 영상의 첫 프레임이
+      # 되므로 흰 배경 제품컷이 아니라 북극 배경에 합성된 스틸이 필요함)
 
 API 키: 환경변수 GOOGLE_API_KEY → VEO_API_KEY → GEMINI_API_KEY → .env.local의
 VEO_API_KEY 순으로 탐색. 하드코딩 금지, 키는 출력하지 않는다.
@@ -44,23 +47,50 @@ def log_error(out_dir: pathlib.Path, msg: str) -> None:
 
 
 def generate_once(client, shot_id: str, prompt: str, negative: str,
-                  out_path: pathlib.Path, image_path: pathlib.Path | None) -> None:
+                  out_path: pathlib.Path, image_path: pathlib.Path | None,
+                  mode: str, out_dir: pathlib.Path) -> None:
     from google.genai import types
 
     kwargs = {}
+    cfg_extra = {}
     if image_path is not None:
-        kwargs["image"] = types.Image.from_file(location=str(image_path))
+        if mode == "first_frame":
+            # 첫 프레임 모드: 입력 이미지가 영상의 첫 프레임이 된다 —
+            # 흰 배경 제품컷이 아니라 북극 배경에 합성된 스틸이 필요함
+            kwargs["image"] = types.Image.from_file(location=str(image_path))
+        else:
+            # reference(asset) 모드: 캔을 재료로 참조, 장면 구성은 프롬프트 담당
+            cfg_extra["reference_images"] = [
+                types.VideoGenerationReferenceImage(
+                    image=types.Image.from_file(location=str(image_path)),
+                    reference_type="asset",
+                )
+            ]
 
-    operation = client.models.generate_videos(
-        model=config.MODEL,
-        prompt=prompt,
-        config=types.GenerateVideosConfig(
-            aspect_ratio=config.ASPECT_RATIO,
-            resolution=config.RESOLUTION,
-            negative_prompt=negative,
-        ),
-        **kwargs,
-    )
+    def request(resolution: str):
+        return client.models.generate_videos(
+            model=config.MODEL,
+            prompt=prompt,
+            config=types.GenerateVideosConfig(
+                aspect_ratio=config.ASPECT_RATIO,
+                resolution=resolution,
+                negative_prompt=negative,
+                **cfg_extra,
+            ),
+            **kwargs,
+        )
+
+    try:
+        operation = request(config.RESOLUTION)
+    except Exception as e:  # noqa: BLE001
+        # 9:16 + 1080p 조합 거부 시 720p 자동 폴백
+        msg = str(e).lower()
+        if config.RESOLUTION != "720p" and any(k in msg for k in ("resolution", "1080", "aspect")):
+            log_error(out_dir, f"{shot_id} {config.ASPECT_RATIO}+{config.RESOLUTION} 거부 → 720p 폴백: {e}")
+            operation = request("720p")
+        else:
+            raise
+
     while not operation.done:
         time.sleep(config.POLL_SEC)
         operation = client.operations.get(operation)
@@ -75,7 +105,7 @@ def generate_once(client, shot_id: str, prompt: str, negative: str,
 
 
 def generate_shot(client, shot_id: str, out_dir: pathlib.Path,
-                  image_path: pathlib.Path | None) -> pathlib.Path:
+                  image_path: pathlib.Path | None, mode: str) -> pathlib.Path:
     spec = config.SHOTS[shot_id]
     use_i2v = image_path is not None and "i2v" in spec
     src = spec["i2v"] if use_i2v else spec
@@ -83,14 +113,14 @@ def generate_shot(client, shot_id: str, out_dir: pathlib.Path,
     negative = src["negative"]
     out_path = out_dir / f"{spec['filename']}.mp4"
 
-    mode = "image-to-video" if use_i2v else "text-to-video"
-    print(f"[{shot_id}] {mode} 생성 시작 → {out_path.name}")
+    label = f"image-to-video({mode})" if use_i2v else "text-to-video"
+    print(f"[{shot_id}] {label} 생성 시작 → {out_path.name}")
 
     last_err = None
     for attempt in range(1 + config.MAX_RETRIES):
         try:
             generate_once(client, shot_id, prompt, negative, out_path,
-                          image_path if use_i2v else None)
+                          image_path if use_i2v else None, mode, out_dir)
             print(f"[{shot_id}] 저장 완료: {out_path}")
             return out_path
         except Exception as e:  # noqa: BLE001 — 어떤 실패든 재시도 대상
@@ -108,6 +138,9 @@ def main() -> None:
                     help="단일/일부 샷만 (예: S3 또는 S1,S4 — 기본 전부)")
     ap.add_argument("--image", default=None,
                     help="can.png 경로 — 지정 시 S5가 image-to-video(S5-B)로 전환")
+    ap.add_argument("--mode", default="reference", choices=("reference", "first_frame"),
+                    help="--image 적용 방식: reference(asset 재료, 기본) / "
+                         "first_frame(이미지가 첫 프레임 — 배경 합성된 스틸 필요)")
     args = ap.parse_args()
 
     out_dir = pathlib.Path(args.out)
@@ -129,7 +162,7 @@ def main() -> None:
     done, failed = [], []
     for shot_id in wanted:  # 순차 실행 — S1~S5 파일명 자동 정리
         try:
-            done.append(generate_shot(client, shot_id, out_dir, image_path))
+            done.append(generate_shot(client, shot_id, out_dir, image_path, args.mode))
         except Exception as e:  # noqa: BLE001
             log_error(out_dir, str(e))
             failed.append(shot_id)
