@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     title: "MarkLens",
     description: "Where Marketing Trends Become Action",
     siteName: "MarkLens",
-    url: "https://www.marklens.site",
+    url: "https://marklens.site",
   },
 };
 
