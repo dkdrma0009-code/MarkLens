@@ -75,6 +75,7 @@ export default function InterviewSession() {
 
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
+  const [speaking, setSpeaking] = useState(false) // 면접관 TTS 발화 중
   const [speechSupported, setSpeechSupported] = useState(false)
   const recRef = useRef<{ stop: () => void } | null>(null)
 
@@ -91,6 +92,8 @@ export default function InterviewSession() {
 
   function stopCamera() {
     try { clipRecRef.current?.state === "recording" && clipRecRef.current.stop() } catch {}
+    try { speechSynthesis.cancel() } catch {}
+    setSpeaking(false)
     camStreamRef.current?.getTracks().forEach(t => t.stop())
     camStreamRef.current = null
     setCamStream(null)
@@ -126,12 +129,16 @@ export default function InterviewSession() {
     setClipRecording(false)
   }
 
-  // 질문이 바뀌고 답변 입력 상태가 되면: 녹화 + 음성 받아적기 자동 시작 (화상 모드)
+  // 새 질문이 표시되면(화상 모드): 녹화 시작 → 면접관이 질문을 말함 → 발화가 끝나면 마이크 ON
+  // (턴제로 실제 화상면접처럼. TTS가 끝난 뒤 받아적기를 시작해 면접관 음성이 마이크에 잡혀 오인식되는 것도 방지)
   useEffect(() => {
     if (stage === "interview" && videoMode && camStream && !feedback && !grading) {
       stopRequestedRef.current = false
       startClip()
-      if (speechSupported) startSpeech()
+      const text = questions[current]?.question
+      const startListening = () => { if (speechSupported && !stopRequestedRef.current) startSpeech() }
+      if (text) speak(text, startListening)
+      else startListening()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, current, feedback, camStream])
@@ -160,6 +167,7 @@ export default function InterviewSession() {
     setSpeechSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition))
     return () => {
       try { recRef.current?.stop() } catch {}
+      try { speechSynthesis.cancel() } catch {}
       camStreamRef.current?.getTracks().forEach(t => t.stop())
     }
   }, [])
@@ -233,14 +241,21 @@ export default function InterviewSession() {
     setFeedback(null)
   }
 
-  // ── 질문 읽어주기 (TTS) ──
-  function speak(text: string) {
+  // ── 면접관이 질문 읽어주기 (TTS) — 끝나면 onEnd 콜백 ──
+  function speak(text: string, onEnd?: () => void) {
     try {
       speechSynthesis.cancel()
       const u = new SpeechSynthesisUtterance(text)
       u.lang = "ko-KR"
+      u.rate = 1.02
+      const voices = speechSynthesis.getVoices()
+      const ko = voices.find(v => v.lang === "ko-KR") || voices.find(v => v.lang?.startsWith("ko"))
+      if (ko) u.voice = ko
+      u.onstart = () => setSpeaking(true)
+      u.onend = () => { setSpeaking(false); onEnd?.() }
+      u.onerror = () => { setSpeaking(false); onEnd?.() }
       speechSynthesis.speak(u)
-    } catch { /* 미지원 무시 */ }
+    } catch { setSpeaking(false); onEnd?.() }
   }
 
   async function start() {
@@ -487,16 +502,37 @@ export default function InterviewSession() {
           style={{ width: `${((current + (feedback ? 1 : 0)) / questions.length) * 100}%` }} />
       </div>
 
-      {/* 화상 모드 — 미러 프리뷰 */}
-      {videoMode && camStream && (
-        <div className="relative w-full mb-4 rounded-2xl overflow-hidden bg-black">
-          <video ref={camVideoRef} autoPlay muted playsInline
-            className="w-full max-h-64 object-cover" style={{ transform: "scaleX(-1)" }} />
-          {clipRecording && (
-            <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> REC
+      {/* 화상 모드 — 실제 화상면접 2분할 (면접관 / 나) */}
+      {videoMode && (
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {/* 면접관 */}
+          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-gray-800 to-gray-950 flex flex-col items-center justify-center aspect-[3/4]">
+            <div className={`w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-4xl transition-all duration-300 ${speaking ? "ring-4 ring-emerald-400/60 scale-105" : ""}`}>🧑‍💼</div>
+            <p className="text-white text-sm font-bold mt-3">AI 면접관</p>
+            <p className="text-white/45 text-[11px] mt-0.5">{role}</p>
+            <span className={`absolute bottom-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
+              speaking ? "bg-emerald-500/90 text-white" : recording ? "bg-white/15 text-white" : "bg-white/10 text-white/60"
+            }`}>
+              {speaking ? "🔊 말하는 중" : recording ? "🎙 듣는 중" : "잠시만요"}
             </span>
-          )}
+          </div>
+          {/* 나 */}
+          <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
+            {camStream ? (
+              <video ref={camVideoRef} autoPlay muted playsInline
+                className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white/40 text-xs px-2 text-center">
+                {camError ? "카메라를 사용할 수 없어요" : "카메라 연결 중…"}
+              </div>
+            )}
+            {clipRecording && (
+              <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 bg-black/70 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> REC
+              </span>
+            )}
+            <span className="absolute bottom-2.5 left-2.5 bg-black/55 text-white text-[11px] font-medium px-2 py-0.5 rounded-md">나</span>
+          </div>
         </div>
       )}
       {videoMode && camError && (
@@ -520,7 +556,7 @@ export default function InterviewSession() {
         <div className="space-y-3">
           <div className="rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 min-h-[140px]">
             <p className="text-xs font-semibold text-gray-400 mb-2.5">
-              {recording ? "🎙 듣고 있어요 — 카메라를 보고 말씀하세요" : "🎙 마이크 연결 중..."}
+              {speaking ? "🔊 면접관이 질문하고 있어요 — 잠시 들어주세요" : recording ? "🎙 듣고 있어요 — 카메라를 보고 말씀하세요" : "🎙 마이크 연결 중..."}
             </p>
             {answer ? (
               <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">{answer}</p>
