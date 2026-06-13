@@ -8,9 +8,21 @@ const SCOPE = "https://www.googleapis.com/auth/analytics.readonly"
 
 let cached: { token: string; exp: number } | null = null
 
+// private key를 어떤 형식으로 넣어도 유효 PEM으로 — literal \n / 실제 줄바꿈 / 줄바꿈 없는 한 줄 모두 처리
+function normalizeKey(raw?: string): string {
+  if (!raw) return ""
+  let key = raw.trim().replace(/^["']|["']$/g, "")
+  if (key.includes("\\n")) key = key.replace(/\\n/g, "\n")
+  if (!key.includes("\n")) {
+    const body = key.replace(/-----[A-Z ]+-----/g, "").replace(/\s+/g, "")
+    key = `-----BEGIN PRIVATE KEY-----\n${(body.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----\n`
+  }
+  return key
+}
+
 async function getAccessToken(): Promise<string> {
   const email = process.env.GA4_SA_CLIENT_EMAIL
-  const key = process.env.GA4_SA_PRIVATE_KEY?.replace(/\\n/g, "\n")
+  const key = normalizeKey(process.env.GA4_SA_PRIVATE_KEY)
   if (!email || !key) throw new Error("GA4 서비스 계정 미설정 (GA4_SA_CLIENT_EMAIL/PRIVATE_KEY)")
 
   const now = Math.floor(Date.now() / 1000)
