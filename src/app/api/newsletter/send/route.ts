@@ -13,7 +13,7 @@ async function isAdmin(): Promise<boolean> {
   return !!user && user.email?.trim().toLowerCase() === adminEmail
 }
 
-async function sendViaBrevo(to: string, subject: string, html: string): Promise<void> {
+async function sendViaBrevo(to: string, subject: string, html: string, issueId: string): Promise<void> {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": process.env.BREVO_API_KEY!, "Content-Type": "application/json" },
@@ -22,6 +22,7 @@ async function sendViaBrevo(to: string, subject: string, html: string): Promise<
       to: [{ email: to }],
       subject,
       htmlContent: html,
+      tags: [`issue-${issueId}`], // 웹훅에서 오픈/클릭을 이 이슈로 연결
     }),
   })
   if (!res.ok) throw new Error(`Brevo error: ${await res.text()}`)
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
     const batch = subscribers.slice(i, i + BATCH)
     const results = await Promise.allSettled(batch.map(async ({ email }) => {
       const unsubscribeUrl = await generateUnsubscribeUrl(email)
-      await sendViaBrevo(email, subject, buildNewsletterHtml(issue, { unsubscribeUrl, heroImage }))
+      await sendViaBrevo(email, subject, buildNewsletterHtml(issue, { unsubscribeUrl, heroImage }), issueId)
     }))
     results.forEach((r, j) => {
       if (r.status === "fulfilled") sent++

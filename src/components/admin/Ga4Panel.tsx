@@ -48,12 +48,16 @@ export default function Ga4Panel({ overview }: { overview: Ga4Overview | null })
       {/* 일별 방문자 추이 */}
       {daily.length > 0 && (
         <div className="border border-border rounded-lg p-5 bg-background">
-          <p className="text-xs font-medium text-muted-foreground mb-3">일별 방문자</p>
-          <div className="flex items-end gap-[3px] h-28">
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground">일별 방문자</p>
+            <p className="text-[11px] text-muted-foreground">최대 <span className="font-semibold text-foreground tabular-nums">{maxUsers}</span>명</p>
+          </div>
+          {/* 컬럼 div에 h-full을 줘야 자식 막대의 %height가 정상 계산됨 */}
+          <div className="flex items-end gap-[2px] h-32">
             {daily.map(d => (
-              <div key={d.date} className="flex-1 flex flex-col items-center justify-end group" title={`${fmtDate(d.date)} · ${d.users}명`}>
-                <div className="w-full rounded-t bg-foreground/80 group-hover:bg-foreground transition-colors"
-                  style={{ height: `${Math.max(2, (d.users / maxUsers) * 100)}%` }} />
+              <div key={d.date} className="flex-1 h-full flex flex-col justify-end group" title={`${fmtDate(d.date)} · ${d.users}명`}>
+                <div className="w-full rounded-t bg-indigo-500/85 group-hover:bg-indigo-500 transition-colors min-h-[3px]"
+                  style={{ height: `${Math.max(3, (d.users / maxUsers) * 100)}%` }} />
               </div>
             ))}
           </div>
