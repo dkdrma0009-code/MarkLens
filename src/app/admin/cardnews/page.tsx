@@ -40,6 +40,10 @@ export default async function CardnewsListPage() {
 
   const { data: insights } = await insightsQuery
 
+  // 인스타 자동발행 스위치 (app_config — 테이블 없으면 off)
+  const { data: cfg } = await supabase.from("app_config").select("value").eq("key", "ig_auto_publish").maybeSingle()
+  const autoPublish = cfg?.value === "on"
+
   type Row = {
     article_id: string
     hook?: string | null
@@ -87,7 +91,7 @@ export default async function CardnewsListPage() {
           발행된 인사이트가 없습니다.
         </div>
       ) : (
-        <CardnewsTable initialRows={rows} />
+        <CardnewsTable initialRows={rows} autoPublish={autoPublish} />
       )}
     </div>
   )

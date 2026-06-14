@@ -30,9 +30,10 @@ function rowStatus(r: CardnewsRow): Filter {
   return r.postedAt ? "posted" : "ready"
 }
 
-export default function CardnewsTable({ initialRows }: { initialRows: CardnewsRow[] }) {
+export default function CardnewsTable({ initialRows, autoPublish }: { initialRows: CardnewsRow[]; autoPublish: boolean }) {
   const [rows, setRows] = useState(initialRows)
   const [filter, setFilter] = useState<Filter>("all")
+  const [auto, setAuto] = useState(autoPublish)
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [bulkProgress, setBulkProgress] = useState<string | null>(null)
   const bulkStop = useRef(false)
@@ -126,6 +127,23 @@ export default function CardnewsTable({ initialRows }: { initialRows: CardnewsRo
     }
   }
 
+  async function toggleAuto() {
+    const next = !auto
+    setAuto(next)
+    try {
+      const res = await fetch("/api/admin/cardnews/auto-publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(next ? "자동발행 ON — 매일 미발행 1건 자동 게시" : "자동발행 OFF")
+    } catch {
+      setAuto(!next)
+      toast.error("설정 실패 (app_config 테이블 확인)")
+    }
+  }
+
   async function publishToInstagram(r: CardnewsRow) {
     if (!confirm(`"${r.hook ?? "카드뉴스"}"를 인스타그램에 지금 발행할까요?\n실제로 @marklens.site 피드에 게시됩니다.`)) return
     setRowBusy(r.articleId, true)
@@ -164,21 +182,32 @@ export default function CardnewsTable({ initialRows }: { initialRows: CardnewsRo
             </button>
           ))}
         </div>
-        {counts.todo > 0 && (
-          bulkProgress ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="animate-pulse">{bulkProgress}</span>
-              <button onClick={() => { bulkStop.current = true }} className="px-2 py-1 rounded border border-border hover:bg-muted/50">중단</button>
-            </div>
-          ) : (
-            <button
-              onClick={generateMissing}
-              className="text-xs px-3 py-1.5 rounded-md font-medium bg-foreground text-background hover:opacity-90"
-            >
-              미생성 {counts.todo}개 일괄 생성
-            </button>
-          )
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleAuto}
+            title="매일 미발행 카드뉴스 1건을 자동으로 인스타 발행"
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors ${
+              auto ? "bg-emerald-500 text-white border-emerald-500" : "border-border text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            {auto ? "🟢 자동발행 ON" : "⚪ 자동발행 OFF"}
+          </button>
+          {counts.todo > 0 && (
+            bulkProgress ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="animate-pulse">{bulkProgress}</span>
+                <button onClick={() => { bulkStop.current = true }} className="px-2 py-1 rounded border border-border hover:bg-muted/50">중단</button>
+              </div>
+            ) : (
+              <button
+                onClick={generateMissing}
+                className="text-xs px-3 py-1.5 rounded-md font-medium bg-foreground text-background hover:opacity-90"
+              >
+                미생성 {counts.todo}개 일괄 생성
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       <div className="border border-border rounded-lg overflow-hidden bg-background">
