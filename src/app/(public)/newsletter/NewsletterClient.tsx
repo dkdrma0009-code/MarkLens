@@ -47,8 +47,11 @@ export default function NewsletterClient() {
           매주 월요일 7:30 AM<br />
           마케팅 브리핑을 받아보세요
         </h1>
-        <p className="text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-8">
+        <p className="text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
           글로벌 마케팅 트렌드, 실무 적용법, 포트폴리오 활용 팁까지 — 한 주를 시작하는 가장 좋은 방법입니다.
+        </p>
+        <p className="inline-block text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border border-indigo-100 dark:border-indigo-900 rounded-full px-3 py-1.5 mb-8">
+          🎁 지금 구독하면 「마케팅 면접 질문 44선」 PDF 드려요
         </p>
 
         {subscribed ? (

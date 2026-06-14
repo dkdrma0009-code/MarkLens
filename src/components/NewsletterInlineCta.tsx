@@ -32,9 +32,9 @@ export default function NewsletterInlineCta() {
 
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6">
-      <p className="text-base font-bold text-gray-900 dark:text-gray-100">이 인사이트가 유용했다면 📬</p>
+      <p className="text-base font-bold text-gray-900 dark:text-gray-100">📬 구독하면 「마케팅 면접 질문 44선」 PDF 드려요</p>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4 leading-relaxed">
-        매주 월요일 7:30 AM, 이런 마케팅 인사이트를 메일로 받아보세요.
+        매주 월요일 7:30 AM 마케팅 브리핑 + 지금 구독 시 면접 질문 모음 PDF를 보내드립니다.
       </p>
       {done ? (
         <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">

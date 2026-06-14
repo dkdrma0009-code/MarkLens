@@ -6,10 +6,15 @@ import { renderInterviewSheet, SHEET_W, SHEET_H } from "@/lib/lead-magnet/sheet"
 export const maxDuration = 60
 
 // 리드마그넷 PDF — Satori로 치트시트 PNG 렌더 후 pdf-lib가 이미지 한 장으로 PDF화 (폰트 임베드 불필요)
-export async function GET() {
+export async function GET(req: Request) {
   const png = Buffer.from(
     await new ImageResponse(renderInterviewSheet(), { width: SHEET_W, height: SHEET_H, fonts: await loadFonts() }).arrayBuffer()
   )
+
+  // ?format=png — 이미지 미리보기용 (검증/공유)
+  if (new URL(req.url).searchParams.get("format") === "png") {
+    return new Response(png, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } })
+  }
 
   const pdf = await PDFDocument.create()
   const img = await pdf.embedPng(png)
