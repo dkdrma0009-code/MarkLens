@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
     "/api/admin/cardnews/download": ["./assets/fonts/*"],
     "/api/admin/cardnews/publish": ["./assets/fonts/*"],
     "/api/admin/shorts/preview": ["./assets/fonts/*"],
+    "/api/lead-magnet/interview": ["./assets/fonts/*"],
   },
   // 인스타 바이오 단축링크 — marklens.site/ig → 홈(UTM 추적)
   async redirects() {
