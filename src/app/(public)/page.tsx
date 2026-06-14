@@ -29,8 +29,37 @@ export default async function HomePage() {
   const featured = recentInsights[0]
   const rest = recentInsights.slice(1, 7)
 
+  // 브랜드 엔티티 구조화데이터 (Organization + WebSite) — 소셜 채널 연결
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+  const orgJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${base}/#organization`,
+        name: "MarkLens",
+        url: base,
+        logo: `${base}/icon.svg`,
+        description: "마케팅 트렌드를 분석하고 실무에 바로 적용 가능한 인사이트를 제공합니다.",
+        sameAs: [
+          "https://www.instagram.com/marklens.site",
+          "https://www.threads.com/@marklens.site",
+        ],
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${base}/#website`,
+        name: "MarkLens",
+        url: base,
+        inLanguage: "ko-KR",
+        publisher: { "@id": `${base}/#organization` },
+      },
+    ],
+  }
+
   return (
     <div className="flex flex-col">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">

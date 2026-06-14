@@ -17,8 +17,10 @@ const geistMono = Geist_Mono({
 
 // 환경변수로 분리 — 미설정 시 기존 프로덕션 ID로 폴백
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-9NCMJC4V6L";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   verification: {
     google: "io4NM_VvWISWgqikgbn_VSqP24ZW9Kwz367iUoDotCQ",
   },

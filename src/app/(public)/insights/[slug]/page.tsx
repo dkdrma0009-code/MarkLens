@@ -39,6 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${title} | MarkLens`,
     description,
+    alternates: { canonical: `${base}/insights/${slug}` },
     openGraph: {
       title,
       description,
@@ -84,14 +85,32 @@ export default async function InsightDetailPage({ params }: Props) {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Article",
-    headline: insight.hook ?? article?.title ?? "",
-    description: insight.summary ?? undefined,
-    ...(article?.image_url ? { image: [article.image_url] } : {}),
-    datePublished: insight.created_at,
-    mainEntityOfPage: `${base}/insights/${slug}`,
-    author: { "@type": "Organization", name: "MarkLens", url: base },
-    publisher: { "@type": "Organization", name: "MarkLens", url: base },
+    "@graph": [
+      {
+        "@type": "Article",
+        headline: insight.hook ?? article?.title ?? "",
+        description: insight.summary ?? undefined,
+        ...(article?.image_url ? { image: [article.image_url] } : {}),
+        datePublished: insight.created_at,
+        dateModified: insight.updated_at ?? insight.created_at,
+        articleSection: insight.category ?? undefined,
+        mainEntityOfPage: { "@type": "WebPage", "@id": `${base}/insights/${slug}` },
+        author: { "@type": "Organization", name: "MarkLens", url: base },
+        publisher: {
+          "@type": "Organization",
+          name: "MarkLens",
+          url: base,
+          logo: { "@type": "ImageObject", url: `${base}/icon.svg` },
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "인사이트", item: `${base}/insights` },
+          { "@type": "ListItem", position: 2, name: insight.hook ?? article?.title ?? "", item: `${base}/insights/${slug}` },
+        ],
+      },
+    ],
   }
 
   return (
