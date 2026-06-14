@@ -126,6 +126,26 @@ export default function CardnewsTable({ initialRows }: { initialRows: CardnewsRo
     }
   }
 
+  async function publishToInstagram(r: CardnewsRow) {
+    if (!confirm(`"${r.hook ?? "카드뉴스"}"를 인스타그램에 지금 발행할까요?\n실제로 @marklens.site 피드에 게시됩니다.`)) return
+    setRowBusy(r.articleId, true)
+    try {
+      const res = await fetch("/api/admin/cardnews/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: r.articleId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "발행 실패")
+      patchRow(r.articleId, { postedAt: new Date().toISOString() })
+      toast.success("인스타그램 발행 완료! 🎉")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "발행 실패")
+    } finally {
+      setRowBusy(r.articleId, false)
+    }
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -224,13 +244,22 @@ export default function CardnewsTable({ initialRows }: { initialRows: CardnewsRo
                       </button>
                     ) : (
                       <>
+                        {!r.postedAt && (
+                          <button
+                            onClick={() => publishToInstagram(r)}
+                            disabled={isBusy}
+                            className="text-xs px-2.5 py-1.5 rounded-md font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 disabled:opacity-50"
+                          >
+                            {isBusy ? "발행 중..." : "📤 인스타 발행"}
+                          </button>
+                        )}
                         <button
                           onClick={() => togglePosted(r)}
                           disabled={isBusy}
                           className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
                           title={r.postedAt ? "업로드 표시 해제" : "인스타 업로드 완료로 표시"}
                         >
-                          {r.postedAt ? "↩ 해제" : "✓ 업로드 완료"}
+                          {r.postedAt ? "↩ 해제" : "✓ 수동표시"}
                         </button>
                         <Link
                           href={`/admin/cardnews/${r.articleId}`}
