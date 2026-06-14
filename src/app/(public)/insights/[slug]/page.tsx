@@ -9,6 +9,7 @@ import InsightCard from "@/components/InsightCard"
 import InsightQuiz from "@/components/InsightQuiz"
 import InterviewSoundbites from "@/components/InterviewSoundbites"
 import ShareButtons from "@/components/ShareButtons"
+import NewsletterInlineCta from "@/components/NewsletterInlineCta"
 import ViewCounter from "@/components/ViewCounter"
 import Image from "next/image"
 import type { Metadata } from "next"
@@ -246,6 +247,11 @@ export default async function InsightDetailPage({ params }: Props) {
       {/* ── 피드백 + CTA ── */}
       <div className="mb-14">
         <ArticleFeedback insightId={insight.id} color={meta.color} />
+      </div>
+
+      {/* ── 뉴스레터 구독 CTA ── */}
+      <div className="mb-14">
+        <NewsletterInlineCta />
       </div>
 
       {/* ── 관련 인사이트 ── */}
