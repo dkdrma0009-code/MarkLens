@@ -33,7 +33,7 @@ async function sendWelcomeEmail(email: string): Promise<void> {
       <p style="margin:0 0 4px;font-size:14px;color:#444;line-height:1.7;">🔍 이번 주 최고의 마케팅 사례</p>
       <p style="margin:0 0 4px;font-size:14px;color:#444;line-height:1.7;">🎯 바로 써먹는 액션 + 포트폴리오·커리어 팁</p>
       <div style="margin-top:24px;padding:18px 20px;background:#f4f4ff;border:1px solid #e0e0ff;border-radius:12px;text-align:center;">
-        <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#4338ca;">🎁 구독 선물 — 마케팅 면접 질문 44선</p>
+        <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#4338ca;">🎁 구독 선물 — 마케팅 면접 질문 40선</p>
         <a href="https://marklens.site/api/lead-magnet/interview" style="display:inline-block;padding:12px 28px;background:#6366f1;color:#fff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;">PDF 받기 →</a>
       </div>
       <div style="text-align:center;margin-top:18px;">
