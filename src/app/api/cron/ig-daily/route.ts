@@ -22,13 +22,37 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient()
 
-  // ② 자동발행 스위치 확인 (app_config.ig_auto_publish === "on")
+  // ② 자동 파이프라인 스위치 확인 (app_config.ig_auto_publish === "on")
   const { data: flag } = await supabase.from("app_config").select("value").eq("key", "ig_auto_publish").single()
   if (flag?.value !== "on") {
     return NextResponse.json({ ...result, autoPublish: "off" })
   }
 
-  // 미발행 카드뉴스 중 가장 오래된 1건
+  // ③ 자동 생성: 발행 인사이트 중 카드뉴스 없는 것 최대 3건 생성 (큐 채우기)
+  const { data: pubIns } = await supabase
+    .from("insights")
+    .select("article_id, created_at, article:articles!inner(status)")
+    .eq("article.status", "published")
+    .order("created_at", { ascending: false })
+    .limit(100)
+  const { data: existing } = await supabase.from("cardnews").select("article_id")
+  const have = new Set((existing ?? []).map(c => c.article_id))
+  const toGen = (pubIns ?? []).filter(i => !have.has(i.article_id)).slice(0, 3)
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+  let generated = 0
+  for (const ins of toGen) {
+    try {
+      const r = await fetch(`${base}/api/admin/cardnews/generate?secret=${process.env.N8N_WEBHOOK_SECRET}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: ins.article_id }),
+      })
+      if (r.ok) generated++
+    } catch { /* 개별 실패 무시 */ }
+  }
+  result.generated = generated
+
+  // ④ 미발행 카드뉴스 중 가장 오래된 1건 발행
   const { data: next } = await supabase
     .from("cardnews")
     .select("article_id")

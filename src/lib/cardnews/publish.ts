@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { renderCardnewsBuffers } from "./render-buffers"
 import { publishCarousel } from "@/lib/instagram"
+import { publishThreadsCarousel } from "@/lib/threads"
 
 const BUCKET = "cardnews-ig"
 
@@ -43,6 +44,15 @@ export async function publishCardnews(articleId: string): Promise<string> {
   }
 
   const postId = await publishCarousel(imageUrls, caption)
+
+  // Threads 교차 발행 (best-effort — 미설정/실패해도 인스타 발행은 유지)
+  try {
+    const tId = await publishThreadsCarousel(imageUrls, caption)
+    if (tId) console.log("[threads] 발행 완료:", tId)
+  } catch (e) {
+    console.warn("[threads] 발행 실패:", e instanceof Error ? e.message : e)
+  }
+
   await supabase.from("cardnews").update({ posted_at: new Date().toISOString() }).eq("article_id", articleId)
   return postId
 }

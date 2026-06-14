@@ -1,0 +1,54 @@
+// Threads 콘텐츠 발행 (Threads API) — THREADS_ACCESS_TOKEN, THREADS_USER_ID 필요
+// 미설정 시 null 반환(스킵) → 인스타 발행에 영향 없음
+const GRAPH = "https://graph.threads.net/v1.0"
+
+function creds(): { token: string; userId: string } | null {
+  const token = process.env.THREADS_ACCESS_TOKEN
+  const userId = process.env.THREADS_USER_ID
+  if (!token || !userId) return null
+  return { token, userId }
+}
+
+async function tPost(token: string, path: string, params: Record<string, string>): Promise<string> {
+  const res = await fetch(`${GRAPH}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ ...params, access_token: token }),
+  })
+  const j = (await res.json()) as { id?: string; error?: unknown }
+  if (!res.ok || !j.id) throw new Error(`Threads API 오류: ${JSON.stringify(j.error ?? j)}`)
+  return j.id
+}
+
+async function status(token: string, id: string): Promise<string> {
+  const res = await fetch(`${GRAPH}/${id}?fields=status&access_token=${token}`)
+  const j = (await res.json()) as { status?: string }
+  return j.status ?? "ERROR"
+}
+
+// 이미지 캐러셀 발행: 공개 이미지 URL 배열 + 텍스트 → 게시물 id (미설정 시 null)
+export async function publishThreadsCarousel(imageUrls: string[], text: string): Promise<string | null> {
+  const c = creds()
+  if (!c) return null
+  const { token, userId } = c
+
+  // 1) 각 이미지 → 캐러셀 아이템
+  const childIds: string[] = []
+  for (const url of imageUrls) {
+    childIds.push(await tPost(token, `${userId}/threads`, { media_type: "IMAGE", image_url: url, is_carousel_item: "true" }))
+  }
+
+  // 2) 캐러셀 컨테이너 (Threads는 캡션 필드가 text)
+  const carouselId = await tPost(token, `${userId}/threads`, { media_type: "CAROUSEL", children: childIds.join(","), text })
+
+  // 3) 처리 대기
+  for (let i = 0; i < 10; i++) {
+    const s = await status(token, carouselId)
+    if (s === "FINISHED") break
+    if (s === "ERROR" || s === "EXPIRED") throw new Error(`Threads 처리 실패: ${s}`)
+    await new Promise(r => setTimeout(r, 2000))
+  }
+
+  // 4) 발행
+  return tPost(token, `${userId}/threads_publish`, { creation_id: carouselId })
+}
