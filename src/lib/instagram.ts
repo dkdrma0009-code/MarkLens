@@ -1,5 +1,6 @@
-// Instagram 콘텐츠 발행 (Graph API) — IG_ACCESS_TOKEN(장수명), IG_USER_ID(인스타 비즈니스 계정 ID) 필요
-const GRAPH = "https://graph.facebook.com/v21.0"
+// Instagram 콘텐츠 발행 — Instagram API with Instagram Login (graph.instagram.com)
+// IG_ACCESS_TOKEN(IGAA… 사용자 토큰), IG_USER_ID(=me/user_id) 필요
+const GRAPH = "https://graph.instagram.com/v21.0"
 
 function creds(): { token: string; userId: string } {
   const token = process.env.IG_ACCESS_TOKEN
