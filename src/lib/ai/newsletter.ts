@@ -15,8 +15,7 @@ const SYSTEM = `당신은 MarkLens Weekly 수석 에디터입니다.
 - title은 후킹형 한 줄: 궁금증·의외성·위기감·숫자 중 하나. 주제 나열형 제목 금지.
 - topic_headline은 이번 주제를 한 문장으로 압축한 명제(인용구 박스에 들어감).
 - for_your_career는 짧게 응축: 이 주제를 면접·포트폴리오에 어떻게 쓰는지 + 한 줄 면접 답변. 3~4문장 이내.
-- source_index: 위 인사이트 목록에서 이번 호 주제로 고른 항목의 번호(1부터).
-- image_query: 이번 주제를 대표하는 사진 검색용 영어 키워드 2~4단어(브랜드/제품/상황). 예: "coca cola summer billboard".
+- image_keywords: 이번 호 주제를 Unsplash에서 검색할 영어 키워드 2~3개. 구체적일수록 좋음(예: "influencer marketing agency", "brand strategy meeting"). 추상적 단어 금지(예: "marketing", "business").
 
 [절대 금지]
 - "~을 의미합니다 / 시사합니다 / 주목해야 합니다 / 고민해보겠습니다" 류 공허한 마무리.
@@ -41,8 +40,7 @@ interface NewsletterOutput {
   body_sections: NewsletterBodySection[]   // 생성 시엔 visual 없음 — 라우트가 비주얼을 채움
   key_takeaways: string[]
   for_your_career: string
-  source_index: number   // 본문 비주얼용 — 고른 주제 인사이트 번호(1부터)
-  image_query: string    // 본문 비주얼용 — Unsplash 검색 영어 키워드
+  image_keywords: string[]   // 본문 사진용 — Unsplash 검색 영어 키워드 2~3개
 }
 
 export async function generateNewsletter(input: NewsletterInput): Promise<NewsletterOutput> {
@@ -74,8 +72,7 @@ ${insightsSummary}
   ],
   "key_takeaways": ["핵심 인사이트 1", "2", "3"],
   "for_your_career": "3~4문장. 면접·포트폴리오 활용 + 한 줄 면접 답변 예시.",
-  "source_index": 1,
-  "image_query": "english keywords for a representative photo"
+  "image_keywords": ["specific english keyword 1", "specific english keyword 2"]
 }`
 
   const data = await geminiJson<NewsletterOutput>(SYSTEM, prompt, 5000)
@@ -87,7 +84,6 @@ ${insightsSummary}
     .filter(s => s?.subhead && Array.isArray(s.paragraphs))
     .map(s => ({ subhead: s.subhead, paragraphs: s.paragraphs.filter(Boolean) }))
   data.key_takeaways = Array.isArray(data.key_takeaways) ? data.key_takeaways.filter(Boolean) : []
-  data.source_index = Number.isInteger(data.source_index) && data.source_index > 0 ? data.source_index : 1
-  data.image_query = typeof data.image_query === "string" ? data.image_query : ""
+  data.image_keywords = Array.isArray(data.image_keywords) ? data.image_keywords.filter(Boolean) : []
   return data
 }

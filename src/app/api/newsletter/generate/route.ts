@@ -1,8 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { generateNewsletter } from "@/lib/ai/newsletter"
-import { isHotlinkBlocked } from "@/lib/images"
-import { searchUnsplash } from "@/lib/unsplash"
+import { searchUnsplash } from "@/lib/newsletter/unsplash"
 import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
@@ -25,7 +24,7 @@ export async function POST(req: Request) {
   // 최근 발행된 인사이트 가져오기
   const { data: insights } = await supabase
     .from("insights")
-    .select("*, article:articles(title, source_name, image_url)")
+    .select("*, article:articles(title, source_name)")
     .order("created_at", { ascending: false })
     .limit(10)
 
@@ -56,33 +55,23 @@ export async function POST(req: Request) {
       })),
     })
 
-    // source_index·image_query는 비주얼 선정용 메타 — DB 컬럼이 아니므로 분리 후 삽입
-    const { source_index, image_query, ...issueFields } = newsletter
+    // image_keywords는 사진 검색용 메타 — DB 컬럼이 아니므로 분리 후 삽입
+    const { image_keywords, ...issueFields } = newsletter
 
-    // 본문 비주얼 — 주제 기사 실사진(프레스킷 격) + Unsplash 분위기 사진 병행
-    const sections = issueFields.body_sections
-    if (sections?.length) {
-      const chosen = insights[source_index - 1] ?? insights[0]
-      const pressUrl = chosen?.article?.image_url
-      if (pressUrl && !isHotlinkBlocked(pressUrl)) {
-        sections[0].visual = { type: "photo", url: pressUrl, caption: chosen?.article?.source_name ?? "" }
-        // 병행: 마지막 섹션에 Unsplash 분위기 사진 (키 있을 때만, 리드와 중복 안 되게)
-        if (sections.length > 1) {
-          const u = await searchUnsplash(image_query)
-          if (u) sections[sections.length - 1].visual = { type: "photo", url: u.url, caption: u.caption }
-        }
-      } else {
-        // 프레스 이미지 없거나 차단 → 리드 섹션을 Unsplash로
-        const u = await searchUnsplash(image_query)
-        if (u) sections[0].visual = { type: "photo", url: u.url, caption: u.caption }
-      }
-    }
+    // 본문 사진 — Unsplash에서 주제 키워드로 검색 (키 없거나 결과 없으면 null → 텍스트만 폴백)
+    const query = image_keywords.length
+      ? image_keywords.join(" ")
+      : (newsletter.topic_headline ?? "").split(/\s+/).slice(0, 3).join(" ")
+    const photo = await searchUnsplash(query)
 
     const { data, error } = await supabase
       .from("newsletter_issues")
       .insert({
         issue_number: nextIssueNumber,
         ...issueFields,
+        body_image_url: photo?.url ?? null,
+        body_image_credit: photo?.credit ?? null,
+        body_image_credit_link: photo?.creditLink ?? null,
         status: "draft",
       })
       .select()

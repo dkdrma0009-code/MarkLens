@@ -70,6 +70,10 @@ export interface NewsletterIssue {
   body_sections?: NewsletterBodySection[]
   key_takeaways?: string[]
   for_your_career?: string
+  // 본문 삽입 사진 (Unsplash — 생성 시 검색해 저장)
+  body_image_url?: string
+  body_image_credit?: string
+  body_image_credit_link?: string
   // 구 5섹션 구조 (과거 호 렌더 폴백용 — 신규 생성에는 미사용)
   week_signals?: string
   case_of_week?: string
