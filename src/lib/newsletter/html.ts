@@ -1,8 +1,31 @@
-import type { NewsletterIssue } from "@/types"
+import type { NewsletterIssue, NewsletterVisual } from "@/types"
+import { isHotlinkBlocked, weservThumb } from "@/lib/images"
 
 const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;"
 // 포인트 컬러는 단 1개만 — 흑백 기조에 절제된 인디고. 인용구·소제목·링크·정리박스·버튼에 일관 사용.
 const ACCENT = "#4f46e5"
+const SITE = "https://marklens.site"
+
+// 본문 비주얼 — 타이포 카드(Satori 라우트 이미지) 또는 합법 사진. 이메일에서 <img>로 안전 표시.
+function renderVisual(v: NewsletterVisual): string {
+  let imgSrc = ""
+  let caption = ""
+  if (v.type === "typo_quote") {
+    imgSrc = `${SITE}/api/newsletter/visual?type=quote&text=${encodeURIComponent(v.text)}`
+  } else if (v.type === "typo_stat") {
+    imgSrc = `${SITE}/api/newsletter/visual?type=stat&number=${encodeURIComponent(v.number)}&label=${encodeURIComponent(v.label)}`
+  } else if (v.type === "photo") {
+    if (!v.url || isHotlinkBlocked(v.url)) return "" // 차단 매체는 삽입 안 함(정책 일관)
+    imgSrc = weservThumb(v.url, 600)
+    caption = v.caption ?? ""
+  }
+  if (!imgSrc) return ""
+  return `
+  <tr><td style="padding:8px 32px 18px;">
+    <img src="${imgSrc}" alt="" width="536" style="width:100%;max-width:536px;display:block;border-radius:12px;"/>
+    ${caption ? `<p style="margin:8px 0 0;font-size:11px;color:#aaa;text-align:center;${F}">${caption}</p>` : ""}
+  </td></tr>`
+}
 
 function sentences(content: string): string[] {
   return content.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
@@ -32,12 +55,13 @@ function renderModernBody(issue: NewsletterIssue): string {
     </table>
   </td></tr>` : ""
 
-  // 본문 소단락
+  // 본문 소단락 (+ 섹션에 visual 있으면 단락 뒤에 삽입)
   const body = (issue.body_sections ?? []).map(s => `
   <tr><td style="padding:14px 32px 6px;">
     <p style="margin:0;font-size:18px;font-weight:800;color:#111;line-height:1.4;${F}">👉 ${s.subhead}</p>
   </td></tr>
-  ${s.paragraphs.map(p => `<tr><td style="padding:0 32px 14px;"><p style="margin:0;font-size:16px;color:#333;line-height:1.85;${F}">${p}</p></td></tr>`).join("")}`).join("")
+  ${s.paragraphs.map(p => `<tr><td style="padding:0 32px 14px;"><p style="margin:0;font-size:16px;color:#333;line-height:1.85;${F}">${p}</p></td></tr>`).join("")}
+  ${s.visual ? renderVisual(s.visual) : ""}`).join("")
 
   // 핵심 정리 박스
   const takeaways = (issue.key_takeaways?.length) ? `

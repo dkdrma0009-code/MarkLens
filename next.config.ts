@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
     "/api/admin/shorts/preview": ["./assets/fonts/*"],
     "/api/lead-magnet/interview": ["./assets/fonts/*"],
     "/api/admin/competitions/thumbnail": ["./assets/fonts/*"],
+    "/api/newsletter/visual": ["./assets/fonts/*"],
   },
   // 인스타 바이오 단축링크 — marklens.site/ig → 구독 페이지 직행(리드마그넷+폼 즉시 노출, UTM 추적)
   async redirects() {

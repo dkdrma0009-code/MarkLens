@@ -49,9 +49,15 @@ export interface Category {
   article_count: number
 }
 
+export type NewsletterVisual =
+  | { type: "typo_quote"; text: string }
+  | { type: "typo_stat"; number: string; label: string }
+  | { type: "photo"; url: string; caption?: string }
+
 export interface NewsletterBodySection {
   subhead: string
   paragraphs: string[]
+  visual?: NewsletterVisual   // 선택 — 에디터가 수동 지정(테스트), 핵심 문장/숫자/합법 사진
 }
 
 export interface NewsletterIssue {
