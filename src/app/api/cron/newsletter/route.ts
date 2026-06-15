@@ -13,6 +13,21 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const secret = process.env.N8N_WEBHOOK_SECRET // generate/send가 받는 웹훅 시크릿 재사용
 
+  // 중복 발송 방지 — Hobby 크론은 정시 보장이 안 돼 윈도우 내 2회 트리거될 수 있음.
+  // 최근 20시간 내 이미 발송된 호가 있으면 이번 실행을 건너뛴다.
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const sb = createAdminClient()
+  const since = new Date(Date.now() - 20 * 3600 * 1000).toISOString()
+  const { data: recentSent } = await sb
+    .from("newsletter_issues")
+    .select("issue_number, sent_at")
+    .eq("status", "sent")
+    .gte("sent_at", since)
+    .limit(1)
+  if (recentSent?.length) {
+    return NextResponse.json({ skipped: true, reason: "최근 발송 이력 존재 (중복 방지)", lastSent: recentSent[0] })
+  }
+
   // ① 초안 생성
   const genRes = await fetch(`${base}/api/newsletter/generate?secret=${secret}`, { method: "POST" })
   const gen = await genRes.json().catch(() => ({}))
