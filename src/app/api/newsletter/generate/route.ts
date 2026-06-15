@@ -50,6 +50,7 @@ export async function POST(req: Request) {
         category: i.category,
         why_it_matters: i.why_it_matters,
         practical_applications: i.practical_applications,
+        key_takeaways: Array.isArray(i.key_takeaways) ? i.key_takeaways : undefined,
       })),
     })
 
