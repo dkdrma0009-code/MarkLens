@@ -40,6 +40,51 @@ export async function checkThreads(): Promise<{ ok: boolean; detail: string }> {
   }
 }
 
+// 어드민 분석용 Threads 인사이트 — 계정 요약 + 게시물별 성과(조회·좋아요·답글·리포스트·인용)
+export interface ThreadsMediaInsight {
+  id: string; text: string; permalink: string; timestamp: string
+  views: number; likes: number; replies: number; reposts: number; quotes: number
+}
+export interface ThreadsInsights {
+  account: { username: string; followers: number }
+  media: ThreadsMediaInsight[]
+  totalViews: number
+}
+
+export async function getThreadsInsights(): Promise<ThreadsInsights | null> {
+  const c = creds()
+  if (!c) return null
+  try {
+    const acc = await fetch(`${GRAPH}/${c.userId}?fields=username&access_token=${c.token}`).then(r => r.json())
+    if (!acc?.username) return null
+
+    let followers = 0
+    try {
+      const fi = await fetch(`${GRAPH}/${c.userId}/threads_insights?metric=followers_count&access_token=${c.token}`).then(r => r.json())
+      followers = fi?.data?.[0]?.total_value?.value ?? 0
+    } catch { /* 신규 계정 등 0 */ }
+
+    const ml = await fetch(`${GRAPH}/${c.userId}/threads?fields=id,text,permalink,timestamp&limit=8&access_token=${c.token}`).then(r => r.json())
+    const media: ThreadsMediaInsight[] = await Promise.all((ml?.data ?? []).map(async (m: { id: string; text?: string; permalink: string; timestamp: string }) => {
+      const map: Record<string, number> = {}
+      try {
+        const ins = await fetch(`${GRAPH}/${m.id}/insights?metric=views,likes,replies,reposts,quotes&access_token=${c.token}`).then(r => r.json())
+        for (const d of ins?.data ?? []) map[d.name] = d.values?.[0]?.value ?? d.total_value?.value ?? 0
+      } catch { /* 인사이트 미지원 → 0 */ }
+      const g = (n: string) => map[n] ?? 0
+      return {
+        id: m.id, text: (m.text ?? "").replace(/\s+/g, " ").slice(0, 60), permalink: m.permalink, timestamp: m.timestamp,
+        views: g("views"), likes: g("likes"), replies: g("replies"), reposts: g("reposts"), quotes: g("quotes"),
+      }
+    }))
+
+    return { account: { username: acc.username, followers }, media, totalViews: media.reduce((s, m) => s + m.views, 0) }
+  } catch (e) {
+    console.warn("[Threads insights]", e instanceof Error ? e.message : e)
+    return null
+  }
+}
+
 // 이미지 캐러셀 발행: 공개 이미지 URL 배열 + 텍스트 → 게시물 id (미설정 시 null)
 export async function publishThreadsCarousel(imageUrls: string[], text: string): Promise<string | null> {
   const c = creds()

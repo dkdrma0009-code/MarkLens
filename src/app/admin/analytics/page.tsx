@@ -7,6 +7,8 @@ import { getNewsletterStats } from "@/lib/newsletter/stats"
 import NewsletterStatsPanel from "@/components/admin/NewsletterStatsPanel"
 import { getInstagramInsights } from "@/lib/instagram"
 import InstagramPanel from "@/components/admin/InstagramPanel"
+import { getThreadsInsights } from "@/lib/threads"
+import ThreadsPanel from "@/components/admin/ThreadsPanel"
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +35,7 @@ export default async function AdminAnalyticsPage() {
     ga4,
     newsletterStats,
     igInsights,
+    threadsInsights,
   ] = await Promise.all([
     supabase.from("articles").select("*", { count: "exact", head: true }),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
@@ -51,6 +54,7 @@ export default async function AdminAnalyticsPage() {
     getGa4Overview(),
     getNewsletterStats(),
     getInstagramInsights(),
+    getThreadsInsights(),
   ])
 
   // 인사이트별 좋아요(helpful) 수 집계
@@ -90,6 +94,9 @@ export default async function AdminAnalyticsPage() {
 
       {/* 인스타그램 인사이트 */}
       <InstagramPanel data={igInsights} />
+
+      {/* 스레드 인사이트 */}
+      <ThreadsPanel data={threadsInsights} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
