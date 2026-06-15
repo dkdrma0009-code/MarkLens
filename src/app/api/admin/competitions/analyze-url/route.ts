@@ -17,9 +17,13 @@ async function isAuthorized(req: Request): Promise<boolean> {
 }
 
 // 페이지에서 제목 + 본문 텍스트 추출 (외부 이미지는 가져오지 않음 — 텍스트 썸네일 정책)
+// 표준 브라우저 UA 사용: 다수 사이트가 비표준 UA를 차단(robots는 Allow여도 WAF가 막음).
+// 사용자가 입력한 단건 공개 페이지를 가져오는 용도 — 대량 크롤링 아님.
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 async function fetchPageText(url: string): Promise<{ title: string; text: string }> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "MarkLens/1.0" },
+    headers: { "User-Agent": BROWSER_UA, "Accept-Language": "ko-KR,ko;q=0.9" },
     signal: AbortSignal.timeout(12000),
   })
   if (!res.ok) throw new Error(`페이지 응답 오류 (${res.status})`)
