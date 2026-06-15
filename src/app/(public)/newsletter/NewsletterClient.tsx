@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
+import { trackEvent } from "@/lib/analytics"
 
 export default function NewsletterClient() {
   const [email, setEmail] = useState("")
@@ -11,6 +12,7 @@ export default function NewsletterClient() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    trackEvent("newsletter_submit", { location: "newsletter_page" })
     try {
       const res = await fetch("/api/subscribe", {
         method: "POST",
@@ -21,12 +23,14 @@ export default function NewsletterClient() {
       const data = await res.json()
       if (data.alreadySubscribed) {
         toast.info("이미 구독 중이에요!")
+        trackEvent("newsletter_already", { location: "newsletter_page" })
       } else if (data.emailFailed) {
         // 구독은 저장됐지만 확인 메일 발송 실패 — 재시도 안내 (subscribed 유지 안 함)
         toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
       } else {
         setSubscribed(true)
         toast.success("확인 이메일을 보냈습니다!")
+        trackEvent("newsletter_subscribe", { location: "newsletter_page" })
       }
     } catch {
       toast.error("오류가 발생했습니다. 다시 시도해주세요.")

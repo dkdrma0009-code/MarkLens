@@ -153,7 +153,7 @@ export default async function HomePage() {
               포트폴리오에 녹이는 법과 면접 답변 예시까지.
             </p>
           </div>
-          <NewsletterInlineCta />
+          <NewsletterInlineCta location="home_inline" />
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">무료 · 언제든 구독 취소 가능</p>
         </div>
       </section>

@@ -39,7 +39,7 @@ export default async function CompetitionsPage() {
       <CompetitionsBrowse items={items} />
 
       <div className="mt-16 max-w-xl mx-auto">
-        <NewsletterInlineCta />
+        <NewsletterInlineCta location="competitions_bottom" />
       </div>
     </div>
   )

@@ -251,7 +251,7 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* ── 뉴스레터 구독 CTA ── */}
       <div className="mb-14">
-        <NewsletterInlineCta />
+        <NewsletterInlineCta location="insight_bottom" />
       </div>
 
       {/* ── 관련 인사이트 ── */}

@@ -70,6 +70,19 @@ npm run lint
 | `NEXT_PUBLIC_SITE_URL` | 절대 URL 생성 (sitemap/메일 링크) |
 | `NEXT_PUBLIC_GA_ID` | GA4 (미설정 시 기본값 폴백) |
 
+## 전환 측정 (GA4 이벤트)
+
+구독 폼이 `src/lib/analytics.ts`의 `trackEvent()`로 GA4 이벤트를 보낸다 (개인정보 미전송, `location`만):
+- `newsletter_submit` — 폼 제출 시작
+- `newsletter_subscribe` — **구독 성공 (핵심 전환)**
+- `newsletter_already` — 이미 구독 중
+- `location` 값: `home_inline` / `insight_bottom` / `competitions_bottom` / `newsletter_page`
+
+**GA4 관리화면에서 해야 할 설정 (코드 아님):**
+1. 관리 → 이벤트 → `newsletter_subscribe`를 **"주요 이벤트(전환)"** 로 표시
+2. 관리 → 맞춤 정의 → **맞춤 측정기준** 등록: 이벤트 매개변수 `location` (범위: 이벤트) → 위치별 전환 분해 분석
+3. 리드마그넷 PDF는 구독 확인 이메일 링크로만 받으므로(사이트 내 트리거 없음) gtag 측정 대상 아님
+
 ## 구조 메모
 
 - `src/app/(public)/` 공개 페이지 · `src/app/admin/` 어드민 · `src/app/api/` API 37개+ (cron/webhooks 포함)

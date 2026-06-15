@@ -2,9 +2,11 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
+import { trackEvent } from "@/lib/analytics"
 
 // 인사이트 본문 하단 등에 삽입하는 컴팩트 구독 CTA (따뜻한 리드 전환)
-export default function NewsletterInlineCta() {
+// location: 어느 위치의 폼인지 GA4 전환 측정용 구분값 (home_inline, insight_bottom 등)
+export default function NewsletterInlineCta({ location = "unknown" }: { location?: string }) {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -12,6 +14,7 @@ export default function NewsletterInlineCta() {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    trackEvent("newsletter_submit", { location })
     try {
       const res = await fetch("/api/subscribe", {
         method: "POST",
@@ -20,9 +23,9 @@ export default function NewsletterInlineCta() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error()
-      if (data.alreadySubscribed) toast.info("이미 구독 중이에요!")
+      if (data.alreadySubscribed) { toast.info("이미 구독 중이에요!"); trackEvent("newsletter_already", { location }) }
       else if (data.emailFailed) toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
-      else { setDone(true); toast.success("확인 이메일을 보냈어요!") }
+      else { setDone(true); toast.success("확인 이메일을 보냈어요!"); trackEvent("newsletter_subscribe", { location }) }
     } catch {
       toast.error("오류가 발생했습니다. 다시 시도해주세요.")
     } finally {
