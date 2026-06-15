@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { analyzeCompetition } from "@/lib/competitions/analyze"
+import { fetchViaJina } from "@/lib/competitions/scrape"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 120
@@ -54,19 +55,6 @@ async function fetchPageText(url: string): Promise<{ title: string; text: string
     .slice(0, 4000)
 
   return { title, text: `${title}\n${ogDesc ?? ""}\n${body}`, image }
-}
-
-// Jina Reader 폴백 — 직접 fetch가 막히는 한국/봇차단 사이트를 외부 서버가 읽어 본문 반환.
-async function fetchViaJina(url: string): Promise<{ title: string; text: string; image: string | null }> {
-  const res = await fetch(`https://r.jina.ai/${url}`, {
-    headers: { "X-Return-Format": "markdown", "Accept": "text/plain" },
-    signal: AbortSignal.timeout(45000),
-  })
-  if (!res.ok) throw new Error(`Jina ${res.status}`)
-  const md = await res.text()
-  const title = md.match(/^Title:\s*(.+)$/m)?.[1]?.trim() || "(제목 없음)"
-  const image = md.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/)?.[1] ?? null
-  return { title, text: md.slice(0, 4000), image }
 }
 
 export async function POST(req: Request) {

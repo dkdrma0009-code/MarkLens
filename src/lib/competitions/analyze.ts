@@ -15,7 +15,8 @@ const SYSTEM = `당신은 마케팅 취준·공모전 큐레이터다.
   "start_date": "YYYY-MM-DD 또는 null",
   "prize": "시상 규모 요약 또는 null",
   "eligibility": "지원 자격 요약 또는 null",
-  "organizer": "주최/주관 기관명 또는 null"
+  "organizer": "주최/주관 기관명 또는 null",
+  "marketing_relevant": true 또는 false (마케팅·광고·콘텐츠·브랜드·기획 직무와 연관되면 true, 순수 개발/이공계/예술 등 무관하면 false)
 }
 
 [규칙]
@@ -37,6 +38,7 @@ export interface CompetitionAnalysis {
   prize: string | null
   eligibility: string | null
   organizer: string | null
+  marketing_relevant?: boolean
 }
 
 export async function analyzeCompetition(input: {

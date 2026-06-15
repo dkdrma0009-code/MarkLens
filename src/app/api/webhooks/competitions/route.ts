@@ -1,9 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeCompetition } from "@/lib/competitions/analyze"
+import { fetchViaJina, extractListUrls } from "@/lib/competitions/scrape"
 import { NextResponse } from "next/server"
 import Parser from "rss-parser"
 
 export const maxDuration = 300
+
+const SCRAPE_PER_SOURCE = 8 // 소스당 하루 수집 상한 (Jina rate limit·검수 부담 고려)
 
 // 공모전 일일 처리 (collect cron이 호출) — ① 마감 지난 published → expired ② 공식 RSS 자동수집
 // 기존 webhooks/collect(아티클 RSS) 패턴 복제. 수집 이원화의 두 번째 축(RSS).
@@ -76,11 +79,65 @@ export async function POST(req: Request) {
     }
   }
 
+  // ③ 목록 스크래핑 자동수집 (collect_type='scrape') — Jina로 목록→개별 URL→분석.
+  // 마케팅 무관 건은 거르고, 소스당 상한까지만.
+  const { data: scrapeSources } = await supabase
+    .from("competition_sources")
+    .select("*")
+    .eq("is_active", true)
+    .eq("collect_type", "scrape")
+
+  let scraped = 0
+  let skippedIrrelevant = 0
+
+  for (const source of scrapeSources ?? []) {
+    try {
+      const list = await fetchViaJina(source.source_url)
+      const urls = extractListUrls(list.text, source.source_url).slice(0, SCRAPE_PER_SOURCE)
+
+      for (const link of urls) {
+        // 중복 체크
+        const { data: dup } = await supabase.from("competitions").select("id").eq("source_url", link).maybeSingle()
+        if (dup) continue
+
+        let page
+        try { page = await fetchViaJina(link) } catch { continue }
+        const analysis = await analyzeCompetition({ title: page.title, content: page.text, url: link })
+        if (!analysis?.title) continue
+        if (analysis.marketing_relevant === false) { skippedIrrelevant++; continue }
+
+        await supabase.from("competitions").insert({
+          title: analysis.title,
+          organizer: analysis.organizer,
+          source_url: link,
+          source_name: source.name,
+          thumbnail_url: page.image,
+          description: analysis.description,
+          category: analysis.category,
+          deadline: analysis.deadline,
+          start_date: analysis.start_date,
+          prize: analysis.prize,
+          eligibility: analysis.eligibility,
+          job_fit: analysis.job_fit ?? [],
+          difficulty: analysis.difficulty,
+          status: "pending",
+        })
+        scraped++
+      }
+      await supabase.from("competition_sources").update({ last_fetched_at: new Date().toISOString() }).eq("id", source.id)
+    } catch (err) {
+      errors.push(`${source.name}(scrape): ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   return NextResponse.json({
     success: true,
     expired: expiredCount,
     collected,
+    scraped,
+    skippedIrrelevant,
     rssSources: sources?.length ?? 0,
+    scrapeSources: scrapeSources?.length ?? 0,
     errors: errors.length ? errors : undefined,
   })
 }
