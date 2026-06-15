@@ -16,12 +16,12 @@ const nextConfig: NextConfig = {
     "/api/lead-magnet/interview": ["./assets/fonts/*"],
     "/api/admin/competitions/thumbnail": ["./assets/fonts/*"],
   },
-  // 인스타 바이오 단축링크 — marklens.site/ig → 홈(UTM 추적)
+  // 인스타 바이오 단축링크 — marklens.site/ig → 구독 페이지 직행(리드마그넷+폼 즉시 노출, UTM 추적)
   async redirects() {
     return [
       {
         source: "/ig",
-        destination: "/?utm_source=instagram&utm_medium=bio&utm_campaign=profile",
+        destination: "/newsletter?utm_source=instagram&utm_medium=bio&utm_campaign=profile",
         permanent: false,
       },
     ]
