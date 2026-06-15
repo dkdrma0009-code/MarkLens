@@ -4,7 +4,7 @@ import { analyzeCompetition } from "@/lib/competitions/analyze"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 120
-// 한국 공모전 사이트 다수가 해외(미국) IP 접속을 차단 → 이 함수만 서울 리전에서 실행
+// 서울 리전 선호 — 한국 사이트 접근성. 단 Hobby 플랜은 미국 고정(무시됨), Pro 전환 시 자동 적용.
 export const preferredRegion = "icn1"
 
 // 주최사/공모전 URL 입력 기반 분석 (수집 이원화의 주축).
@@ -59,8 +59,9 @@ async function fetchPageText(url: string): Promise<{ title: string; text: string
 export async function POST(req: Request) {
   if (!await isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  // url: 원문 링크(필수, 저장용). text: 본문 직접 입력(선택) — 봇 차단 사이트(위비티 등) 폴백.
-  const { url, text } = await req.json().catch(() => ({}))
+  // url: 원문 링크(필수, 저장용). text: 본문 직접 입력(선택). imageUrl: 포스터 이미지 주소(선택).
+  // Hobby 플랜은 함수 리전이 미국 고정 → 한국 사이트 자동 fetch 불가. 본문/이미지 직접 입력이 주력.
+  const { url, text, imageUrl } = await req.json().catch(() => ({}))
   if (!url || typeof url !== "string" || !/^https?:\/\//.test(url)) {
     return NextResponse.json({ error: "유효한 URL을 입력하세요" }, { status: 400 })
   }
@@ -91,12 +92,15 @@ export async function POST(req: Request) {
   let sourceName = "직접 등록"
   try { sourceName = new URL(url).hostname.replace(/^www\./, "") } catch { /* keep default */ }
 
+  // 썸네일: 명시적 imageUrl(직접 입력) 우선, 없으면 fetch한 og:image
+  const thumbnail = (typeof imageUrl === "string" && /^https?:\/\//.test(imageUrl)) ? imageUrl : page.image
+
   const { data, error } = await supabase.from("competitions").insert({
     title: analysis.title,
     organizer: analysis.organizer,
     source_url: url,
     source_name: sourceName,
-    thumbnail_url: page.image,
+    thumbnail_url: thumbnail,
     description: analysis.description,
     category: analysis.category,
     deadline: analysis.deadline,

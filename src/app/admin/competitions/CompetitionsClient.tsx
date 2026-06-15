@@ -44,6 +44,7 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
   const [filter, setFilter] = useState<Filter>("pending")
   const [url, setUrl] = useState("")
   const [text, setText] = useState("")
+  const [imageUrl, setImageUrl] = useState("")
   const [showText, setShowText] = useState(false)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState<Set<string>>(new Set())
@@ -71,12 +72,16 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
       const res = await fetch("/api/admin/competitions/analyze-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, text: showText ? text : undefined }),
+        body: JSON.stringify({
+          url,
+          text: showText ? text : undefined,
+          imageUrl: showText && imageUrl ? imageUrl : undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "추가 실패")
       setRows(prev => [data.competition, ...prev])
-      setUrl(""); setText(""); setShowText(false)
+      setUrl(""); setText(""); setImageUrl(""); setShowText(false)
       toast.success("공모전 분석·추가 완료")
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "추가 실패")
@@ -141,16 +146,24 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
           onClick={() => setShowText(v => !v)}
           className="text-xs text-muted-foreground mt-2 hover:text-foreground"
         >
-          {showText ? "− 본문 직접 입력 닫기" : "+ 본문 직접 입력 (위비티 등 봇 차단 사이트용)"}
+          {showText ? "− 본문 직접 입력 닫기" : "+ 본문 직접 입력 (한국 사이트·차단 사이트용)"}
         </button>
         {showText && (
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="페이지 본문을 복사해 붙여넣으세요. URL이 차단돼 자동 수집이 안 될 때 사용합니다."
-            rows={5}
-            className="w-full mt-2 px-3 py-2 text-sm border border-border rounded-md bg-background resize-none"
-          />
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="페이지 본문을 복사해 붙여넣으세요. (서버에서 직접 못 가져오는 한국 사이트·차단 사이트용)"
+              rows={5}
+              className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none"
+            />
+            <input
+              value={imageUrl}
+              onChange={e => setImageUrl(e.target.value)}
+              placeholder="(선택) 포스터 이미지 주소 — 우클릭 '이미지 주소 복사'. 없으면 텍스트 썸네일 자동 생성"
+              className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background"
+            />
+          </div>
         )}
       </div>
 
