@@ -86,3 +86,40 @@ export interface RssSource {
   last_fetched_at?: string
   article_count: number
 }
+
+// ── 공모전·대외활동 시스템 (articles 패턴 복제) ──
+export type CompetitionStatus = 'pending' | 'published' | 'rejected' | 'expired'
+export type CompetitionPriority = 'red' | 'orange' | 'yellow' | 'green'
+
+export interface Competition {
+  id: string
+  title: string
+  organizer?: string
+  source_url: string
+  source_name: string
+  thumbnail_url?: string
+  description?: string
+  category?: string
+  deadline?: string
+  start_date?: string
+  prize?: string
+  eligibility?: string
+  job_fit?: string[]
+  difficulty?: string
+  matched_article_ids?: string[]   // 2차 확장
+  past_winner_analysis?: string    // 2차 확장
+  status: CompetitionStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface CompetitionSource {
+  id: string
+  name: string
+  slug: string
+  source_url: string
+  collect_type: 'rss' | 'scrape'
+  is_active: boolean
+  last_fetched_at?: string
+  created_at: string
+}
