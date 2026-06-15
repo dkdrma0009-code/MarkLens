@@ -50,12 +50,16 @@ export async function POST(req: Request) {
   const body = await req.json()
   const issueId = body.issueId ?? body.issue?.id
   if (!issueId) return NextResponse.json({ error: "issueId required" }, { status: 400 })
+  // testEmail 지정 시 그 주소로만 발송하고 status는 변경하지 않음 (검수용)
+  const testEmail = typeof body.testEmail === "string" ? body.testEmail.trim() : null
 
   const supabase = createAdminClient()
   const { data: issue } = await supabase.from("newsletter_issues").select("*").eq("id", issueId).single()
   if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 })
 
-  const { data: subscribers } = await supabase.from("subscribers").select("email").eq("status", "active")
+  const subscribers = testEmail
+    ? [{ email: testEmail }]
+    : (await supabase.from("subscribers").select("email").eq("status", "active")).data
   if (!subscribers?.length) return NextResponse.json({ error: "No active subscribers" }, { status: 400 })
 
   const heroImage = await fetchHeroImage(supabase, issue.issue_number ?? 0)
@@ -78,10 +82,11 @@ export async function POST(req: Request) {
     })
   }
 
-  if (sent > 0) {
+  // 테스트 발송은 status 변경 안 함 (실발송만 sent 처리)
+  if (sent > 0 && !testEmail) {
     await supabase.from("newsletter_issues")
       .update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", issueId)
   }
 
-  return NextResponse.json({ success: sent > 0, sentTo: sent, errors: errors.length ? errors : undefined })
+  return NextResponse.json({ success: sent > 0, sentTo: sent, test: !!testEmail, errors: errors.length ? errors : undefined })
 }
