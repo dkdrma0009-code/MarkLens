@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { formatDate } from "@/lib/utils"
 
@@ -37,6 +38,29 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [bulkProgress, setBulkProgress] = useState<string | null>(null)
   const bulkStop = useRef(false)
+  const router = useRouter()
+  const [term, setTerm] = useState("")
+  const [termBusy, setTermBusy] = useState(false)
+
+  async function generateTerm() {
+    if (term.trim().length < 2) { toast.error("용어를 2자 이상 입력하세요"); return }
+    setTermBusy(true)
+    try {
+      const res = await fetch("/api/admin/cardnews/generate-term", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ term: term.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "생성 실패")
+      toast.success("용어카드 생성 완료 — 편집 화면으로 이동합니다")
+      router.push(`/admin/cardnews/${data.articleId}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "생성 실패")
+    } finally {
+      setTermBusy(false)
+    }
+  }
 
   const counts = useMemo(() => {
     const c = { all: rows.length, todo: 0, ready: 0, posted: 0 }
@@ -166,6 +190,28 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
 
   return (
     <>
+      {/* 용어·꿀팁 카드 생성 (기사 없이 용어만으로) */}
+      <div className="border border-border rounded-lg p-4 bg-background mb-6">
+        <p className="text-sm font-medium mb-2">용어·꿀팁 카드 만들기</p>
+        <div className="flex gap-2">
+          <input
+            value={term}
+            onChange={e => setTerm(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") generateTerm() }}
+            placeholder='예: "DR(도메인 레이팅)", "퍼포먼스 vs 브랜드 마케팅", "CTR이 뭐예요"'
+            className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background"
+          />
+          <button
+            onClick={generateTerm}
+            disabled={termBusy}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-foreground text-background hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+          >
+            {termBusy ? "생성 중..." : "용어카드 생성"}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">취준생 기본기 콘텐츠. 생성 후 편집 화면에서 다듬어 다운로드하세요.</p>
+      </div>
+
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex gap-1.5">
           {FILTERS.map(f => (
