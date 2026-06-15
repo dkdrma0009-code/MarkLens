@@ -51,7 +51,8 @@ async function fetchPageText(url: string): Promise<{ title: string; text: string
 export async function POST(req: Request) {
   if (!await isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { url } = await req.json().catch(() => ({}))
+  // url: 원문 링크(필수, 저장용). text: 본문 직접 입력(선택) — 봇 차단 사이트(위비티 등) 폴백.
+  const { url, text } = await req.json().catch(() => ({}))
   if (!url || typeof url !== "string" || !/^https?:\/\//.test(url)) {
     return NextResponse.json({ error: "유효한 URL을 입력하세요" }, { status: 400 })
   }
@@ -63,10 +64,17 @@ export async function POST(req: Request) {
   if (dup) return NextResponse.json({ error: "이미 등록된 URL입니다", id: dup.id }, { status: 409 })
 
   let page: { title: string; text: string }
-  try {
-    page = await fetchPageText(url)
-  } catch (e) {
-    return NextResponse.json({ error: `페이지를 가져오지 못했습니다: ${e instanceof Error ? e.message : e}` }, { status: 502 })
+  if (typeof text === "string" && text.trim().length > 30) {
+    // 본문 직접 입력 — fetch 스킵 (차단 사이트 우회)
+    page = { title: text.trim().split("\n")[0].slice(0, 80), text: text.trim() }
+  } else {
+    try {
+      page = await fetchPageText(url)
+    } catch (e) {
+      return NextResponse.json({
+        error: `페이지를 가져오지 못했습니다 (${e instanceof Error ? e.message : e}). 봇 차단 사이트는 본문을 복사해 'text' 필드로 함께 보내면 분석할 수 있습니다.`,
+      }, { status: 502 })
+    }
   }
 
   const analysis = await analyzeCompetition({ title: page.title, content: page.text, url })
