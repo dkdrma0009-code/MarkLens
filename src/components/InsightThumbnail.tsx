@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { isHotlinkBlocked, weservThumb } from "@/lib/images"
 
 interface Props {
   src: string
@@ -12,14 +13,16 @@ interface Props {
 export default function InsightThumbnail({ src, alt, gradient, className = "" }: Props) {
   const [failed, setFailed] = useState(false)
 
-  if (failed || !src) {
+  // 차단 매체는 프록시로 우회하지 않고 폴백 (저작권 존중). 빈 src/로드 실패도 폴백.
+  if (failed || !src || isHotlinkBlocked(src)) {
     return <div className={`bg-gradient-to-br ${gradient} ${className}`} />
   }
 
+  // 일반 매체는 weserv 프록시 — 리사이즈·webp로 성능 최적화
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={weservThumb(src, 440)}
       alt={alt}
       loading="lazy"
       decoding="async"

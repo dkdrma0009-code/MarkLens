@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isHotlinkBlocked } from "@/lib/images"
 import { NextResponse } from "next/server"
 import Parser from "rss-parser"
 
@@ -78,15 +79,11 @@ export async function POST(req: Request) {
       const feed = await parseRssFeed(source.rss_url)
       const items = feed.items.slice(0, 10).filter(item => item.link && item.title)
 
-      // 핫링크 차단 도메인 목록
-      const BLOCKED = ['cdn.musebyclios.com', 'musebyclios.com']
-      const isBlocked = (url?: string) => url ? BLOCKED.some(d => url.includes(d)) : false
-
-      // OG 이미지를 병렬로 fetch (차단 도메인은 null 처리)
+      // OG 이미지를 병렬로 fetch (차단 도메인은 null 처리 — 공용 목록 재사용)
       const images = await Promise.all(
         items.map(item => {
           const enc = item.enclosure?.url
-          if (enc && !isBlocked(enc)) return Promise.resolve(enc)
+          if (enc && !isHotlinkBlocked(enc)) return Promise.resolve(enc)
           return fetchOgImage(item.link!)
         })
       )
