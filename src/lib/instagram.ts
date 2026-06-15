@@ -69,6 +69,21 @@ export async function publishCarousel(imageUrls: string[], caption: string): Pro
   return igPost(token, `${userId}/media_publish`, { creation_id: carouselId })
 }
 
+// 헬스체크 — 실제 발행과 동일한 토큰 경로(DB 우선)·엔드포인트(graph.instagram.com)로 부작용 없는 GET.
+// 별도 검증 로직을 짜지 않고 실제 코드 경로를 그대로 타므로 오진이 구조적으로 불가능.
+export async function checkInstagram(): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const token = await getAccessToken()
+    const userId = getUserId()
+    const res = await fetch(`${GRAPH}/${userId}?fields=username&access_token=${token}`)
+    const j = (await res.json()) as { username?: string; error?: { message?: string } }
+    if (!res.ok || !j.username) return { ok: false, detail: j.error?.message ?? "응답 오류" }
+    return { ok: true, detail: `@${j.username}` }
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 // 장수명 토큰 갱신 → app_config에 저장 (cron에서 주기 호출). 반환: 남은 유효일
 export async function refreshIgToken(): Promise<number> {
   const token = await getAccessToken()

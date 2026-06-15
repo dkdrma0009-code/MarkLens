@@ -26,6 +26,20 @@ async function status(token: string, id: string): Promise<string> {
   return j.status ?? "ERROR"
 }
 
+// 헬스체크 — 실제 발행과 동일한 토큰 경로(creds)·엔드포인트로 부작용 없는 GET
+export async function checkThreads(): Promise<{ ok: boolean; detail: string }> {
+  const c = creds()
+  if (!c) return { ok: false, detail: "미설정 (THREADS_ACCESS_TOKEN/USER_ID)" }
+  try {
+    const res = await fetch(`${GRAPH}/${c.userId}?fields=username&access_token=${c.token}`)
+    const j = (await res.json()) as { username?: string; error?: { message?: string } }
+    if (!res.ok || !j.username) return { ok: false, detail: j.error?.message ?? "응답 오류" }
+    return { ok: true, detail: `@${j.username}` }
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 // 이미지 캐러셀 발행: 공개 이미지 URL 배열 + 텍스트 → 게시물 id (미설정 시 null)
 export async function publishThreadsCarousel(imageUrls: string[], text: string): Promise<string | null> {
   const c = creds()

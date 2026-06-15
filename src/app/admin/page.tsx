@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import HealthPanel from "@/components/admin/HealthPanel"
 
 export const dynamic = 'force-dynamic'
 
@@ -70,27 +71,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="border border-border rounded-lg p-6 bg-background">
-          <h2 className="text-sm font-medium mb-4">자동화 상태</h2>
-          <div className="space-y-3">
-            {[
-              { label: "RSS 수집", desc: "매일 오전 9시 / 오후 6시", status: "active" },
-              { label: "AI 분석", desc: "수집 후 자동 실행", status: "active" },
-              { label: "뉴스레터 발송", desc: "매주 월요일 7:30 AM", status: "active" },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium text-xs">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  운영 중
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <HealthPanel />
       </div>
     </div>
   )

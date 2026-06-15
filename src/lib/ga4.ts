@@ -44,6 +44,20 @@ async function getAccessToken(): Promise<string> {
   return j.access_token
 }
 
+// 헬스체크 — 실제 리포트와 동일한 getAccessToken(서비스계정 JWT 서명) 경로를 그대로 탐.
+// 토큰 발급 성공 = private key·서비스계정 유효. normalizeKey도 실제 코드 그대로 거침.
+export async function checkGa4(): Promise<{ ok: boolean; detail: string }> {
+  if (!process.env.GA4_PROPERTY_ID || !process.env.GA4_SA_CLIENT_EMAIL) {
+    return { ok: false, detail: "미설정 (GA4_PROPERTY_ID/SA_CLIENT_EMAIL)" }
+  }
+  try {
+    await getAccessToken()
+    return { ok: true, detail: `property ${process.env.GA4_PROPERTY_ID}` }
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 interface RawRow { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] }
 interface RawResp { rows?: RawRow[]; totals?: { metricValues?: { value: string }[] }[] }
 export interface Ga4Row { dims: string[]; metrics: number[] }
