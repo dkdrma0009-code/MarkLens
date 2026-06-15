@@ -97,7 +97,7 @@ export interface Competition {
   organizer?: string
   source_url: string
   source_name: string
-  thumbnail_url?: string
+  thumbnail_url?: string | null
   description?: string
   category?: string
   deadline?: string

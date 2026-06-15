@@ -238,12 +238,19 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
                         <div className="flex flex-col lg:flex-row gap-6">
                           {/* 게시될 텍스트 썸네일 (실제 렌더) */}
                           <div className="flex-shrink-0">
-                            <p className="text-[11px] text-muted-foreground mb-1.5">게시 썸네일 (자동 생성)</p>
+                            <p className="text-[11px] text-muted-foreground mb-1.5">
+                              게시 썸네일 {r.thumbnail_url ? "(원본 포스터 · 출처 표기)" : "(자동 생성)"}
+                            </p>
+                            {/* 원본 포스터 우선, 깨지면(핫링크 차단 등) 텍스트 썸네일로 폴백 */}
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={`/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`}
+                              src={r.thumbnail_url || `/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`}
                               alt="썸네일 미리보기"
-                              className="w-80 rounded-lg border border-border bg-black"
+                              onError={(e) => {
+                                const fallback = `/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`
+                                if (e.currentTarget.src !== fallback) { e.currentTarget.onerror = null; e.currentTarget.src = fallback }
+                              }}
+                              className="w-80 rounded-lg border border-border bg-black object-cover"
                             />
                           </div>
                           {/* 분석 전문 */}

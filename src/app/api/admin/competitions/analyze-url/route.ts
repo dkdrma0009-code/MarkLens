@@ -21,7 +21,7 @@ async function isAuthorized(req: Request): Promise<boolean> {
 // 사용자가 입력한 단건 공개 페이지를 가져오는 용도 — 대량 크롤링 아님.
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-async function fetchPageText(url: string): Promise<{ title: string; text: string }> {
+async function fetchPageText(url: string): Promise<{ title: string; text: string; image: string | null }> {
   const res = await fetch(url, {
     headers: { "User-Agent": BROWSER_UA, "Accept-Language": "ko-KR,ko;q=0.9" },
     signal: AbortSignal.timeout(12000),
@@ -35,6 +35,12 @@ async function fetchPageText(url: string): Promise<{ title: string; text: string
   const ogDesc = meta(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
   const title = ogTitle ?? titleTag ?? "(제목 없음)"
 
+  // 원본 포스터(og:image) — 관행 기준 출처·원문 링크와 함께 사용. 상대경로는 절대화.
+  let image: string | null = null
+  const ogImage = meta(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    ?? meta(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
+  if (ogImage) { try { image = new URL(ogImage, url).href } catch { image = null } }
+
   // 스크립트·스타일 제거 후 태그 제거, 공백 정규화
   const body = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -45,7 +51,7 @@ async function fetchPageText(url: string): Promise<{ title: string; text: string
     .trim()
     .slice(0, 4000)
 
-  return { title, text: `${title}\n${ogDesc ?? ""}\n${body}` }
+  return { title, text: `${title}\n${ogDesc ?? ""}\n${body}`, image }
 }
 
 export async function POST(req: Request) {
@@ -63,10 +69,10 @@ export async function POST(req: Request) {
   const { data: dup } = await supabase.from("competitions").select("id").eq("source_url", url).maybeSingle()
   if (dup) return NextResponse.json({ error: "이미 등록된 URL입니다", id: dup.id }, { status: 409 })
 
-  let page: { title: string; text: string }
+  let page: { title: string; text: string; image: string | null }
   if (typeof text === "string" && text.trim().length > 30) {
-    // 본문 직접 입력 — fetch 스킵 (차단 사이트 우회)
-    page = { title: text.trim().split("\n")[0].slice(0, 80), text: text.trim() }
+    // 본문 직접 입력 — fetch 스킵 (차단 사이트 우회). 원본 이미지 없음 → 텍스트 썸네일.
+    page = { title: text.trim().split("\n")[0].slice(0, 80), text: text.trim(), image: null }
   } else {
     try {
       page = await fetchPageText(url)
@@ -88,6 +94,7 @@ export async function POST(req: Request) {
     organizer: analysis.organizer,
     source_url: url,
     source_name: sourceName,
+    thumbnail_url: page.image,
     description: analysis.description,
     category: analysis.category,
     deadline: analysis.deadline,
