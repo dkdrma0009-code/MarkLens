@@ -49,11 +49,22 @@ export interface Category {
   article_count: number
 }
 
+export interface NewsletterBodySection {
+  subhead: string
+  paragraphs: string[]
+}
+
 export interface NewsletterIssue {
   id: string
   issue_number: number
   title: string
   intro?: string
+  // 한 주제 깊이형 (신규 구조)
+  topic_headline?: string
+  body_sections?: NewsletterBodySection[]
+  key_takeaways?: string[]
+  for_your_career?: string
+  // 구 5섹션 구조 (과거 호 렌더 폴백용 — 신규 생성에는 미사용)
   week_signals?: string
   case_of_week?: string
   ai_brief?: string
