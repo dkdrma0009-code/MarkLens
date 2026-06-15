@@ -5,8 +5,8 @@ import NewsletterInlineCta from "@/components/NewsletterInlineCta"
 import type { Competition } from "@/types"
 
 export const metadata: Metadata = {
-  title: "마케팅 공모전·대외활동 — MarkLens",
-  description: "마케팅·광고 취준생을 위한 공모전과 대외활동을 마감 임박순으로. 직무 적합도·준비 난이도까지 큐레이션합니다.",
+  title: "마케팅 대외활동 — MarkLens",
+  description: "마케팅·광고 취준생을 위한 대외활동·공모전을 마감 임박순으로. 직무 적합도·준비 난이도까지 큐레이션합니다.",
   alternates: { canonical: "/competitions" },
 }
 
@@ -30,9 +30,9 @@ export default async function CompetitionsPage() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">공모전 · 대외활동</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-1 text-gray-900 dark:text-gray-100">대외활동</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          마케팅·광고 취준생을 위한 공모전과 대외활동. 마감 임박순으로, 직무 적합도와 난이도까지.
+          마케팅·광고 취준생을 위한 대외활동·공모전. 마감 임박순으로, 직무 적합도와 난이도까지.
         </p>
       </div>
 

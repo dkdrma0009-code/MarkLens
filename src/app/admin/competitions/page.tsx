@@ -18,7 +18,7 @@ export default async function CompetitionsAdminPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight">공모전·대외활동</h1>
+        <h1 className="text-xl font-semibold tracking-tight">대외활동</h1>
         <p className="text-sm text-muted-foreground mt-1">
           전체 <span className="font-medium text-foreground">{rows.length}건</span>
           {" · "}검수 대기 <span className="font-medium text-foreground">{pending}건</span>

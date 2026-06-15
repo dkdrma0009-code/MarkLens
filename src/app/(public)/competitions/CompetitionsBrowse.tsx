@@ -11,9 +11,9 @@ const PRIORITY_RING: Record<string, string> = {
 const JOB_FILTERS = ["전체", "콘텐츠기획", "퍼포먼스", "브랜드", "데이터분석"]
 const CAT_FILTERS = ["전체", "공모전", "대외활동", "서포터즈", "기타"]
 
-// 외부 포스터는 weserv 프록시로 안정 로드 (핫링크/혼합콘텐츠 회피)
+// 외부 포스터는 weserv 프록시로 안정 로드 (핫링크/혼합콘텐츠 회피) + 리사이즈·webp·CDN 캐시로 경량화
 function proxied(url: string): string {
-  return `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ""))}&w=640&output=jpg&q=80`
+  return `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ""))}&w=440&h=330&fit=cover&output=webp&q=72&maxage=7d`
 }
 
 function Thumb({ c }: { c: Competition }) {
