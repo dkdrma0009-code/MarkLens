@@ -4,6 +4,8 @@ import { analyzeCompetition } from "@/lib/competitions/analyze"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 120
+// 한국 공모전 사이트 다수가 해외(미국) IP 접속을 차단 → 이 함수만 서울 리전에서 실행
+export const preferredRegion = "icn1"
 
 // 주최사/공모전 URL 입력 기반 분석 (수집 이원화의 주축).
 // URL fetch → 본문 텍스트 추출 → LLM 분류(description 자체 재작성) → competitions insert.
