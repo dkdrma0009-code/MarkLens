@@ -13,8 +13,12 @@ export async function fetchViaJina(url: string): Promise<PageContent> {
   const md = await res.text()
   const title = md.match(/^Title:\s*(.+)$/m)?.[1]?.trim() || "(제목 없음)"
   const image = md.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/)?.[1] ?? null
-  // Jina 마크다운은 앞부분이 메뉴·네비라 실제 공모전 정보(접수기간·상금)가 뒤에 옴 → 넉넉히 확보
-  return { title, text: md.slice(0, 10000), image }
+  // 핵심 정보(접수기간·상금·주최)는 본문 뒤쪽에 있어 단순 slice 시 잘림 →
+  // 키워드 라인을 먼저 뽑아 앞에 붙여 slice와 무관하게 LLM에 전달.
+  const keyLines = (md.match(/^.*(?:접수|마감|모집|신청\s*기간|기간|D-\d+|상금|시상|주최|주관|지원\s*자격|참가\s*자격|대상).*$/gm) || [])
+    .slice(0, 40).join("\n")
+  const text = `${keyLines}\n\n${md}`.slice(0, 10000)
+  return { title, text, image }
 }
 
 // 목록 페이지 마크다운에서 개별 공모전 상세 URL 추출 (도메인별 패턴).
