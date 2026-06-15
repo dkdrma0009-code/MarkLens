@@ -168,6 +168,34 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
     }
   }
 
+  async function generateShorts(r: CardnewsRow) {
+    setRowBusy(r.articleId, true)
+    toast.info("숏츠 렌더 중... 약 30초~1분 걸려요")
+    try {
+      const res = await fetch("/api/admin/shorts/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: r.articleId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? "렌더 실패")
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `shorts-${r.articleId.slice(0, 6)}.mp4`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success("숏츠 다운로드 완료! 🎬")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "렌더 실패")
+    } finally {
+      setRowBusy(r.articleId, false)
+    }
+  }
+
   async function publishToInstagram(r: CardnewsRow) {
     if (!confirm(`"${r.hook ?? "카드뉴스"}"를 인스타그램에 지금 발행할까요?\n실제로 @marklens.site 피드에 게시됩니다.`)) return
     setRowBusy(r.articleId, true)
@@ -328,6 +356,14 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
                             {isBusy ? "발행 중..." : "📤 인스타 발행"}
                           </button>
                         )}
+                        <button
+                          onClick={() => generateShorts(r)}
+                          disabled={isBusy}
+                          className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+                          title="9:16 숏츠(mp4) 생성 — 로컬 환경 전용"
+                        >
+                          🎬 숏츠
+                        </button>
                         <button
                           onClick={() => togglePosted(r)}
                           disabled={isBusy}
