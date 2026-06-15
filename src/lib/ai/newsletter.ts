@@ -15,7 +15,7 @@ const SYSTEM = `당신은 MarkLens Weekly 수석 에디터입니다.
 - title은 후킹형 한 줄: 궁금증·의외성·위기감·숫자 중 하나. 주제 나열형 제목 금지.
 - topic_headline은 이번 주제를 한 문장으로 압축한 명제(인용구 박스에 들어감).
 - for_your_career는 짧게 응축: 이 주제를 면접·포트폴리오에 어떻게 쓰는지 + 한 줄 면접 답변. 3~4문장 이내.
-- image_keywords: 이번 호 주제를 Unsplash에서 검색할 영어 키워드 2~3개. 구체적일수록 좋음(예: "influencer marketing agency", "brand strategy meeting"). 추상적 단어 금지(예: "marketing", "business").
+- 각 body_section마다 image_keywords: 그 섹션 내용에 맞는 Unsplash 검색 영어 키워드 2~3개. 섹션마다 다르고 구체적으로(예: "influencer marketing agency", "brand strategy meeting"). 추상적 단어 금지(예: "marketing", "business").
 
 [절대 금지]
 - "~을 의미합니다 / 시사합니다 / 주목해야 합니다 / 고민해보겠습니다" 류 공허한 마무리.
@@ -33,14 +33,16 @@ interface NewsletterInput {
   }>
 }
 
+// 생성 시 섹션마다 image_keywords를 받음 — 라우트가 이걸로 Unsplash 검색 후 visual을 채우고 키워드는 제거
+type SectionOut = NewsletterBodySection & { image_keywords?: string[] }
+
 interface NewsletterOutput {
   title: string
   intro: string
   topic_headline: string
-  body_sections: NewsletterBodySection[]   // 생성 시엔 visual 없음 — 라우트가 비주얼을 채움
+  body_sections: SectionOut[]
   key_takeaways: string[]
   for_your_career: string
-  image_keywords: string[]   // 본문 사진용 — Unsplash 검색 영어 키워드 2~3개
 }
 
 export async function generateNewsletter(input: NewsletterInput): Promise<NewsletterOutput> {
@@ -66,24 +68,26 @@ ${insightsSummary}
   "intro": "2~3문장. 경어체 인사 + 이번 호가 다룰 한 주제를 흥미롭게 예고.",
   "topic_headline": "이번 주제를 한 문장으로 압축한 명제.",
   "body_sections": [
-    { "subhead": "무슨 일이 일어났나", "paragraphs": ["...", "..."] },
-    { "subhead": "왜 중요한가", "paragraphs": ["..."] },
-    { "subhead": "더 생각해볼 점", "paragraphs": ["..."] }
+    { "subhead": "무슨 일이 일어났나", "paragraphs": ["...", "..."], "image_keywords": ["specific keyword", "..."] },
+    { "subhead": "왜 중요한가", "paragraphs": ["..."], "image_keywords": ["다른 키워드", "..."] },
+    { "subhead": "더 생각해볼 점", "paragraphs": ["..."], "image_keywords": ["또 다른 키워드", "..."] }
   ],
   "key_takeaways": ["핵심 인사이트 1", "2", "3"],
-  "for_your_career": "3~4문장. 면접·포트폴리오 활용 + 한 줄 면접 답변 예시.",
-  "image_keywords": ["specific english keyword 1", "specific english keyword 2"]
+  "for_your_career": "3~4문장. 면접·포트폴리오 활용 + 한 줄 면접 답변 예시."
 }`
 
   const data = await geminiJson<NewsletterOutput>(SYSTEM, prompt, 5000)
   if (!data?.topic_headline || !data?.body_sections?.length) {
     throw new Error("뉴스레터 생성 실패 (구조 불완전)")
   }
-  // 방어: 배열 필드 정규화
+  // 방어: 배열 필드 정규화 (섹션별 image_keywords 보존 — 라우트가 사용)
   data.body_sections = data.body_sections
     .filter(s => s?.subhead && Array.isArray(s.paragraphs))
-    .map(s => ({ subhead: s.subhead, paragraphs: s.paragraphs.filter(Boolean) }))
+    .map(s => ({
+      subhead: s.subhead,
+      paragraphs: s.paragraphs.filter(Boolean),
+      image_keywords: Array.isArray(s.image_keywords) ? s.image_keywords.filter(Boolean) : [],
+    }))
   data.key_takeaways = Array.isArray(data.key_takeaways) ? data.key_takeaways.filter(Boolean) : []
-  data.image_keywords = Array.isArray(data.image_keywords) ? data.image_keywords.filter(Boolean) : []
   return data
 }

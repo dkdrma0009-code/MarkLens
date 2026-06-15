@@ -53,21 +53,6 @@ export function readingTime(issue: NewsletterIssue): number {
   return Math.max(1, Math.ceil(text.split(/\s+/).length / 200))
 }
 
-// 본문 삽입 사진 (Unsplash) — 크레딧 캡션 필수("Photo by OOO on Unsplash" + utm). 없으면 빈 문자열.
-function renderBodyImage(issue: NewsletterIssue): string {
-  if (!issue.body_image_url) return ""
-  const credit = issue.body_image_credit ?? "Unsplash"
-  const link = issue.body_image_credit_link ?? "https://unsplash.com"
-  const utm = "utm_source=marklens&utm_medium=referral"
-  return `
-  <tr><td style="padding:8px 0 4px;">
-    <img src="${issue.body_image_url}" alt="" width="600" style="width:100%;display:block;border-radius:4px;"/>
-  </td></tr>
-  <tr><td style="padding:4px 28px 20px;text-align:right;">
-    <span style="font-size:11px;color:#999;${F}">Photo by <a href="${link}?${utm}" style="color:#999;text-decoration:none;">${credit}</a> on <a href="https://unsplash.com/?${utm}" style="color:#999;text-decoration:none;">Unsplash</a></span>
-  </td></tr>`
-}
-
 // ── 신규: 한 주제 깊이형 본문 ──
 function renderModernBody(issue: NewsletterIssue): string {
   // 인용구 박스 (이번 주의 단 하나)
@@ -81,19 +66,13 @@ function renderModernBody(issue: NewsletterIssue): string {
     </table>
   </td></tr>` : ""
 
-  // 본문 사진은 두 번째 섹션 뒤에 삽입(섹션 2개 미만이면 마지막 섹션 뒤)
-  const sections = issue.body_sections ?? []
-  const imgAfter = sections.length >= 2 ? 1 : sections.length - 1
-  const bodyImage = renderBodyImage(issue)
-
-  // 본문 소단락 (+ 섹션에 visual 있으면 단락 뒤에 삽입)
-  const body = sections.map((s, i) => `
+  // 본문 소단락 (+ 섹션마다 자기 사진을 단락 뒤에 삽입)
+  const body = (issue.body_sections ?? []).map(s => `
   <tr><td style="padding:14px 32px 6px;">
     <p style="margin:0;font-size:18px;font-weight:800;color:#111;line-height:1.4;${F}">👉 ${s.subhead}</p>
   </td></tr>
   ${s.paragraphs.map(p => `<tr><td style="padding:0 32px 14px;"><p style="margin:0;font-size:16px;color:#333;line-height:1.85;${F}">${p}</p></td></tr>`).join("")}
-  ${s.visual ? renderVisual(s.visual) : ""}
-  ${i === imgAfter ? bodyImage : ""}`).join("")
+  ${s.visual ? renderVisual(s.visual) : ""}`).join("")
 
   // 핵심 정리 박스
   const takeaways = (issue.key_takeaways?.length) ? `

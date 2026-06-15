@@ -55,23 +55,28 @@ export async function POST(req: Request) {
       })),
     })
 
-    // image_keywords는 사진 검색용 메타 — DB 컬럼이 아니므로 분리 후 삽입
-    const { image_keywords, ...issueFields } = newsletter
-
-    // 본문 사진 — Unsplash에서 주제 키워드로 검색 (키 없거나 결과 없으면 null → 텍스트만 폴백)
-    const query = image_keywords.length
-      ? image_keywords.join(" ")
-      : (newsletter.topic_headline ?? "").split(/\s+/).slice(0, 3).join(" ")
-    const photo = await searchUnsplash(query)
+    // 섹션별 본문 사진 — 각 섹션 image_keywords로 Unsplash 검색 → visual에 저장 (키/결과 없으면 텍스트만)
+    const utm = "utm_source=marklens&utm_medium=referral"
+    await Promise.all(newsletter.body_sections.map(async (s) => {
+      const query = s.image_keywords?.length
+        ? s.image_keywords.join(" ")
+        : `${s.subhead} ${newsletter.topic_headline ?? ""}`.trim()
+      const photo = await searchUnsplash(query)
+      if (photo) {
+        s.visual = {
+          type: "photo",
+          url: photo.url,
+          caption: `Photo by <a href="${photo.creditLink}?${utm}" style="color:#aaa;text-decoration:none;">${photo.credit}</a> on <a href="https://unsplash.com/?${utm}" style="color:#aaa;text-decoration:none;">Unsplash</a>`,
+        }
+      }
+      delete s.image_keywords // 검색용 메타 — DB에 저장하지 않음
+    }))
 
     const { data, error } = await supabase
       .from("newsletter_issues")
       .insert({
         issue_number: nextIssueNumber,
-        ...issueFields,
-        body_image_url: photo?.url ?? null,
-        body_image_credit: photo?.credit ?? null,
-        body_image_credit_link: photo?.creditLink ?? null,
+        ...newsletter,
         status: "draft",
       })
       .select()
