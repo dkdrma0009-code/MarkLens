@@ -1,10 +1,21 @@
 import type { NewsletterIssue, NewsletterVisual } from "@/types"
-import { isHotlinkBlocked, weservThumb } from "@/lib/images"
+import { isHotlinkBlocked } from "@/lib/images"
 
 const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;"
 // 포인트 컬러는 단 1개만 — 흑백 기조에 절제된 인디고. 인용구·소제목·링크·정리박스·버튼에 일관 사용.
 const ACCENT = "#4f46e5"
 const SITE = "https://marklens.site"
+
+// 이메일 호환 이미지 URL. Unsplash CDN은 직접 핫링크(라이선스 권장) + imgix 사이즈,
+// 그 외(기사 이미지)는 weserv로 리사이즈. 이메일 클라이언트(특히 Outlook) webp 미지원 → jpg 강제.
+function emailPhotoSrc(url: string): string {
+  if (url.includes("images.unsplash.com")) {
+    const sep = url.includes("?") ? "&" : "?"
+    return `${url}${sep}w=600&q=80&fm=jpg&fit=max`
+  }
+  const stripped = url.replace(/^https?:\/\//, "")
+  return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}&w=600&output=jpg&q=80&maxage=7d`
+}
 
 // 본문 비주얼 — 타이포 카드(Satori 라우트 이미지) 또는 합법 사진. 이메일에서 <img>로 안전 표시.
 function renderVisual(v: NewsletterVisual): string {
@@ -16,7 +27,7 @@ function renderVisual(v: NewsletterVisual): string {
     imgSrc = `${SITE}/api/newsletter/visual?type=stat&number=${encodeURIComponent(v.number)}&label=${encodeURIComponent(v.label)}`
   } else if (v.type === "photo") {
     if (!v.url || isHotlinkBlocked(v.url)) return "" // 차단 매체는 삽입 안 함(정책 일관)
-    imgSrc = weservThumb(v.url, 600)
+    imgSrc = emailPhotoSrc(v.url)
     caption = v.caption ?? ""
   }
   if (!imgSrc) return ""
@@ -109,7 +120,7 @@ function renderLegacyBody(issue: NewsletterIssue): string {
 // 발송용·미리보기용 공유 빌더. topic_headline 있으면 신규, 없으면 과거 호 폴백.
 export function buildNewsletterHtml(
   issue: NewsletterIssue,
-  { unsubscribeUrl }: { unsubscribeUrl?: string; heroImage?: string | null } = {}
+  { unsubscribeUrl }: { unsubscribeUrl?: string } = {}
 ): string {
   const today = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })
   const issueNumMatch = issue.title.match(/^#(\d+)/)

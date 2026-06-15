@@ -28,19 +28,6 @@ async function sendViaBrevo(to: string, subject: string, html: string, issueId: 
   if (!res.ok) throw new Error(`Brevo error: ${await res.text()}`)
 }
 
-async function fetchHeroImage(supabase: ReturnType<typeof createAdminClient>, issueNumber: number): Promise<string | null> {
-  const { data } = await supabase
-    .from("articles")
-    .select("image_url")
-    .eq("status", "published")
-    .not("image_url", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(30)
-  if (!data?.length) return null
-  const idx = issueNumber % data.length
-  return data[idx]?.image_url ?? null
-}
-
 export async function POST(req: Request) {
   const { searchParams } = new URL(req.url)
   const secret = searchParams.get("secret")
@@ -62,7 +49,6 @@ export async function POST(req: Request) {
     : (await supabase.from("subscribers").select("email").eq("status", "active")).data
   if (!subscribers?.length) return NextResponse.json({ error: "No active subscribers" }, { status: 400 })
 
-  const heroImage = await fetchHeroImage(supabase, issue.issue_number ?? 0)
   const cleanTitle = issue.title.replace(/^#\d+\s*[—\-–]\s*/, "").trim()
   const subject = `[MarkLens] ${cleanTitle}`
   let sent = 0
@@ -74,7 +60,7 @@ export async function POST(req: Request) {
     const batch = subscribers.slice(i, i + BATCH)
     const results = await Promise.allSettled(batch.map(async ({ email }) => {
       const unsubscribeUrl = await generateUnsubscribeUrl(email)
-      await sendViaBrevo(email, subject, buildNewsletterHtml(issue, { unsubscribeUrl, heroImage }), issueId)
+      await sendViaBrevo(email, subject, buildNewsletterHtml(issue, { unsubscribeUrl }), issueId)
     }))
     results.forEach((r, j) => {
       if (r.status === "fulfilled") sent++
