@@ -6,7 +6,7 @@ import Parser from "rss-parser"
 
 export const maxDuration = 300
 
-const SCRAPE_PER_SOURCE = 8 // 소스당 하루 수집 상한 (Jina rate limit·검수 부담 고려)
+const SCRAPE_PER_SOURCE = 4 // 소스당 하루 수집 상한 (Jina 호출이 느려 크론 타임아웃 방지 + 검수 부담 고려)
 
 // 공모전 일일 처리 (collect cron이 호출) — ① 마감 지난 published → expired ② 공식 RSS 자동수집
 // 기존 webhooks/collect(아티클 RSS) 패턴 복제. 수집 이원화의 두 번째 축(RSS).
