@@ -56,6 +56,19 @@ async function fetchPageText(url: string): Promise<{ title: string; text: string
   return { title, text: `${title}\n${ogDesc ?? ""}\n${body}`, image }
 }
 
+// Jina Reader 폴백 — 직접 fetch가 막히는 한국/봇차단 사이트를 외부 서버가 읽어 본문 반환.
+async function fetchViaJina(url: string): Promise<{ title: string; text: string; image: string | null }> {
+  const res = await fetch(`https://r.jina.ai/${url}`, {
+    headers: { "X-Return-Format": "markdown", "Accept": "text/plain" },
+    signal: AbortSignal.timeout(45000),
+  })
+  if (!res.ok) throw new Error(`Jina ${res.status}`)
+  const md = await res.text()
+  const title = md.match(/^Title:\s*(.+)$/m)?.[1]?.trim() || "(제목 없음)"
+  const image = md.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/)?.[1] ?? null
+  return { title, text: md.slice(0, 4000), image }
+}
+
 export async function POST(req: Request) {
   if (!await isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -79,10 +92,15 @@ export async function POST(req: Request) {
   } else {
     try {
       page = await fetchPageText(url)
-    } catch (e) {
-      return NextResponse.json({
-        error: `페이지를 가져오지 못했습니다 (${e instanceof Error ? e.message : e}). 봇 차단 사이트는 본문을 복사해 'text' 필드로 함께 보내면 분석할 수 있습니다.`,
-      }, { status: 502 })
+    } catch {
+      // 직접 fetch 실패(한국 사이트 IP 차단·봇 차단) → Jina Reader 폴백
+      try {
+        page = await fetchViaJina(url)
+      } catch (e2) {
+        return NextResponse.json({
+          error: `페이지를 가져오지 못했습니다 (${e2 instanceof Error ? e2.message : e2}). 본문을 복사해 'text' 필드로 함께 보내면 분석할 수 있습니다.`,
+        }, { status: 502 })
+      }
     }
   }
 
