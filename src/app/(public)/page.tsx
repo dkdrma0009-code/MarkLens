@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
+import NewsletterInlineCta from "@/components/NewsletterInlineCta"
 import type { Insight } from "@/types"
 
 // 홈 전용 메타데이터 — 구글이 본문 대신 의도한 description을 쓰도록. 타깃 키워드 자연 포함.
@@ -94,12 +95,12 @@ export default async function HomePage() {
             포트폴리오와 면접에 어떻게 녹여낼 수 있는지까지 짚어 전달합니다.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link
-              href="/newsletter"
+            <a
+              href="#subscribe"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-black text-sm font-semibold hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors"
             >
               뉴스레터 구독하기 <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            </a>
             <Link
               href="/insights"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -107,6 +108,9 @@ export default async function HomePage() {
               인사이트 보기
             </Link>
           </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+            🎁 지금 구독하면 「마케팅 면접 질문 40선」 PDF를 드려요
+          </p>
         </div>
       </section>
 
@@ -136,24 +140,21 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Newsletter CTA */}
-      <section className="max-w-6xl mx-auto px-6 pb-16">
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">MarkLens Weekly</p>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-              매주 월요일, 한 주를 여는 마케팅 브리핑
+      {/* Newsletter CTA — 인라인 구독 폼 (페이지 이동 없이 그 자리에서 구독) */}
+      <section id="subscribe" className="max-w-6xl mx-auto px-6 pb-20 scroll-mt-20">
+        <div className="max-w-xl mx-auto">
+          <div className="text-center mb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">MarkLens Weekly</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-snug">
+              매주 월요일, 면접에서 바로 쓸 수 있는<br />
+              마케팅 트렌드 3개를 정리해 드립니다
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              5가지 섹션 — 무료, 언제든 취소 가능
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+              포트폴리오에 녹이는 법과 면접 답변 예시까지.
             </p>
           </div>
-          <Link
-            href="/newsletter"
-            className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-black text-sm font-semibold hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors whitespace-nowrap"
-          >
-            무료 구독하기 <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <NewsletterInlineCta />
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">무료 · 언제든 구독 취소 가능</p>
         </div>
       </section>
 
