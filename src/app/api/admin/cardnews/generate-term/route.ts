@@ -28,8 +28,20 @@ export async function POST(req: Request) {
   const { data, warnings } = await generateTermCard(term.trim())
   if (!data?.slides) return NextResponse.json({ error: "카드 생성 실패" }, { status: 500 })
 
-  const articleId = randomUUID()
   const supabase = createAdminClient()
+
+  // cardnews.article_id는 articles FK라, 용어카드용 article 행을 함께 만든다.
+  // status='term_card'로 격리 → 공개(published 아님)·분석(pending 아님)·통계에서 자연 제외.
+  const { data: art, error: artErr } = await supabase.from("articles").insert({
+    title: `[용어] ${term.trim()}`,
+    url: `term:${randomUUID()}`,
+    source: "term",
+    source_name: "용어카드",
+    status: "term_card",
+  }).select("id").single()
+  if (artErr || !art) return NextResponse.json({ error: `저장 실패: ${artErr?.message ?? "article 생성 실패"}` }, { status: 500 })
+
+  const articleId = art.id
   const { error } = await supabase.from("cardnews").insert({
     article_id: articleId,
     slides: data.slides,
