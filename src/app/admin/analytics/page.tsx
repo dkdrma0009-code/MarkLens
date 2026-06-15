@@ -5,6 +5,8 @@ import { getGa4Overview } from "@/lib/ga4"
 import Ga4Panel from "@/components/admin/Ga4Panel"
 import { getNewsletterStats } from "@/lib/newsletter/stats"
 import NewsletterStatsPanel from "@/components/admin/NewsletterStatsPanel"
+import { getInstagramInsights } from "@/lib/instagram"
+import InstagramPanel from "@/components/admin/InstagramPanel"
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +32,7 @@ export default async function AdminAnalyticsPage() {
     { data: feedbacks },
     ga4,
     newsletterStats,
+    igInsights,
   ] = await Promise.all([
     supabase.from("articles").select("*", { count: "exact", head: true }),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
@@ -47,6 +50,7 @@ export default async function AdminAnalyticsPage() {
       .select("insight_id, rating"),
     getGa4Overview(),
     getNewsletterStats(),
+    getInstagramInsights(),
   ])
 
   // 인사이트별 좋아요(helpful) 수 집계
@@ -83,6 +87,9 @@ export default async function AdminAnalyticsPage() {
 
       {/* 뉴스레터 성과 */}
       <NewsletterStatsPanel stats={newsletterStats} />
+
+      {/* 인스타그램 인사이트 */}
+      <InstagramPanel data={igInsights} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">

@@ -84,6 +84,56 @@ export async function checkInstagram(): Promise<{ ok: boolean; detail: string }>
   }
 }
 
+// 어드민 분석용 인스타그램 인사이트 — 계정 요약 + 일별 도달 + 게시물별 성과.
+// 실제 발행과 동일한 토큰 경로(DB 우선)·엔드포인트 사용.
+export interface IgMediaInsight {
+  id: string; caption: string; permalink: string; timestamp: string; mediaType: string
+  reach: number; likes: number; saved: number; shares: number; comments: number
+}
+export interface IgInsights {
+  account: { username: string; followers: number; mediaCount: number }
+  dailyReach: { date: string; reach: number }[]
+  media: IgMediaInsight[]
+}
+
+export async function getInstagramInsights(): Promise<IgInsights | null> {
+  try {
+    const token = await getAccessToken()
+    const userId = getUserId()
+
+    const acc = await fetch(`${GRAPH}/${userId}?fields=username,followers_count,media_count&access_token=${token}`).then(r => r.json())
+    if (!acc?.username) return null
+
+    const reachRes = await fetch(`${GRAPH}/${userId}/insights?metric=reach&period=day&access_token=${token}`).then(r => r.json())
+    const dailyReach = (reachRes?.data?.[0]?.values ?? []).map((v: { end_time?: string; value: number }) => ({
+      date: v.end_time?.slice(5, 10) ?? "", reach: v.value ?? 0,
+    }))
+
+    const mediaList = await fetch(`${GRAPH}/${userId}/media?fields=id,caption,media_type,timestamp,permalink&limit=8&access_token=${token}`).then(r => r.json())
+    const media: IgMediaInsight[] = await Promise.all((mediaList?.data ?? []).map(async (m: { id: string; caption?: string; media_type: string; timestamp: string; permalink: string }) => {
+      const map: Record<string, number> = {}
+      try {
+        const ins = await fetch(`${GRAPH}/${m.id}/insights?metric=reach,likes,saved,shares,comments&access_token=${token}`).then(r => r.json())
+        for (const d of ins?.data ?? []) map[d.name] = d.values?.[0]?.value ?? 0
+      } catch { /* 일부 미디어 타입은 인사이트 미지원 → 0 */ }
+      const g = (n: string) => map[n] ?? 0
+      return {
+        id: m.id, caption: (m.caption ?? "").replace(/\s+/g, " ").slice(0, 60), permalink: m.permalink,
+        timestamp: m.timestamp, mediaType: m.media_type,
+        reach: g("reach"), likes: g("likes"), saved: g("saved"), shares: g("shares"), comments: g("comments"),
+      }
+    }))
+
+    return {
+      account: { username: acc.username, followers: acc.followers_count ?? 0, mediaCount: acc.media_count ?? 0 },
+      dailyReach, media,
+    }
+  } catch (e) {
+    console.warn("[IG insights]", e instanceof Error ? e.message : e)
+    return null
+  }
+}
+
 // 장수명 토큰 갱신 → app_config에 저장 (cron에서 주기 호출). 반환: 남은 유효일
 export async function refreshIgToken(): Promise<number> {
   const token = await getAccessToken()
