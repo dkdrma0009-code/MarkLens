@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { formatDate } from "@/lib/utils"
 import { computePriority, ddayLabel } from "@/lib/competitions/priority"
@@ -30,6 +30,15 @@ const STATUS_STYLE: Record<string, string> = {
   expired: "bg-gray-100 text-gray-400",
 }
 
+function Field({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <p className="text-sm text-foreground leading-relaxed">{value || "—"}</p>
+    </div>
+  )
+}
+
 export default function CompetitionsClient({ initialRows }: { initialRows: Competition[] }) {
   const [rows, setRows] = useState(initialRows)
   const [filter, setFilter] = useState<Filter>("pending")
@@ -38,6 +47,7 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
   const [showText, setShowText] = useState(false)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState<Set<string>>(new Set())
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const counts = useMemo(() => {
     const c = { all: rows.length, pending: 0, published: 0, rejected: 0, expired: 0 }
@@ -179,12 +189,14 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
               {visible.map(r => {
                 const priority = computePriority(r.deadline, r.difficulty)
                 const isBusy = busy.has(r.id)
+                const expanded = expandedId === r.id
                 return (
-                  <tr key={r.id} className="hover:bg-muted/20 transition-colors align-top">
+                  <Fragment key={r.id}>
+                  <tr className="hover:bg-muted/20 transition-colors align-top">
                     <td className="px-4 py-3 max-w-md">
-                      <div className="flex items-center gap-2">
-                        <a href={r.source_url} target="_blank" rel="noopener" className="font-medium line-clamp-1 hover:underline">{r.title}</a>
-                      </div>
+                      <button onClick={() => setExpandedId(expanded ? null : r.id)} className="font-medium text-left line-clamp-1 hover:underline">
+                        {expanded ? "▾ " : "▸ "}{r.title}
+                      </button>
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{r.description}</p>
                       <p className="text-[11px] text-muted-foreground mt-1">
                         {r.organizer ?? "—"}{r.prize ? ` · ${r.prize}` : ""}
@@ -206,6 +218,8 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap space-x-1.5">
+                      <button onClick={() => setExpandedId(expanded ? null : r.id)}
+                        className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50">미리보기</button>
                       {r.status !== "published" && (
                         <button onClick={() => setStatus(r, "published")} disabled={isBusy}
                           className="text-xs px-2.5 py-1.5 rounded-md font-medium bg-foreground text-background hover:opacity-90 disabled:opacity-50">게시</button>
@@ -218,6 +232,43 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
                         className="text-xs px-2.5 py-1.5 rounded-md font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">삭제</button>
                     </td>
                   </tr>
+                  {expanded && (
+                    <tr className="bg-muted/20">
+                      <td colSpan={5} className="px-4 py-5">
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          {/* 게시될 텍스트 썸네일 (실제 렌더) */}
+                          <div className="flex-shrink-0">
+                            <p className="text-[11px] text-muted-foreground mb-1.5">게시 썸네일 (자동 생성)</p>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`}
+                              alt="썸네일 미리보기"
+                              className="w-80 rounded-lg border border-border bg-black"
+                            />
+                          </div>
+                          {/* 분석 전문 */}
+                          <div className="flex-1 space-y-3 text-sm">
+                            <Field label="요약" value={r.description} />
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="주최" value={r.organizer} />
+                              <Field label="카테고리" value={r.category} />
+                              <Field label="시작일" value={r.start_date ? formatDate(r.start_date) : null} />
+                              <Field label="마감일" value={r.deadline ? formatDate(r.deadline) : "상시"} />
+                              <Field label="시상" value={r.prize} />
+                              <Field label="난이도" value={r.difficulty} />
+                            </div>
+                            <Field label="지원 자격" value={r.eligibility} />
+                            <Field label="직무 적합" value={(r.job_fit ?? []).join(", ") || null} />
+                            <p className="text-xs">
+                              <span className="text-muted-foreground">원문: </span>
+                              <a href={r.source_url} target="_blank" rel="noopener" className="text-sky-600 hover:underline break-all">{r.source_url}</a>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 )
               })}
             </tbody>
