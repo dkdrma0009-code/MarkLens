@@ -55,17 +55,6 @@ export function readingTime(issue: NewsletterIssue): number {
 
 // ── 신규: 한 주제 깊이형 본문 ──
 function renderModernBody(issue: NewsletterIssue): string {
-  // 인용구 박스 (이번 주의 단 하나)
-  const quote = issue.topic_headline ? `
-  <tr><td style="padding:8px 28px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0d0d0d;border-radius:14px;">
-      <tr><td style="padding:30px 28px;">
-        <span style="font-size:40px;line-height:0;color:${ACCENT};font-weight:900;${F}">&ldquo;</span>
-        <p style="margin:6px 0 0;font-size:22px;font-weight:800;color:#ffffff;line-height:1.45;letter-spacing:-0.3px;${F}">${issue.topic_headline}</p>
-      </td></tr>
-    </table>
-  </td></tr>` : ""
-
   // 본문 소단락 (+ 섹션마다 자기 사진을 단락 뒤에 삽입)
   const body = (issue.body_sections ?? []).map(s => `
   <tr><td style="padding:14px 32px 6px;">
@@ -93,7 +82,7 @@ function renderModernBody(issue: NewsletterIssue): string {
     <p style="margin:0;font-size:15px;color:#333;line-height:1.85;${F}">${issue.for_your_career}</p>
   </td></tr>` : ""
 
-  return quote + body + takeaways + career
+  return body + takeaways + career
 }
 
 // ── 폴백: 구 5섹션 호 (과거 발송 이력 렌더용, 색 없이 단순 텍스트) ──
