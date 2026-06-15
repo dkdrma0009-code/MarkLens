@@ -18,7 +18,7 @@ export default function AboutPage() {
           마케팅 트렌드를 읽고,<br />실무를 준비하다.
         </h1>
         <p className="text-lg text-gray-500 dark:text-gray-400 leading-relaxed">
-          MarkLens는 글로벌 마케팅 아티클을 AI로 분석해 실무에 바로 쓸 수 있는 인사이트로 전달합니다.
+          MarkLens는 글로벌 마케팅 트렌드를 선별해 실무에 바로 쓸 수 있는 인사이트로 전달합니다.
           단순한 요약이 아니라, 왜 중요한지 · 어떻게 적용할지 · 면접에서 어떻게 말할지를 함께 고민합니다.
         </p>
       </section>

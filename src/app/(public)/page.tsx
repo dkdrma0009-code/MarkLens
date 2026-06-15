@@ -1,8 +1,25 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 import type { Insight } from "@/types"
+
+// 홈 전용 메타데이터 — 구글이 본문 대신 의도한 description을 쓰도록. 타깃 키워드 자연 포함.
+export const metadata: Metadata = {
+  title: "MarkLens — 마케팅 트렌드를 읽고, 실무를 준비하다",
+  description:
+    "글로벌 마케팅 트렌드와 인사이트를 선별해 전합니다. 주니어 마케터와 취준생을 위해 왜 중요한지, 실무와 포트폴리오·면접에 어떻게 적용할지까지 짚어 드립니다.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "MarkLens — 마케팅 트렌드를 읽고, 실무를 준비하다",
+    description:
+      "글로벌 마케팅 트렌드와 인사이트를 선별해, 실무·포트폴리오·면접에 어떻게 적용할지까지 짚어 드립니다.",
+    url: "https://marklens.site",
+    siteName: "MarkLens",
+    type: "website",
+  },
+}
 
 export const revalidate = 3600
 
@@ -73,8 +90,8 @@ export default async function HomePage() {
             <span className="text-gray-500 dark:text-gray-500">실무를 준비하다.</span>
           </h1>
           <p className="text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-8">
-            글로벌 마케팅 아티클을 AI로 분석해 왜 중요한지, 어떻게 적용할 수 있는지,
-            포트폴리오에 어떻게 녹여낼 수 있는지를 함께 전달합니다.
+            글로벌 마케팅 트렌드를 선별해 왜 중요한지, 어떻게 적용할 수 있는지,
+            포트폴리오와 면접에 어떻게 녹여낼 수 있는지까지 짚어 전달합니다.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link

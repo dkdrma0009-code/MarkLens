@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const article = insight.article as { title?: string; image_url?: string } | null
   const title = insight.hook ?? article?.title ?? "MarkLens 인사이트"
-  const description = insight.summary ?? "글로벌 마케팅 아티클에서 추출한 실무 인사이트"
+  const description = insight.summary ?? "글로벌 마케팅 트렌드에서 선별한 실무 인사이트"
   const image = article?.image_url
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
 

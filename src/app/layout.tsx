@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     google: "io4NM_VvWISWgqikgbn_VSqP24ZW9Kwz367iUoDotCQ",
   },
   title: "MarkLens — Where Marketing Trends Become Action",
-  description: "마케팅 트렌드를 분석하고, 실무에 바로 적용 가능한 인사이트를 제공합니다.",
+  description: "마케팅 트렌드를 선별해 실무와 포트폴리오에 바로 적용 가능한 인사이트로 전합니다. 주니어 마케터와 취준생을 위한 마케팅 미디어.",
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -35,8 +35,8 @@ export const metadata: Metadata = {
     apple: "/icon.svg",
   },
   openGraph: {
-    title: "MarkLens",
-    description: "Where Marketing Trends Become Action",
+    title: "MarkLens — 마케팅 트렌드를 읽고, 실무를 준비하다",
+    description: "글로벌 마케팅 트렌드를 선별해 실무·포트폴리오·면접에 어떻게 적용할지까지 짚어 드립니다.",
     siteName: "MarkLens",
     url: "https://marklens.site",
   },
