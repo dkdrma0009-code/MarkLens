@@ -38,6 +38,9 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [bulkProgress, setBulkProgress] = useState<string | null>(null)
   const bulkStop = useRef(false)
+  const [shortsModal, setShortsModal] = useState<{
+    articleId: string; outputFile: string; slug: string; caption: string
+  } | null>(null)
   const router = useRouter()
   const [term, setTerm] = useState("")
   const [termBusy, setTermBusy] = useState(false)
@@ -214,19 +217,8 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
           toast.loading(`렌더 중... ${status.percent}%`, { id: toastId })
         }
         if (status.status === "done" && status.outputFile) {
-          toast.loading("파일 다운로드 중...", { id: toastId })
-          // 3) 다운로드 프록시 경유
-          const dlParams = new URLSearchParams({ outputFile: status.outputFile, slug })
-          const dlRes = await fetch(`/api/admin/shorts/download?${dlParams}`)
-          if (!dlRes.ok) throw new Error("파일 다운로드 실패")
-          const blob = await dlRes.blob()
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement("a")
-          a.href = url
-          a.download = `shorts-${slug}.mp4`
-          a.click()
-          URL.revokeObjectURL(url)
-          toast.success("숏츠 다운로드 완료! 🎬", { id: toastId })
+          toast.success("렌더 완료! 다운로드 또는 릴스 발행을 선택하세요.", { id: toastId })
+          setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: r.hook ?? "" })
           return
         }
       }
@@ -235,6 +227,53 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
       toast.error(e instanceof Error ? e.message : "렌더 실패", { id: toastId })
     } finally {
       setRowBusy(r.articleId, false)
+    }
+  }
+
+  async function downloadShorts() {
+    if (!shortsModal) return
+    const { outputFile, slug, articleId } = shortsModal
+    setShortsModal(null)
+    setRowBusy(articleId, true)
+    const toastId = toast.loading("파일 다운로드 중...")
+    try {
+      const dlParams = new URLSearchParams({ outputFile, slug })
+      const dlRes = await fetch(`/api/admin/shorts/download?${dlParams}`)
+      if (!dlRes.ok) throw new Error("파일 다운로드 실패")
+      const blob = await dlRes.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `shorts-${slug}.mp4`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success("숏츠 다운로드 완료! 🎬", { id: toastId })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "다운로드 실패", { id: toastId })
+    } finally {
+      setRowBusy(articleId, false)
+    }
+  }
+
+  async function publishReels() {
+    if (!shortsModal) return
+    const { outputFile, caption, articleId } = shortsModal
+    setShortsModal(null)
+    setRowBusy(articleId, true)
+    const toastId = toast.loading("인스타 릴스 발행 중... (처리 최대 2분 소요)")
+    try {
+      const res = await fetch("/api/admin/shorts/reels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outputFile, caption }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "릴스 발행 실패")
+      toast.success("인스타 릴스 발행 완료! 🎉", { id: toastId })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "릴스 발행 실패", { id: toastId })
+    } finally {
+      setRowBusy(articleId, false)
     }
   }
 
@@ -260,6 +299,53 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
 
   return (
     <>
+      {/* 숏츠 렌더 완료 — 다운로드 / 릴스 발행 선택 모달 */}
+      {shortsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background border border-border rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-sm font-semibold mb-1">숏츠 렌더 완료</h3>
+            <p className="text-xs text-muted-foreground mb-4">다운로드하거나 인스타 릴스로 바로 발행하세요.</p>
+            <label className="block text-xs font-medium mb-1.5">릴스 캡션</label>
+            <textarea
+              value={shortsModal.caption}
+              onChange={e => setShortsModal(m => m ? { ...m, caption: e.target.value } : m)}
+              rows={4}
+              placeholder="게시물 캡션을 입력하세요..."
+              className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none mb-4"
+            />
+            <div className="flex gap-2 justify-end flex-wrap">
+              <button
+                onClick={() => setShortsModal(null)}
+                className="text-xs px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-muted/50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shortsModal?.caption ?? "")
+                  toast.success("캡션 복사 완료")
+                }}
+                className="text-xs px-3 py-2 rounded-md border border-border font-medium hover:bg-muted/50"
+              >
+                캡션 복사
+              </button>
+              <button
+                onClick={downloadShorts}
+                className="text-xs px-3 py-2 rounded-md border border-border font-medium hover:bg-muted/50"
+              >
+                다운로드
+              </button>
+              <button
+                onClick={publishReels}
+                className="text-xs px-4 py-2 rounded-md font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+              >
+                릴스 발행
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 용어·꿀팁 카드 생성 (기사 없이 용어만으로) */}
       <div className="border border-border rounded-lg p-4 bg-background mb-6">
         <p className="text-sm font-medium mb-2">용어·꿀팁 카드 만들기</p>

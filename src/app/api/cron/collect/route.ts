@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sendAdminAlert } from "@/lib/alert"
 
 // Vercel Cron이 매일 UTC 00:00에 호출
 // CRON_SECRET 환경변수로 인증
@@ -18,6 +19,13 @@ export async function GET(req: Request) {
     method: "POST",
   })
   const data = await res.json()
+
+  if (!res.ok) {
+    await sendAdminAlert(
+      "아티클 수집 cron 실패",
+      `오류: ${data.error ?? JSON.stringify(data)}\n시각: ${new Date().toISOString()}`
+    )
+  }
 
   // 공모전 일일 처리(만료 갱신 + RSS 수집)도 같은 크론에서 — 별도 cron 추가 없이
   let competitions: unknown = null

@@ -134,6 +134,31 @@ export async function getInstagramInsights(): Promise<IgInsights | null> {
   }
 }
 
+// 숏츠 릴스 발행: 공개 S3 URL → Instagram Reels 게시물 id
+export async function publishReel(videoUrl: string, caption: string): Promise<string> {
+  const token = await getAccessToken()
+  const userId = getUserId()
+
+  // 1) 릴스 컨테이너 생성
+  const reelsId = await igPost(token, `${userId}/media`, {
+    media_type: "REELS",
+    video_url: videoUrl,
+    caption,
+    share_to_feed: "true",
+  })
+
+  // 2) 처리 완료 대기 (동영상 처리는 보통 30~90초 소요)
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 5000))
+    const s = await containerStatus(token, reelsId)
+    if (s === "FINISHED") break
+    if (s === "ERROR" || s === "EXPIRED") throw new Error(`릴스 처리 실패: ${s}`)
+  }
+
+  // 3) 발행
+  return igPost(token, `${userId}/media_publish`, { creation_id: reelsId })
+}
+
 // 장수명 토큰 갱신 → app_config에 저장 (cron에서 주기 호출). 반환: 남은 유효일
 export async function refreshIgToken(): Promise<number> {
   const token = await getAccessToken()

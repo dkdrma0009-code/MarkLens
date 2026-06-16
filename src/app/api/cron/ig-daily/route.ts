@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { refreshIgToken } from "@/lib/instagram"
 import { refreshThreadsToken } from "@/lib/threads"
 import { publishCardnews } from "@/lib/cardnews/publish"
+import { sendAdminAlert } from "@/lib/alert"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
@@ -26,6 +27,14 @@ export async function GET(req: Request) {
     result.threadsTokenDays = await refreshThreadsToken()
   } catch (e) {
     result.threadsTokenError = e instanceof Error ? e.message : String(e)
+  }
+
+  // 두 토큰 모두 실패하면 알림 (둘 중 하나 실패는 일시적 오류로 허용)
+  if (result.igTokenError && result.threadsTokenError) {
+    await sendAdminAlert(
+      "IG/Threads 토큰 갱신 전체 실패",
+      `IG 오류: ${result.igTokenError}\nThreads 오류: ${result.threadsTokenError}\n시각: ${new Date().toISOString()}`
+    )
   }
 
   const supabase = createAdminClient()

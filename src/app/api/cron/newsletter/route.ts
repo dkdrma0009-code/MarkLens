@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sendAdminAlert } from "@/lib/alert"
 
 export const maxDuration = 300
 
@@ -32,7 +33,9 @@ export async function GET(req: Request) {
   const genRes = await fetch(`${base}/api/newsletter/generate?secret=${secret}`, { method: "POST" })
   const gen = await genRes.json().catch(() => ({}))
   if (!genRes.ok || !gen.issue?.id) {
-    return NextResponse.json({ step: "generate", error: gen.error ?? "초안 생성 실패" }, { status: 500 })
+    const err = gen.error ?? "초안 생성 실패"
+    await sendAdminAlert("뉴스레터 cron 실패 — 초안 생성", `오류: ${err}\n시각: ${new Date().toISOString()}`)
+    return NextResponse.json({ step: "generate", error: err }, { status: 500 })
   }
 
   // ② 발송
@@ -43,7 +46,9 @@ export async function GET(req: Request) {
   })
   const send = await sendRes.json().catch(() => ({}))
   if (!sendRes.ok) {
-    return NextResponse.json({ step: "send", issueId: gen.issue.id, error: send.error ?? "발송 실패" }, { status: 500 })
+    const err = send.error ?? "발송 실패"
+    await sendAdminAlert("뉴스레터 cron 실패 — 발송", `issueId: ${gen.issue.id}\n오류: ${err}\n시각: ${new Date().toISOString()}`)
+    return NextResponse.json({ step: "send", issueId: gen.issue.id, error: err }, { status: 500 })
   }
 
   return NextResponse.json({

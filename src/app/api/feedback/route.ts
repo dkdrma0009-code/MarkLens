@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 })
   }
 
-  const supabase = createAdminClient()
+  const supabase = await createClient()
   const { error } = await supabase.from("feedback").insert({
     insight_id: insightId,
     rating,

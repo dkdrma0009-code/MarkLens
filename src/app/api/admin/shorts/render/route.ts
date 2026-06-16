@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         composition: "Shorts",
         inputProps: { slides, category, coverImage },
         codec: "h264",
-        privacy: "private",
+        privacy: "public", // Instagram이 직접 S3 URL 접근 가능해야 릴스 발행 가능
         framesPerLambda: 150, // 동시 Lambda 수 최소화 (신규 계정 한도 대응)
         maxRetries: 1,
       })
