@@ -11,32 +11,47 @@ const PRIORITY_RING: Record<string, string> = {
 const JOB_FILTERS = ["전체", "콘텐츠기획", "퍼포먼스", "브랜드", "데이터분석"]
 const CAT_FILTERS = ["전체", "공모전", "대외활동", "서포터즈", "기타"]
 
-// 외부 포스터는 weserv 프록시로 안정 로드 (핫링크/혼합콘텐츠 회피) + 리사이즈·webp·CDN 캐시로 경량화
+// 외부 포스터 — weserv 프록시로 리사이즈·webp·CDN 캐시. 실패하면 Satori 텍스트 카드로 폴백.
 function proxied(url: string): string {
   return `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ""))}&w=440&h=330&fit=cover&output=webp&q=72&maxage=7d`
 }
 
+function satoriThumb(id: string, updatedAt: string): string {
+  return `/api/admin/competitions/thumbnail?id=${id}&v=${encodeURIComponent(updatedAt)}`
+}
+
 function Thumb({ c }: { c: Competition }) {
-  const [failed, setFailed] = useState(false)
-  const priority = computePriority(c.deadline, c.difficulty)
-  if (c.thumbnail_url && !failed) {
+  const [src, setSrc] = useState<string>(
+    c.thumbnail_url ? proxied(c.thumbnail_url) : satoriThumb(c.id, c.updated_at)
+  )
+  const [errored, setErrored] = useState(false)
+
+  function handleError() {
+    // weserv 실패 → Satori 텍스트 카드로 폴백
+    const fallback = satoriThumb(c.id, c.updated_at)
+    if (src !== fallback) { setSrc(fallback); return }
+    setErrored(true) // Satori도 실패 시 최후 CSS 폴백
+  }
+
+  if (!errored) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxied(c.thumbnail_url)}
+        src={src}
         alt={c.title}
         loading="lazy"
-        onError={() => setFailed(true)}
-        className="w-full aspect-[4/3] object-cover bg-gray-100 dark:bg-gray-800"
+        onError={handleError}
+        className="w-full aspect-[4/3] object-cover bg-gray-900"
       />
     )
   }
-  // 텍스트 폴백 (CSS — 공개 페이지는 이미지 라우트 인증 불필요하게 직접 렌더)
+  // 최후 CSS 폴백 (Satori마저 실패한 극히 드문 경우)
+  const priority = computePriority(c.deadline, c.difficulty)
   return (
     <div className="w-full aspect-[4/3] bg-gray-900 text-white flex flex-col justify-between p-4">
       <div className="flex justify-between text-xs">
         <span className="text-gray-400">{c.category ?? "공모전"}</span>
-        <span className={`px-2 py-0.5 rounded-full text-white ${PRIORITY_RING[priority]}`}>{ddayLabel(c.deadline)}</span>
+        <span className={`px-2 py-0.5 rounded-full text-white bg-gray-600`}>{ddayLabel(c.deadline)}</span>
       </div>
       <div className="font-bold text-base leading-snug line-clamp-3">{c.title}</div>
       <div className="text-xs text-gray-400">{c.organizer ?? "MarkLens"}</div>

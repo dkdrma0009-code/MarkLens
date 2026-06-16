@@ -1,29 +1,19 @@
 import { ImageResponse } from "next/og"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { loadFonts } from "@/lib/cardnews/fonts"
 import { ddayLabel, computePriority } from "@/lib/competitions/priority"
 import type { Competition } from "@/types"
 
 export const maxDuration = 60
 
-// 공모전 텍스트 썸네일 — 원본 이미지 호스팅 금지 정책. Satori로 제목·주최·D-day 기반 카드 생성.
+// 공모전 텍스트 썸네일 — Satori로 제목·주최·D-day 카드 생성. 공개 접근 허용(공모전 정보는 공개 데이터).
 // 기존 cardnews/shorts 렌더(ImageResponse + loadFonts) 인프라 재사용.
-async function isAuthorized(req: Request): Promise<boolean> {
-  const { searchParams } = new URL(req.url)
-  if (searchParams.get("secret") === process.env.N8N_WEBHOOK_SECRET) return true
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 const PRIORITY_COLOR: Record<string, string> = {
   red: "#ef4444", orange: "#f59e0b", yellow: "#eab308", green: "#10b981",
 }
 
 export async function GET(req: Request) {
-  if (!await isAuthorized(req)) return new Response("Unauthorized", { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
