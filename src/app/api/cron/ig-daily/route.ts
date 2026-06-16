@@ -1,11 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { refreshIgToken } from "@/lib/instagram"
+import { refreshThreadsToken } from "@/lib/threads"
 import { publishCardnews } from "@/lib/cardnews/publish"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
 
-// 매일: ① IG 토큰 갱신(만료 방지) ② 자동발행 ON이면 미발행 카드뉴스 1건 발행
+// 매일: ① IG/Threads 토큰 갱신(만료 방지) ② 자동발행 ON이면 미발행 카드뉴스 1건 발행
 export async function GET(req: Request) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -13,11 +14,18 @@ export async function GET(req: Request) {
 
   const result: Record<string, unknown> = {}
 
-  // ① 토큰 갱신 (실패해도 발행은 시도)
+  // ① IG 토큰 갱신 (실패해도 진행)
   try {
-    result.tokenRefreshedDays = await refreshIgToken()
+    result.igTokenDays = await refreshIgToken()
   } catch (e) {
-    result.tokenRefreshError = e instanceof Error ? e.message : String(e)
+    result.igTokenError = e instanceof Error ? e.message : String(e)
+  }
+
+  // ② Threads 토큰 갱신 (실패해도 진행)
+  try {
+    result.threadsTokenDays = await refreshThreadsToken()
+  } catch (e) {
+    result.threadsTokenError = e instanceof Error ? e.message : String(e)
   }
 
   const supabase = createAdminClient()

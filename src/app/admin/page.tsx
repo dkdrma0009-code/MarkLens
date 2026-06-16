@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import HealthPanel from "@/components/admin/HealthPanel"
+import TokenStatusPanel from "@/components/admin/TokenStatusPanel"
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,10 @@ export default async function AdminDashboard() {
         </div>
 
         <HealthPanel />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <TokenStatusPanel />
       </div>
     </div>
   )
