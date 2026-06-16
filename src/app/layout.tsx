@@ -15,8 +15,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 환경변수로 분리 — 미설정 시 기존 프로덕션 ID로 폴백
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-9NCMJC4V6L";
+// 프로덕션에서만 GA 활성화 — 로컬/프리뷰 배포가 프로덕션 GA 데이터를 오염시키는 것 방지
+const GA_ID = process.env.NODE_ENV === "production"
+  ? (process.env.NEXT_PUBLIC_GA_ID ?? "G-9NCMJC4V6L")
+  : null;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site";
 
 export const metadata: Metadata = {
@@ -53,13 +55,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-        <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-        <Script id="ga4" strategy="afterInteractive">{`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_ID}');
-        `}</Script>
+        {GA_ID && <>
+          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
+          <Script id="ga4" strategy="afterInteractive">{`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}');
+          `}</Script>
+        </>}
         <ThemeProvider>
           {children}
           <Toaster />
