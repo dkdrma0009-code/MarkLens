@@ -1,7 +1,4 @@
 import { NextResponse } from "next/server"
-import path from "node:path"
-import os from "node:os"
-import { readFile, unlink } from "node:fs/promises"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
@@ -16,12 +13,10 @@ async function isAdmin(): Promise<boolean> {
   return !!user && user.email?.trim().toLowerCase() === adminEmail
 }
 
-// 카드뉴스 → 숏츠(mp4) 렌더. Remotion 풀렌더는 Vercel 서버리스에서 불가(시간·메모리) → 로컬 개발 전용.
-// 향후 Lambda 전환 시 @remotion/lambda renderMediaOnLambda()로 분기 교체.
+// 카드뉴스 → 숏츠(mp4) 렌더.
+// 프로덕션: AWS Lambda (ap-northeast-2) — renderMediaOnLambda()
+// 로컬 개발: Remotion 번들러 직접 렌더
 export async function POST(req: Request) {
-  if (process.env.NODE_ENV !== "development") {
-    return NextResponse.json({ error: "숏츠 렌더는 로컬 개발 환경에서만 가능합니다 (Vercel 서버리스 미지원)" }, { status: 405 })
-  }
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { articleId } = await req.json().catch(() => ({}))
@@ -41,19 +36,63 @@ export async function POST(req: Request) {
   const coverImage = usePhoto ? await fetchImageDataUri(article?.image_url) : null
   const rawSlug = insight?.slug ?? `cardnews-${articleId.slice(0, 6)}`
   const slug = /^[\w\-]+$/.test(rawSlug) ? rawSlug : `cardnews-${articleId.slice(0, 6)}`
+  const inputProps = { slides, category, coverImage }
 
-  // 동적 import — 빌드/배포 번들에서 분리 (next.config serverExternalPackages와 함께)
+  // ── 프로덕션: Lambda 렌더 ──
+  if (process.env.NODE_ENV !== "development") {
+    const functionName = process.env.REMOTION_FUNCTION_NAME
+    const serveUrl = process.env.REMOTION_SERVE_URL
+    if (!functionName || !serveUrl) {
+      return NextResponse.json({ error: "REMOTION_FUNCTION_NAME / REMOTION_SERVE_URL 미설정" }, { status: 500 })
+    }
+
+    const { renderMediaOnLambda, getRenderProgress } = await import("@remotion/lambda/client")
+
+    const { renderId, bucketName } = await renderMediaOnLambda({
+      region: "ap-northeast-2",
+      functionName,
+      serveUrl,
+      composition: "Shorts",
+      inputProps,
+      codec: "h264",
+      privacy: "private",
+    })
+
+    // 완료 대기 (최대 55초 — Vercel 제한 여유)
+    const deadline = Date.now() + 55_000
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 3000))
+      const progress = await getRenderProgress({ renderId, bucketName, functionName, region: "ap-northeast-2" })
+      if (progress.fatalErrorEncountered) {
+        return NextResponse.json({ error: `Lambda 렌더 실패: ${(progress.errors as {message?: string}[])?.[0]?.message ?? "unknown"}` }, { status: 500 })
+      }
+      if (progress.done && progress.outputFile) {
+        const buf = await fetch(progress.outputFile).then(r => r.arrayBuffer())
+        return new Response(new Uint8Array(buf), {
+          headers: {
+            "Content-Type": "video/mp4",
+            "Content-Disposition": `attachment; filename="shorts-${slug}.mp4"`,
+          },
+        })
+      }
+    }
+    return NextResponse.json({ error: "Lambda 렌더 타임아웃 — 잠시 후 재시도하세요" }, { status: 504 })
+  }
+
+  // ── 로컬 개발: 번들러 직접 렌더 ──
+  const path = await import("node:path")
+  const os = await import("node:os")
+  const { readFile, unlink } = await import("node:fs/promises")
   const { bundle } = await import("@remotion/bundler")
   const { renderMedia, selectComposition } = await import("@remotion/renderer")
 
-  const serveUrl = await bundle({
-    entryPoint: path.join(process.cwd(), "src", "remotion", "index.ts"),
-    publicDir: path.join(process.cwd(), "assets"), // Pretendard OTF (staticFile)
+  const localServeUrl = await bundle({
+    entryPoint: path.default.join(process.cwd(), "src", "remotion", "index.ts"),
+    publicDir: path.default.join(process.cwd(), "assets"),
   })
-  const inputProps = { slides, category, coverImage }
-  const composition = await selectComposition({ serveUrl, id: "Shorts", inputProps })
-  const outputLocation = path.join(os.tmpdir(), `shorts-${slug}-${Date.now()}.mp4`)
-  await renderMedia({ composition, serveUrl, codec: "h264", outputLocation, inputProps })
+  const composition = await selectComposition({ serveUrl: localServeUrl, id: "Shorts", inputProps })
+  const outputLocation = path.default.join(os.tmpdir(), `shorts-${slug}-${Date.now()}.mp4`)
+  await renderMedia({ composition, serveUrl: localServeUrl, codec: "h264", outputLocation, inputProps })
 
   const buf = await readFile(outputLocation)
   await unlink(outputLocation).catch(() => {})
