@@ -54,17 +54,20 @@ function frame(children: React.ReactNode[]) {
   )
 }
 
-// highlight 단어만 ACCENT 색으로
+// highlight 단어만 ACCENT 색으로. 한 줄을 별도 flex 아이템으로 쪼개면 Chrome(Remotion)에서
+// 각 아이템이 제멋대로 줄바꿈돼 깨지므로, 단일 텍스트 흐름 안에 inline span으로만 색을 준다.
 function highlightLine(line: string, highlight: string | undefined, key: number) {
   if (!highlight || !line.includes(highlight)) {
     return <div key={key} style={{ display: "flex", color: T.TEXT }}>{line}</div>
   }
   const idx = line.indexOf(highlight)
   return (
-    <div key={key} style={{ display: "flex" }}>
-      {line.slice(0, idx) ? <span style={{ color: T.TEXT }}>{line.slice(0, idx)}</span> : null}
-      <span style={{ color: T.ACCENT }}>{highlight}</span>
-      {line.slice(idx + highlight.length) ? <span style={{ color: T.TEXT }}>{line.slice(idx + highlight.length)}</span> : null}
+    <div key={key} style={{ display: "flex", color: T.TEXT }}>
+      <span>
+        {line.slice(0, idx)}
+        <span style={{ color: T.ACCENT }}>{highlight}</span>
+        {line.slice(idx + highlight.length)}
+      </span>
     </div>
   )
 }
