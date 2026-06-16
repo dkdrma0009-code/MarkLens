@@ -32,10 +32,8 @@ export async function POST(req: Request) {
   const slides = card.slides as Slide[]
   const category = card.category ?? "마케팅"
   const usePhoto = (slides[0] as { usePhoto?: boolean })?.usePhoto !== false
-  const coverImage = usePhoto ? await fetchImageDataUri(article?.image_url) : null
   const rawSlug = insight?.slug ?? `cardnews-${articleId.slice(0, 6)}`
   const slug = /^[\w\-]+$/.test(rawSlug) ? rawSlug : `cardnews-${articleId.slice(0, 6)}`
-  const inputProps = { slides, category, coverImage }
 
   // ── 프로덕션: Lambda 렌더 트리거 후 즉시 반환 ──
   if (process.env.NODE_ENV !== "development") {
@@ -45,13 +43,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "REMOTION_FUNCTION_NAME / REMOTION_SERVE_URL 미설정" }, { status: 500 })
     }
 
+    // Lambda inputProps 256KB 한도 → base64 data URI 대신 URL 문자열로 전달
+    // Remotion Lambda는 Chromium으로 렌더하므로 원격 URL 직접 로드 가능
+    let coverImage: string | null = null
+    if (usePhoto && article?.image_url) {
+      coverImage = `https://images.weserv.nl/?url=${encodeURIComponent(article.image_url)}&output=jpg&w=1080&q=85`
+    }
+
     const { renderMediaOnLambda } = await import("@remotion/lambda/client")
     const { renderId, bucketName } = await renderMediaOnLambda({
       region: "ap-northeast-2",
       functionName,
       serveUrl,
       composition: "Shorts",
-      inputProps,
+      inputProps: { slides, category, coverImage },
       codec: "h264",
       privacy: "private",
     })
@@ -60,6 +65,9 @@ export async function POST(req: Request) {
   }
 
   // ── 로컬 개발: 번들러 직접 렌더 (동기) ──
+  const coverImage = usePhoto ? await fetchImageDataUri(article?.image_url) : null
+  const inputProps = { slides, category, coverImage }
+
   const path = await import("node:path")
   const os = await import("node:os")
   const { readFile, unlink } = await import("node:fs/promises")
