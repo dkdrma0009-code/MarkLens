@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
@@ -31,6 +32,13 @@ answer는 정답 인덱스(0~3).`
 }
 
 export async function POST() {
+  const auth = await createClient()
+  const { data: { user } } = await auth.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  if (!user || user.email?.trim().toLowerCase() !== adminEmail) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const supabase = createAdminClient()
 
   const { data: insights } = await supabase

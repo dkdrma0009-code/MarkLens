@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 30
@@ -7,6 +8,13 @@ const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"]
 
 export async function POST(req: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  if (!user || user.email?.trim().toLowerCase() !== adminEmail) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const form = await req.formData()
   const file = form.get("file")
   if (!(file instanceof File)) {
