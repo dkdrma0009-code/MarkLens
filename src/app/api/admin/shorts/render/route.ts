@@ -51,15 +51,24 @@ export async function POST(req: Request) {
     }
 
     const { renderMediaOnLambda } = await import("@remotion/lambda/client")
-    const { renderId, bucketName } = await renderMediaOnLambda({
-      region: "ap-northeast-2",
-      functionName,
-      serveUrl,
-      composition: "Shorts",
-      inputProps: { slides, category, coverImage },
-      codec: "h264",
-      privacy: "private",
-    })
+    let renderId: string, bucketName: string
+    try {
+      const result = await renderMediaOnLambda({
+        region: "ap-northeast-2",
+        functionName,
+        serveUrl,
+        composition: "Shorts",
+        inputProps: { slides, category, coverImage },
+        codec: "h264",
+        privacy: "private",
+      })
+      renderId = result.renderId
+      bucketName = result.bucketName
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+      console.error("[shorts/render] Lambda 트리거 실패:", msg)
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
 
     return NextResponse.json({ renderId, bucketName, functionName, slug })
   }
