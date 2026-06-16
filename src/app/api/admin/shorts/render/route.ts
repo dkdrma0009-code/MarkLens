@@ -61,6 +61,8 @@ export async function POST(req: Request) {
         inputProps: { slides, category, coverImage },
         codec: "h264",
         privacy: "private",
+        framesPerLambda: 150, // 동시 Lambda 수 최소화 (신규 계정 한도 대응)
+        maxRetries: 1,
       })
       renderId = result.renderId
       bucketName = result.bucketName
