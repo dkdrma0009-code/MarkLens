@@ -201,7 +201,7 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
       }
 
       // 프로덕션: 비동기 — renderId 받아서 폴링
-      const { renderId, bucketName, functionName, slug } = await triggerRes.json()
+      const { renderId, bucketName, functionName, slug, caption } = await triggerRes.json()
       toast.loading("렌더 중... (Lambda)", { id: toastId })
 
       // 2) 상태 폴링 (최대 5분)
@@ -218,7 +218,8 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
         }
         if (status.status === "done" && status.outputFile) {
           toast.success("렌더 완료! 다운로드 또는 릴스 발행을 선택하세요.", { id: toastId })
-          setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: r.hook ?? "" })
+          // 릴스 캡션 = 카드뉴스 카루셀 풀 캡션(후킹+본문+CTA+해시태그) 재사용, 없으면 hook 폴백
+          setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: caption || r.hook || "" })
           return
         }
       }

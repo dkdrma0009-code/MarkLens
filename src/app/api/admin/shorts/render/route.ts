@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient()
   const [{ data: card }, { data: insight }, { data: article }] = await Promise.all([
-    supabase.from("cardnews").select("slides, category").eq("article_id", articleId).single(),
+    supabase.from("cardnews").select("slides, category, caption").eq("article_id", articleId).single(),
     supabase.from("insights").select("slug").eq("article_id", articleId).single(),
     supabase.from("articles").select("image_url").eq("id", articleId).single(),
   ])
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: msg }, { status: 500 })
     }
 
-    return NextResponse.json({ renderId, bucketName, functionName, slug })
+    return NextResponse.json({ renderId, bucketName, functionName, slug, caption: card.caption ?? null })
   }
 
   // ── 로컬 개발: 번들러 직접 렌더 (동기) ──
