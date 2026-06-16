@@ -60,7 +60,9 @@ export async function POST(req: Request) {
         composition: "Shorts",
         inputProps: { slides, category, coverImage },
         codec: "h264",
-        privacy: "public", // Instagram이 직접 S3 URL 접근 가능해야 릴스 발행 가능
+        // private → outputFile이 presigned URL(서명 포함). 다운로드·릴스(IG fetch) 모두 이걸로 동작.
+        // public(공개 ACL)을 쓰면 역할에 s3:PutObjectAcl 권한이 필요해 실패 → private은 그 호출 자체가 없음.
+        privacy: "private",
         framesPerLambda: 150, // 동시 Lambda 수 최소화 (신규 계정 한도 대응)
         maxRetries: 1,
       })
