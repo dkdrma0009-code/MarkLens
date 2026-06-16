@@ -170,27 +170,69 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
 
   async function generateShorts(r: CardnewsRow) {
     setRowBusy(r.articleId, true)
-    toast.info("숏츠 렌더 중... 약 30초~1분 걸려요")
+    const toastId = toast.loading("숏츠 렌더 시작 중...")
     try {
-      const res = await fetch("/api/admin/shorts/render", {
+      // 1) 렌더 트리거
+      const triggerRes = await fetch("/api/admin/shorts/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId: r.articleId }),
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "렌더 실패")
+      if (!triggerRes.ok) {
+        const data = await triggerRes.json().catch(() => ({}))
+        throw new Error(data.error ?? "렌더 트리거 실패")
       }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `shorts-${r.articleId.slice(0, 6)}.mp4`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success("숏츠 다운로드 완료! 🎬")
+
+      const ct = triggerRes.headers.get("content-type") ?? ""
+      // 로컬 개발: 동기 렌더 — 바로 blob 반환
+      if (ct.includes("video/mp4")) {
+        const blob = await triggerRes.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `shorts-${r.articleId.slice(0, 6)}.mp4`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success("숏츠 다운로드 완료! 🎬", { id: toastId })
+        return
+      }
+
+      // 프로덕션: 비동기 — renderId 받아서 폴링
+      const { renderId, bucketName, functionName, slug } = await triggerRes.json()
+      toast.loading("렌더 중... (Lambda)", { id: toastId })
+
+      // 2) 상태 폴링 (최대 5분)
+      const deadline = Date.now() + 5 * 60 * 1000
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 4000))
+        const params = new URLSearchParams({ renderId, bucketName, functionName })
+        const statusRes = await fetch(`/api/admin/shorts/status?${params}`)
+        const status = await statusRes.json()
+
+        if (status.status === "error") throw new Error(status.error)
+        if (status.status === "rendering") {
+          toast.loading(`렌더 중... ${status.percent}%`, { id: toastId })
+        }
+        if (status.status === "done" && status.outputFile) {
+          toast.loading("파일 다운로드 중...", { id: toastId })
+          // 3) 다운로드 프록시 경유
+          const dlParams = new URLSearchParams({ outputFile: status.outputFile, slug })
+          const dlRes = await fetch(`/api/admin/shorts/download?${dlParams}`)
+          if (!dlRes.ok) throw new Error("파일 다운로드 실패")
+          const blob = await dlRes.blob()
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.href = url
+          a.download = `shorts-${slug}.mp4`
+          a.click()
+          URL.revokeObjectURL(url)
+          toast.success("숏츠 다운로드 완료! 🎬", { id: toastId })
+          return
+        }
+      }
+      throw new Error("렌더 타임아웃 (5분 초과) — AWS Lambda 콘솔에서 확인")
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "렌더 실패")
+      toast.error(e instanceof Error ? e.message : "렌더 실패", { id: toastId })
     } finally {
       setRowBusy(r.articleId, false)
     }
@@ -360,7 +402,7 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
                           onClick={() => generateShorts(r)}
                           disabled={isBusy}
                           className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
-                          title="9:16 숏츠(mp4) 생성 — 로컬 환경 전용"
+                          title="9:16 숏츠(mp4) 생성 — AWS Lambda 렌더"
                         >
                           🎬 숏츠
                         </button>

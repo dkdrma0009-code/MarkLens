@@ -13,9 +13,8 @@ async function isAdmin(): Promise<boolean> {
   return !!user && user.email?.trim().toLowerCase() === adminEmail
 }
 
-// 카드뉴스 → 숏츠(mp4) 렌더.
-// 프로덕션: AWS Lambda (ap-northeast-2) — renderMediaOnLambda()
-// 로컬 개발: Remotion 번들러 직접 렌더
+// 비동기 패턴: 렌더를 트리거하고 { renderId, bucketName, functionName } 즉시 반환
+// 프론트엔드가 /status 폴링 → /download 에서 파일 수령
 export async function POST(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -38,7 +37,7 @@ export async function POST(req: Request) {
   const slug = /^[\w\-]+$/.test(rawSlug) ? rawSlug : `cardnews-${articleId.slice(0, 6)}`
   const inputProps = { slides, category, coverImage }
 
-  // ── 프로덕션: Lambda 렌더 ──
+  // ── 프로덕션: Lambda 렌더 트리거 후 즉시 반환 ──
   if (process.env.NODE_ENV !== "development") {
     const functionName = process.env.REMOTION_FUNCTION_NAME
     const serveUrl = process.env.REMOTION_SERVE_URL
@@ -46,8 +45,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "REMOTION_FUNCTION_NAME / REMOTION_SERVE_URL 미설정" }, { status: 500 })
     }
 
-    const { renderMediaOnLambda, getRenderProgress } = await import("@remotion/lambda/client")
-
+    const { renderMediaOnLambda } = await import("@remotion/lambda/client")
     const { renderId, bucketName } = await renderMediaOnLambda({
       region: "ap-northeast-2",
       functionName,
@@ -58,28 +56,10 @@ export async function POST(req: Request) {
       privacy: "private",
     })
 
-    // 완료 대기 (최대 55초 — Vercel 제한 여유)
-    const deadline = Date.now() + 55_000
-    while (Date.now() < deadline) {
-      await new Promise(r => setTimeout(r, 3000))
-      const progress = await getRenderProgress({ renderId, bucketName, functionName, region: "ap-northeast-2" })
-      if (progress.fatalErrorEncountered) {
-        return NextResponse.json({ error: `Lambda 렌더 실패: ${(progress.errors as {message?: string}[])?.[0]?.message ?? "unknown"}` }, { status: 500 })
-      }
-      if (progress.done && progress.outputFile) {
-        const buf = await fetch(progress.outputFile).then(r => r.arrayBuffer())
-        return new Response(new Uint8Array(buf), {
-          headers: {
-            "Content-Type": "video/mp4",
-            "Content-Disposition": `attachment; filename="shorts-${slug}.mp4"`,
-          },
-        })
-      }
-    }
-    return NextResponse.json({ error: "Lambda 렌더 타임아웃 — 잠시 후 재시도하세요" }, { status: 504 })
+    return NextResponse.json({ renderId, bucketName, functionName, slug })
   }
 
-  // ── 로컬 개발: 번들러 직접 렌더 ──
+  // ── 로컬 개발: 번들러 직접 렌더 (동기) ──
   const path = await import("node:path")
   const os = await import("node:os")
   const { readFile, unlink } = await import("node:fs/promises")
