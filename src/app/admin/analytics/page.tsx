@@ -28,16 +28,41 @@ export default async function AdminAnalyticsPage() {
 
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
+  // 카운트 쿼리
   const [
     { count: totalArticles },
     { count: publishedArticles },
     { count: totalInsights },
     { count: totalSubscribers },
     { count: sentNewsletters },
+  ] = await Promise.all([
+    supabase.from("articles").select("*", { count: "exact", head: true }),
+    supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
+    supabase.from("insights").select("*", { count: "exact", head: true }),
+    supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("newsletter_issues").select("*", { count: "exact", head: true }).eq("status", "sent"),
+  ])
+
+  // 상세 데이터 쿼리
+  const [
     { data: insights },
     { data: feedbacks },
     { data: igSnapshots },
     { data: threadsSnapshots },
+  ] = await Promise.all([
+    supabase
+      .from("insights")
+      .select("id, slug, hook, category, view_count, article:articles!inner(title, status)")
+      .eq("articles.status", "published")
+      .order("view_count", { ascending: false })
+      .limit(100),
+    supabase.from("feedback").select("insight_id, rating"),
+    supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "instagram").gte("recorded_at", since30).order("recorded_at"),
+    supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "threads").gte("recorded_at", since30).order("recorded_at"),
+  ])
+
+  // 외부 API + 구독자 추이
+  const [
     ga4,
     newsletterStats,
     igInsights,
@@ -45,22 +70,6 @@ export default async function AdminAnalyticsPage() {
     { data: newSubsRaw },
     { data: unsubsRaw },
   ] = await Promise.all([
-    supabase.from("articles").select("*", { count: "exact", head: true }),
-    supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("insights").select("*", { count: "exact", head: true }),
-    supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("status", "active"),
-    supabase.from("newsletter_issues").select("*", { count: "exact", head: true }).eq("status", "sent"),
-    supabase
-      .from("insights")
-      .select("id, slug, hook, category, view_count, article:articles!inner(title, status)")
-      .eq("articles.status", "published")
-      .order("view_count", { ascending: false })
-      .limit(100),
-    supabase
-      .from("feedback")
-      .select("insight_id, rating"),
-    supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "instagram").gte("recorded_at", since30).order("recorded_at"),
-    supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "threads").gte("recorded_at", since30).order("recorded_at"),
     getGa4Overview(),
     getNewsletterStats(),
     getInstagramInsights(),
