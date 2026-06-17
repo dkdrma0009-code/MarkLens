@@ -17,7 +17,7 @@ export default function NewsletterClient() {
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, source: "newsletter_page" }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()

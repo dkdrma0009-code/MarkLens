@@ -48,7 +48,7 @@ async function sendConfirmEmail(email: string, confirmUrl: string) {
 }
 
 export async function POST(req: Request) {
-  const { email } = await req.json()
+  const { email, source } = await req.json()
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "유효하지 않은 이메일입니다" }, { status: 400 })
@@ -67,10 +67,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, alreadySubscribed: true })
   }
 
-  // pending 상태로 저장
+  // pending 상태로 저장 (source는 최초 구독 시만 기록, 재구독 시 덮어쓰지 않음)
+  const row: Record<string, string> = { email, status: "pending" }
+  if (source && typeof source === "string") row.source = source.slice(0, 80)
   await supabase
     .from("subscribers")
-    .upsert({ email, status: "pending" }, { onConflict: "email" })
+    .upsert(row, { onConflict: "email" })
 
   // 확인 이메일 발송
   const token = await makeConfirmToken(email)

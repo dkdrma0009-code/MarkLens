@@ -15,6 +15,14 @@ export default async function AdminSubscribersPage() {
   const pending = subscribers?.filter(s => s.status === "pending").length ?? 0
   const unsubscribed = subscribers?.filter(s => s.status === "unsubscribed").length ?? 0
 
+  // 유입 경로 분포
+  const sourceMap: Record<string, number> = {}
+  for (const s of subscribers ?? []) {
+    const key = (s.source as string | null) ?? "직접"
+    sourceMap[key] = (sourceMap[key] ?? 0) + 1
+  }
+  const sourceEntries = Object.entries(sourceMap).sort(([, a], [, b]) => b - a)
+
   return (
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -30,6 +38,20 @@ export default async function AdminSubscribersPage() {
           <SubscriberExport subscribers={subscribers} />
         )}
       </div>
+
+      {/* 유입 경로 분포 */}
+      {sourceEntries.length > 0 && (
+        <div className="border border-border rounded-lg p-5 bg-background mb-6">
+          <p className="text-xs font-medium text-muted-foreground mb-3">유입 경로</p>
+          <div className="flex flex-wrap gap-2">
+            {sourceEntries.map(([src, cnt]) => (
+              <span key={src} className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted/30">
+                {src} <span className="font-semibold text-foreground">{cnt}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
@@ -56,6 +78,7 @@ export default async function AdminSubscribersPage() {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">이메일</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">유입 경로</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">구독일</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">취소일</th>
               </tr>
@@ -66,6 +89,9 @@ export default async function AdminSubscribersPage() {
                   <td className="px-4 py-3 font-medium">{sub.email}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={sub.status} />
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {(sub.source as string | null) ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(sub.subscribed_at).toLocaleDateString("ko-KR")}
