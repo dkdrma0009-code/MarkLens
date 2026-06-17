@@ -38,7 +38,9 @@ export async function POST(req: Request) {
   const issueId = body.issueId ?? body.issue?.id
   if (!issueId) return NextResponse.json({ error: "issueId required" }, { status: 400 })
   // testEmail 지정 시 그 주소로만 발송하고 status는 변경하지 않음 (검수용)
-  const testEmail = typeof body.testEmail === "string" ? body.testEmail.trim() : null
+  // "me" sentinel → ADMIN_EMAIL로 치환
+  const rawTest = typeof body.testEmail === "string" ? body.testEmail.trim() : null
+  const testEmail = rawTest === "me" ? (process.env.ADMIN_EMAIL ?? null) : rawTest
 
   const supabase = createAdminClient()
   const { data: issue } = await supabase.from("newsletter_issues").select("*").eq("id", issueId).single()

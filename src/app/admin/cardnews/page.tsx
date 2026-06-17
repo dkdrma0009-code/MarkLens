@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getInstagramInsights } from "@/lib/instagram"
 import CardnewsTable, { type CardnewsRow } from "./CardnewsTable"
 
 export const dynamic = "force-dynamic"
@@ -9,10 +10,12 @@ interface CardRecord {
   posted_at?: string | null
   reels_posted_at?: string | null
   scheduled_at?: string | null
+  ig_post_id?: string | null
   first_slide?: { usePhoto?: boolean } | null
 }
 
-export default async function CardnewsListPage() {
+export default async function CardnewsListPage({ searchParams }: { searchParams: Promise<{ term?: string }> }) {
+  const { term: initialTerm } = await searchParams
   const supabase = createAdminClient()
 
   const insightsQuery = supabase
@@ -28,7 +31,7 @@ export default async function CardnewsListPage() {
   {
     const { data, error } = await supabase
       .from("cardnews")
-      .select("article_id, updated_at, posted_at, reels_posted_at, scheduled_at, first_slide:slides->0")
+      .select("article_id, updated_at, posted_at, reels_posted_at, scheduled_at, ig_post_id, first_slide:slides->0")
     if (error) {
       postedColumnMissing = true
       const { data: fallback } = await supabase
@@ -40,11 +43,20 @@ export default async function CardnewsListPage() {
     }
   }
 
-  const { data: insights } = await insightsQuery
+  const [{ data: insights }, { data: cfg }, igInsights] = await Promise.all([
+    insightsQuery,
+    supabase.from("app_config").select("value").eq("key", "ig_auto_publish").maybeSingle(),
+    getInstagramInsights(),
+  ])
 
   // 인스타 자동발행 스위치 (app_config — 테이블 없으면 off)
-  const { data: cfg } = await supabase.from("app_config").select("value").eq("key", "ig_auto_publish").maybeSingle()
   const autoPublish = cfg?.value === "on"
+
+  // ig_post_id → 성과 지표 맵
+  const igStatsMap: Record<string, { likes: number; reach: number; saved: number }> = {}
+  for (const m of igInsights?.media ?? []) {
+    igStatsMap[m.id] = { likes: m.likes, reach: m.reach, saved: m.saved }
+  }
 
   type Row = {
     article_id: string
@@ -57,6 +69,7 @@ export default async function CardnewsListPage() {
   const cardMap = new Map(cards.map(c => [c.article_id, c]))
   const rows: CardnewsRow[] = ((insights ?? []) as Row[]).map(r => {
     const card = cardMap.get(r.article_id)
+    const igPostId = card?.ig_post_id ?? null
     return {
       articleId: r.article_id,
       hook: r.hook ?? null,
@@ -67,8 +80,9 @@ export default async function CardnewsListPage() {
       postedAt: card?.posted_at ?? null,
       reelsPostedAt: card?.reels_posted_at ?? null,
       scheduledAt: card?.scheduled_at ?? null,
-      // 사진이 기본 — 명시적으로 끈 카드(false)이거나 기사 이미지가 없으면 타이포
       usePhoto: card?.first_slide?.usePhoto !== false && !!r.article?.image_url,
+      igPostId,
+      igStats: igPostId ? (igStatsMap[igPostId] ?? null) : null,
     }
   })
 
@@ -95,7 +109,7 @@ export default async function CardnewsListPage() {
           발행된 인사이트가 없습니다.
         </div>
       ) : (
-        <CardnewsTable initialRows={rows} autoPublish={autoPublish} />
+        <CardnewsTable initialRows={rows} autoPublish={autoPublish} initialTerm={initialTerm} />
       )}
     </div>
   )

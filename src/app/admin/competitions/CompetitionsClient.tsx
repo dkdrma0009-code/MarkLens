@@ -241,6 +241,11 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
                         <button onClick={() => setStatus(r, "rejected")} disabled={isBusy}
                           className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50">반려</button>
                       )}
+                      <a
+                        href={`/admin/cardnews?term=${encodeURIComponent(r.title)}`}
+                        className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-blue-200 text-blue-600 hover:bg-blue-50"
+                        title="이 공모전을 소재로 카드뉴스 생성"
+                      >카드뉴스</a>
                       <button onClick={() => remove(r)} disabled={isBusy}
                         className="text-xs px-2.5 py-1.5 rounded-md font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">삭제</button>
                     </td>

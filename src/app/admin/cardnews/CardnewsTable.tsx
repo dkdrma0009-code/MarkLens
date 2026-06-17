@@ -17,6 +17,8 @@ export interface CardnewsRow {
   reelsPostedAt: string | null
   scheduledAt: string | null
   usePhoto: boolean
+  igPostId?: string | null
+  igStats?: { likes: number; reach: number; saved: number } | null
 }
 
 type Filter = "all" | "todo" | "ready" | "posted"
@@ -33,7 +35,7 @@ function rowStatus(r: CardnewsRow): Filter {
   return r.postedAt ? "posted" : "ready"
 }
 
-export default function CardnewsTable({ initialRows, autoPublish }: { initialRows: CardnewsRow[]; autoPublish: boolean }) {
+export default function CardnewsTable({ initialRows, autoPublish, initialTerm }: { initialRows: CardnewsRow[]; autoPublish: boolean; initialTerm?: string }) {
   const [rows, setRows] = useState(initialRows)
   const [filter, setFilter] = useState<Filter>("all")
   const [auto, setAuto] = useState(autoPublish)
@@ -44,7 +46,7 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
     articleId: string; outputFile: string; slug: string; caption: string
   } | null>(null)
   const router = useRouter()
-  const [term, setTerm] = useState("")
+  const [term, setTerm] = useState(initialTerm ?? "")
   const [termBusy, setTermBusy] = useState(false)
 
   async function generateTerm() {
@@ -487,6 +489,11 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
                     {r.reelsPostedAt && (
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 ml-1">
                         🎬 릴스 · {formatDate(r.reelsPostedAt)}
+                      </span>
+                    )}
+                    {r.igStats && (
+                      <span className="text-xs text-muted-foreground ml-2 tabular-nums">
+                        ♥{r.igStats.likes} · 도달{r.igStats.reach}
                       </span>
                     )}
                   </td>

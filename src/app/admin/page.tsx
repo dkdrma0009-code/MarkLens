@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboard() {
   const supabase = createAdminClient()
+  const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
 
   const [
     { count: totalArticles },
@@ -13,12 +14,18 @@ export default async function AdminDashboard() {
     { count: publishedArticles },
     { count: totalSubscribers },
     { count: totalInsights },
+    { data: pendingNewsletter },
+    { data: todayScheduled },
   ] = await Promise.all([
     supabase.from("articles").select("*", { count: "exact", head: true }),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
     supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("insights").select("*", { count: "exact", head: true }),
+    // 승인 대기 뉴스레터 (draft + approved_at 없음)
+    supabase.from("newsletter_issues").select("id, issue_number, title").eq("status", "draft").is("approved_at", null).limit(1),
+    // 오늘 예약 발행 예정인 카드뉴스
+    supabase.from("cardnews").select("id, article_id, scheduled_at").not("scheduled_at", "is", null).is("posted_at", null).lte("scheduled_at", `${todayKst}T23:59:59Z`).limit(5),
   ])
 
   const stats = [
@@ -50,24 +57,28 @@ export default async function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="border border-border rounded-lg p-6 bg-background">
-          <h2 className="text-sm font-medium mb-4">빠른 실행</h2>
+          <h2 className="text-sm font-medium mb-4">오늘 할 일</h2>
           <div className="space-y-2">
-            <a
-              href="/admin/articles"
-              className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors"
-            >
+            <a href="/admin/articles" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
               <span>아티클 승인/거절</span>
-              {(pendingArticles ?? 0) > 0 && (
-                <span className="text-xs bg-foreground text-background px-2 py-0.5 rounded-full">
-                  {pendingArticles} 대기 중
-                </span>
-              )}
+              {(pendingArticles ?? 0) > 0
+                ? <span className="text-xs bg-foreground text-background px-2 py-0.5 rounded-full">{pendingArticles} 대기</span>
+                : <span className="text-xs text-muted-foreground">없음</span>}
             </a>
-            <a
-              href="/admin/newsletter"
-              className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors"
-            >
-              <span>뉴스레터 생성 및 발행</span>
+            <a href="/admin/newsletter" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
+              <span>뉴스레터 승인 및 발송</span>
+              {pendingNewsletter?.length
+                ? <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full">#{pendingNewsletter[0].issue_number} 대기</span>
+                : <span className="text-xs text-muted-foreground">없음</span>}
+            </a>
+            <a href="/admin/cardnews" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
+              <span>오늘 예약 발행 카드뉴스</span>
+              {(todayScheduled?.length ?? 0) > 0
+                ? <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">{todayScheduled!.length}건</span>
+                : <span className="text-xs text-muted-foreground">없음</span>}
+            </a>
+            <a href="/admin/analytics" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
+              <span>분석 대시보드</span>
             </a>
           </div>
         </div>

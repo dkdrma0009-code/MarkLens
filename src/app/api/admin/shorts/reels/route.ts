@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   if (articleId) {
     const sb = createAdminClient()
     const { error: dbErr } = await sb.from("cardnews")
-      .update({ reels_posted_at: new Date().toISOString() })
+      .update({ reels_posted_at: new Date().toISOString(), ig_post_id: postId })
       .eq("article_id", articleId)
     if (dbErr) console.error("[shorts/reels] DB 기록 실패:", dbErr.message)
   }

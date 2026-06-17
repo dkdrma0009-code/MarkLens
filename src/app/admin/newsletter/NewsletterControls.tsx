@@ -50,6 +50,25 @@ export default function NewsletterControls({ issueId, status, approvedAt }: Prop
     }
   }
 
+  async function sendTest() {
+    if (!issueId) return
+    setLoading(true)
+    try {
+      const res = await fetch("/api/newsletter/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issueId, testEmail: "me" }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success("내 메일로 테스트 발송됐습니다.")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "테스트 발송 실패")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // 목록 상단 "뉴스레터 생성" 버튼
   if (!issueId) {
     return (
@@ -82,6 +101,14 @@ export default function NewsletterControls({ issueId, status, approvedAt }: Prop
   // 행 내 액션 버튼
   return (
     <div className="flex items-center gap-2">
+      <button
+        onClick={sendTest}
+        disabled={loading}
+        title="내 이메일로 테스트 발송"
+        className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 border border-border px-2 py-1 rounded"
+      >
+        테스트
+      </button>
       {status !== "sent" && (
         <button
           onClick={send}

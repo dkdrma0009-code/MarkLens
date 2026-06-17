@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { generateNewsletter } from "@/lib/ai/newsletter"
 import { searchUnsplash } from "@/lib/newsletter/unsplash"
+import { getUpcomingCompetitions } from "@/lib/competitions/digest"
 import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
@@ -54,6 +55,19 @@ export async function POST(req: Request) {
         key_takeaways: Array.isArray(i.key_takeaways) ? i.key_takeaways : undefined,
       })),
     })
+
+    // 마감 임박 공모전 섹션 추가 (데이터 있을 때만)
+    const competitions = await getUpcomingCompetitions(3)
+    if (competitions.length > 0) {
+      newsletter.body_sections.push({
+        subhead: "이번 주 마감 임박 공모전",
+        paragraphs: competitions.map(c => {
+          const d = c.deadline ? `마감 ~${c.deadline.slice(5).replace("-", "/")}` : "상시"
+          const org = c.organizer ? ` (${c.organizer})` : ""
+          return `${c.title}${org} — ${d}`
+        }),
+      })
+    }
 
     // 섹션별 본문 사진 — 각 섹션 image_keywords로 Unsplash 검색 → visual에 저장 (키/결과 없으면 텍스트만)
     const utm = "utm_source=marklens&utm_medium=referral"

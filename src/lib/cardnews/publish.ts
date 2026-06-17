@@ -53,6 +53,6 @@ export async function publishCardnews(articleId: string): Promise<string> {
     console.warn("[threads] 발행 실패:", e instanceof Error ? e.message : e)
   }
 
-  await supabase.from("cardnews").update({ posted_at: new Date().toISOString() }).eq("article_id", articleId)
+  await supabase.from("cardnews").update({ posted_at: new Date().toISOString(), ig_post_id: postId }).eq("article_id", articleId)
   return postId
 }
