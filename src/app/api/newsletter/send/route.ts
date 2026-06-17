@@ -71,7 +71,8 @@ export async function POST(req: Request) {
   // 테스트 발송은 status 변경 안 함 (실발송만 sent 처리)
   if (sent > 0 && !testEmail) {
     await supabase.from("newsletter_issues")
-      .update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", issueId)
+      .update({ status: "sent", sent_at: new Date().toISOString(), approved_at: new Date().toISOString() })
+      .eq("id", issueId)
   }
 
   return NextResponse.json({ success: sent > 0, sentTo: sent, test: !!testEmail, errors: errors.length ? errors : undefined })

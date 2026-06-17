@@ -7,9 +7,10 @@ import { toast } from "sonner"
 interface Props {
   issueId?: string
   status?: string
+  approvedAt?: string | null
 }
 
-export default function NewsletterControls({ issueId, status }: Props) {
+export default function NewsletterControls({ issueId, status, approvedAt }: Props) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -85,9 +86,13 @@ export default function NewsletterControls({ issueId, status }: Props) {
         <button
           onClick={send}
           disabled={loading}
-          className="text-xs font-medium px-3 py-1 rounded bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
+          className={`text-xs font-medium px-3 py-1 rounded transition-colors disabled:opacity-50 ${
+            !approvedAt
+              ? "bg-amber-500 text-white hover:bg-amber-600"
+              : "bg-foreground text-background hover:bg-foreground/90"
+          }`}
         >
-          {loading ? "발송 중..." : "발송"}
+          {loading ? "발송 중..." : !approvedAt ? "승인 및 발송" : "발송"}
         </button>
       )}
       <button

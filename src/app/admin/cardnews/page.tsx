@@ -7,6 +7,8 @@ interface CardRecord {
   article_id: string
   updated_at: string
   posted_at?: string | null
+  reels_posted_at?: string | null
+  scheduled_at?: string | null
   first_slide?: { usePhoto?: boolean } | null
 }
 
@@ -26,7 +28,7 @@ export default async function CardnewsListPage() {
   {
     const { data, error } = await supabase
       .from("cardnews")
-      .select("article_id, updated_at, posted_at, first_slide:slides->0")
+      .select("article_id, updated_at, posted_at, reels_posted_at, scheduled_at, first_slide:slides->0")
     if (error) {
       postedColumnMissing = true
       const { data: fallback } = await supabase
@@ -63,6 +65,8 @@ export default async function CardnewsListPage() {
       createdAt: r.created_at,
       cardAt: card?.updated_at ?? null,
       postedAt: card?.posted_at ?? null,
+      reelsPostedAt: card?.reels_posted_at ?? null,
+      scheduledAt: card?.scheduled_at ?? null,
       // 사진이 기본 — 명시적으로 끈 카드(false)이거나 기사 이미지가 없으면 타이포
       usePhoto: card?.first_slide?.usePhoto !== false && !!r.article?.image_url,
     }

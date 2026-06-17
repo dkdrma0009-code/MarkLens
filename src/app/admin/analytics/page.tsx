@@ -9,6 +9,8 @@ import { getInstagramInsights } from "@/lib/instagram"
 import InstagramPanel from "@/components/admin/InstagramPanel"
 import { getThreadsInsights } from "@/lib/threads"
 import ThreadsPanel from "@/components/admin/ThreadsPanel"
+import FollowerChart from "@/components/admin/FollowerChart"
+import SubscriberChart from "@/components/admin/SubscriberChart"
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +26,8 @@ type AnalyticsInsight = {
 export default async function AdminAnalyticsPage() {
   const supabase = createAdminClient()
 
+  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
   const [
     { count: totalArticles },
     { count: publishedArticles },
@@ -32,10 +36,14 @@ export default async function AdminAnalyticsPage() {
     { count: sentNewsletters },
     { data: insights },
     { data: feedbacks },
+    { data: igSnapshots },
+    { data: threadsSnapshots },
     ga4,
     newsletterStats,
     igInsights,
     threadsInsights,
+    { data: newSubsRaw },
+    { data: unsubsRaw },
   ] = await Promise.all([
     supabase.from("articles").select("*", { count: "exact", head: true }),
     supabase.from("articles").select("*", { count: "exact", head: true }).eq("status", "published"),
@@ -51,11 +59,28 @@ export default async function AdminAnalyticsPage() {
     supabase
       .from("feedback")
       .select("insight_id, rating"),
+    supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "instagram").gte("recorded_at", since30).order("recorded_at"),
+    supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "threads").gte("recorded_at", since30).order("recorded_at"),
+    supabase.from("subscribers").select("created_at").gte("created_at", since30),
+    supabase.from("subscribers").select("unsubscribed_at").not("unsubscribed_at", "is", null).gte("unsubscribed_at", since30),
     getGa4Overview(),
     getNewsletterStats(),
     getInstagramInsights(),
     getThreadsInsights(),
   ])
+
+  const toChartData = (rows: { followers: number; recorded_at: string }[] | null) =>
+    (rows ?? []).map(r => ({ date: r.recorded_at.slice(0, 10), followers: r.followers }))
+
+  const groupByDay = (rows: { date: string }[]) => {
+    const map: Record<string, number> = {}
+    for (const r of rows) { map[r.date] = (map[r.date] ?? 0) + 1 }
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }))
+  }
+  const newSubsByDay = groupByDay((newSubsRaw ?? []).map(r => ({ date: r.created_at.slice(0, 10) })))
+  const unsubsByDay = groupByDay((unsubsRaw ?? []).map(r => ({ date: (r.unsubscribed_at as string).slice(0, 10) })))
+  const totalNew30 = newSubsRaw?.length ?? 0
+  const totalUnsub30 = unsubsRaw?.length ?? 0
 
   // 인사이트별 좋아요(helpful) 수 집계
   const likeMap: Record<string, number> = {}
@@ -85,6 +110,18 @@ export default async function AdminAnalyticsPage() {
         <h1 className="text-xl font-semibold tracking-tight">분석</h1>
         <p className="text-sm text-muted-foreground mt-1">플랫폼 운영 지표</p>
       </div>
+
+      {/* 구독자 이탈률 */}
+      <SubscriberChart
+        newSubs={newSubsByDay}
+        unsubs={unsubsByDay}
+        totalActive={totalSubscribers ?? 0}
+        totalNew30={totalNew30}
+        totalUnsub30={totalUnsub30}
+      />
+
+      {/* 팔로워 추이 */}
+      <FollowerChart ig={toChartData(igSnapshots)} threads={toChartData(threadsSnapshots)} />
 
       {/* GA4 트래픽 */}
       <Ga4Panel overview={ga4} />

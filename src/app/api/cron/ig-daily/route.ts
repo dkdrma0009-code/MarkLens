@@ -39,7 +39,50 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient()
 
-  // ② 자동 파이프라인 스위치 확인 (app_config.ig_auto_publish === "on")
+  // ③ 팔로워 수 스냅샷 기록 (실패해도 진행)
+  try {
+    const igToken = process.env.IG_ACCESS_TOKEN
+    const igUserId = process.env.IG_USER_ID
+    if (igToken && igUserId) {
+      const igRes = await fetch(`https://graph.instagram.com/v21.0/${igUserId}?fields=followers_count&access_token=${igToken}`)
+      const igData = await igRes.json() as { followers_count?: number }
+      if (igData.followers_count !== undefined) {
+        await supabase.from("follower_snapshots").insert({ platform: "instagram", followers: igData.followers_count })
+        result.igFollowers = igData.followers_count
+      }
+    }
+  } catch { /* 실패 무시 */ }
+
+  try {
+    const thToken = process.env.THREADS_ACCESS_TOKEN
+    const thUserId = process.env.THREADS_USER_ID
+    if (thToken && thUserId) {
+      const thRes = await fetch(`https://graph.threads.net/v1.0/${thUserId}/threads_insights?metric=followers_count&access_token=${thToken}`)
+      const thData = await thRes.json() as { data?: { total_value?: { value?: number } }[] }
+      const followers = thData.data?.[0]?.total_value?.value
+      if (followers !== undefined) {
+        await supabase.from("follower_snapshots").insert({ platform: "threads", followers })
+        result.threadsFollowers = followers
+      }
+    }
+  } catch { /* 실패 무시 */ }
+
+  // ⑤ 예약 발행 — scheduled_at <= now AND posted_at IS NULL 인 카드뉴스 발행
+  const { data: scheduled } = await supabase
+    .from("cardnews")
+    .select("article_id")
+    .lte("scheduled_at", new Date().toISOString())
+    .is("posted_at", null)
+  for (const item of scheduled ?? []) {
+    try {
+      await publishCardnews(item.article_id)
+      result.scheduledPublished = (result.scheduledPublished as number ?? 0) + 1
+    } catch (e) {
+      result.scheduledError = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  // ⑥ 자동 파이프라인 스위치 확인 (app_config.ig_auto_publish === "on")
   const { data: flag } = await supabase.from("app_config").select("value").eq("key", "ig_auto_publish").single()
   if (flag?.value !== "on") {
     return NextResponse.json({ ...result, autoPublish: "off" })

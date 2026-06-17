@@ -14,6 +14,8 @@ export interface CardnewsRow {
   createdAt: string
   cardAt: string | null
   postedAt: string | null
+  reelsPostedAt: string | null
+  scheduledAt: string | null
   usePhoto: boolean
 }
 
@@ -154,6 +156,25 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
     }
   }
 
+  async function schedulePost(r: CardnewsRow, date: string | null) {
+    setRowBusy(r.articleId, true)
+    try {
+      const res = await fetch("/api/admin/cardnews/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: r.articleId, scheduledAt: date }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "예약 실패")
+      patchRow(r.articleId, { scheduledAt: data.scheduledAt })
+      toast.success(date ? `${date} 발행 예약됨 (KST 08:00)` : "예약 해제")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "예약 실패")
+    } finally {
+      setRowBusy(r.articleId, false)
+    }
+  }
+
   async function toggleAuto() {
     const next = !auto
     setAuto(next)
@@ -266,7 +287,7 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
       const res = await fetch("/api/admin/shorts/reels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outputFile, caption }),
+        body: JSON.stringify({ outputFile, caption, articleId }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "릴스 발행 실패")
@@ -463,6 +484,11 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
                         업로드됨 · {formatDate(r.postedAt!)}
                       </span>
                     )}
+                    {r.reelsPostedAt && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 ml-1">
+                        🎬 릴스 · {formatDate(r.reelsPostedAt)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(r.createdAt)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap space-x-1.5">
@@ -493,6 +519,24 @@ export default function CardnewsTable({ initialRows, autoPublish }: { initialRow
                         >
                           🎬 숏츠
                         </button>
+                        {!r.postedAt && (
+                          <label
+                            title={r.scheduledAt ? `예약됨: ${r.scheduledAt.slice(0, 10)} 해제하려면 클릭 후 날짜 지우기` : "발행 날짜 예약"}
+                            className="relative"
+                          >
+                            <span className={`text-xs px-2.5 py-1.5 rounded-md font-medium border cursor-pointer hover:bg-muted/50 ${r.scheduledAt ? "border-blue-400 text-blue-600" : "border-border text-muted-foreground"}`}>
+                              {r.scheduledAt ? `📅 ${r.scheduledAt.slice(0, 10)}` : "📅 예약"}
+                            </span>
+                            <input
+                              type="date"
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                              value={r.scheduledAt ? r.scheduledAt.slice(0, 10) : ""}
+                              min={new Date().toISOString().slice(0, 10)}
+                              disabled={isBusy}
+                              onChange={e => schedulePost(r, e.target.value || null)}
+                            />
+                          </label>
+                        )}
                         <button
                           onClick={() => togglePosted(r)}
                           disabled={isBusy}

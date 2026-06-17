@@ -57,7 +57,7 @@ export default async function AdminNewsletterPage() {
                   </td>
                   <td className="px-4 py-3 font-medium">{issue.title}</td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={issue.status} />
+                    <StatusBadge status={issue.status} approvedAt={issue.approved_at} />
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {formatDate(issue.created_at)}
@@ -68,7 +68,7 @@ export default async function AdminNewsletterPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <NewsletterPreview issue={issue} />
-                      <NewsletterControls issueId={issue.id} status={issue.status} />
+                      <NewsletterControls issueId={issue.id} status={issue.status} approvedAt={issue.approved_at} />
                     </div>
                   </td>
                 </tr>
@@ -81,7 +81,10 @@ export default async function AdminNewsletterPage() {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, approvedAt }: { status: string; approvedAt?: string | null }) {
+  if (status === "draft" && !approvedAt) {
+    return <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 animate-pulse">승인 대기</span>
+  }
   const map: Record<string, { label: string; cls: string }> = {
     draft: { label: "초안", cls: "bg-gray-100 text-gray-600" },
     ready: { label: "발송 준비", cls: "bg-emerald-100 text-emerald-700" },

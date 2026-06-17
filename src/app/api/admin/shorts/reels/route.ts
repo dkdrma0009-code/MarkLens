@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { publishReel } from "@/lib/instagram"
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3"
 
@@ -23,14 +24,23 @@ function parseS3Url(url: string): { bucket: string; key: string; region: string 
   }
 }
 
-// 렌더된 숏츠 mp4를 Instagram Reels로 발행 후 S3 파일 삭제
+// 렌더된 숏츠 mp4를 Instagram Reels로 발행 후 S3 파일 삭제 + DB 기록
 export async function POST(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { outputFile, caption } = await req.json().catch(() => ({}))
+  const { outputFile, caption, articleId } = await req.json().catch(() => ({}))
   if (!outputFile) return NextResponse.json({ error: "outputFile 필요" }, { status: 400 })
 
   const postId = await publishReel(outputFile, caption ?? "")
+
+  // 발행 성공 시 DB에 기록
+  if (articleId) {
+    const sb = createAdminClient()
+    const { error: dbErr } = await sb.from("cardnews")
+      .update({ reels_posted_at: new Date().toISOString() })
+      .eq("article_id", articleId)
+    if (dbErr) console.error("[shorts/reels] DB 기록 실패:", dbErr.message)
+  }
 
   // 발행 완료 후 S3 파일 삭제
   const parsed = parseS3Url(outputFile)

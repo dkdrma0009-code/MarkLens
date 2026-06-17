@@ -38,24 +38,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ step: "generate", error: err }, { status: 500 })
   }
 
-  // ② 발송
-  const sendRes = await fetch(`${base}/api/newsletter/send?secret=${secret}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ issueId: gen.issue.id }),
-  })
-  const send = await sendRes.json().catch(() => ({}))
-  if (!sendRes.ok) {
-    const err = send.error ?? "발송 실패"
-    await sendAdminAlert("뉴스레터 cron 실패 — 발송", `issueId: ${gen.issue.id}\n오류: ${err}\n시각: ${new Date().toISOString()}`)
-    return NextResponse.json({ step: "send", issueId: gen.issue.id, error: err }, { status: 500 })
-  }
+  // ② 발송하지 않고 어드민에게 승인 요청 이메일 발송
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+  await sendAdminAlert(
+    `뉴스레터 #${gen.issue.issue_number} 승인 대기`,
+    `뉴스레터가 생성됐습니다. 검토 후 발송해주세요.\n\n제목: ${gen.issue.title}\n\n관리자 페이지에서 확인: ${siteUrl}/admin/newsletter`
+  )
 
   return NextResponse.json({
     ok: true,
     issueNumber: gen.issue.issue_number,
     issueId: gen.issue.id,
-    sentTo: send.sentTo,
-    errors: send.errors,
+    status: "pending_approval",
   })
 }
