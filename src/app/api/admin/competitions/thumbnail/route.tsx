@@ -13,8 +13,24 @@ const PRIORITY_COLOR: Record<string, string> = {
   red: "#ef4444", orange: "#f59e0b", yellow: "#eab308", green: "#10b981",
 }
 
-export async function GET(req: Request) {
+function svgFallback(c: Competition): Response {
+  const dday = ddayLabel(c.deadline)
+  const priority = computePriority(c.deadline, c.difficulty)
+  const accent = PRIORITY_COLOR[priority] ?? "#eab308"
+  const title = (c.title ?? "").slice(0, 40).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  const org = (c.organizer ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="248" viewBox="0 0 440 248">
+    <rect width="440" height="248" fill="#0a0a0a"/>
+    <text x="24" y="44" font-size="13" fill="#9ca3af" font-family="sans-serif">${(c.category ?? "공모전").replace(/&/g, "&amp;")}</text>
+    <text x="416" y="44" font-size="18" font-weight="bold" fill="${accent}" font-family="sans-serif" text-anchor="end">${dday}</text>
+    <text x="24" y="120" font-size="22" font-weight="bold" fill="#ffffff" font-family="sans-serif">${title}</text>
+    ${org ? `<text x="24" y="156" font-size="14" fill="#9ca3af" font-family="sans-serif">${org}</text>` : ""}
+    <text x="416" y="232" font-size="12" fill="#6b7280" font-family="sans-serif" text-anchor="end">MarkLens</text>
+  </svg>`
+  return new Response(svg, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" } })
+}
 
+export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
   if (!id) return new Response("id required", { status: 400 })
@@ -28,41 +44,46 @@ export async function GET(req: Request) {
   const priority = computePriority(c.deadline, c.difficulty)
   const accent = PRIORITY_COLOR[priority] ?? "#eab308"
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%", height: "100%", display: "flex", flexDirection: "column",
-          justifyContent: "space-between", backgroundColor: "#0a0a0a", color: "#fff",
-          padding: 64, fontFamily: "Pretendard",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 28, color: "#9ca3af" }}>{c.category ?? "공모전"}</span>
-          <span style={{ fontSize: 40, fontWeight: 700, color: accent }}>{dday}</span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.25, letterSpacing: -1 }}>
-            {c.title.slice(0, 50)}
+  try {
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: "100%", height: "100%", display: "flex", flexDirection: "column",
+            justifyContent: "space-between", backgroundColor: "#0a0a0a", color: "#fff",
+            padding: 64, fontFamily: "Pretendard",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 28, color: "#9ca3af" }}>{c.category ?? "공모전"}</span>
+            <span style={{ fontSize: 40, fontWeight: 700, color: accent }}>{dday}</span>
           </div>
-          {c.organizer && (
-            <div style={{ fontSize: 32, color: "#9ca3af", marginTop: 24 }}>{c.organizer}</div>
-          )}
-        </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div style={{ display: "flex", gap: 10 }}>
-            {(c.job_fit ?? []).slice(0, 3).map((j, i) => (
-              <span key={i} style={{ fontSize: 24, color: "#d1d5db", border: "1px solid #374151", borderRadius: 100, padding: "6px 18px" }}>
-                {j}
-              </span>
-            ))}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.25, letterSpacing: -1 }}>
+              {c.title.slice(0, 50)}
+            </div>
+            {c.organizer && (
+              <div style={{ fontSize: 32, color: "#9ca3af", marginTop: 24 }}>{c.organizer}</div>
+            )}
           </div>
-          <span style={{ fontSize: 26, fontWeight: 700, color: "#6b7280" }}>MarkLens</span>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: 10 }}>
+              {(c.job_fit ?? []).slice(0, 3).map((j, i) => (
+                <span key={i} style={{ fontSize: 24, color: "#d1d5db", border: "1px solid #374151", borderRadius: 100, padding: "6px 18px" }}>
+                  {j}
+                </span>
+              ))}
+            </div>
+            <span style={{ fontSize: 26, fontWeight: 700, color: "#6b7280" }}>MarkLens</span>
+          </div>
         </div>
-      </div>
-    ),
-    { width: 1200, height: 630, fonts: await loadFonts() }
-  )
+      ),
+      { width: 1200, height: 630, fonts: await loadFonts() }
+    )
+  } catch (e) {
+    console.warn("[competitions/thumbnail] ImageResponse 실패, SVG 폴백:", e instanceof Error ? e.message : e)
+    return svgFallback(c)
+  }
 }

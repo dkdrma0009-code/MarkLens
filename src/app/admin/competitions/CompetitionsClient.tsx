@@ -256,25 +256,13 @@ export default function CompetitionsClient({ initialRows }: { initialRows: Compe
                         <div className="flex flex-col lg:flex-row gap-6">
                           {/* 게시될 텍스트 썸네일 (실제 렌더) */}
                           <div className="flex-shrink-0">
-                            <p className="text-[11px] text-muted-foreground mb-1.5">
-                              게시 썸네일 {r.thumbnail_url ? "(원본 포스터 · 출처 표기)" : "(자동 생성)"}
-                            </p>
-                            {/* 원본 포스터는 weserv로 리사이즈(경량·빠름), 깨지면 텍스트 썸네일로 폴백.
-                                높이 제한 + object-contain으로 세로 포스터가 길게 늘어나지 않게. */}
+                            <p className="text-[11px] text-muted-foreground mb-1.5">게시 썸네일</p>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={
-                                r.thumbnail_url
-                                  ? `https://images.weserv.nl/?url=${encodeURIComponent(r.thumbnail_url.replace(/^https?:\/\//, ""))}&w=440&output=webp&q=75&maxage=7d`
-                                  : `/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`
-                              }
+                              src={`/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`}
                               alt="썸네일 미리보기"
                               loading="lazy"
-                              onError={(e) => {
-                                const fallback = `/api/admin/competitions/thumbnail?id=${r.id}&v=${encodeURIComponent(r.updated_at)}`
-                                if (e.currentTarget.src !== fallback) { e.currentTarget.onerror = null; e.currentTarget.src = fallback }
-                              }}
-                              className="w-72 max-h-80 rounded-lg border border-border bg-black object-contain"
+                              className="w-72 max-h-80 rounded-lg border border-border bg-muted object-contain"
                             />
                           </div>
                           {/* 분석 전문 */}
