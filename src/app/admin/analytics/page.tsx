@@ -61,12 +61,12 @@ export default async function AdminAnalyticsPage() {
       .select("insight_id, rating"),
     supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "instagram").gte("recorded_at", since30).order("recorded_at"),
     supabase.from("follower_snapshots").select("followers, recorded_at").eq("platform", "threads").gte("recorded_at", since30).order("recorded_at"),
-    supabase.from("subscribers").select("created_at").gte("created_at", since30),
-    supabase.from("subscribers").select("unsubscribed_at").not("unsubscribed_at", "is", null).gte("unsubscribed_at", since30),
     getGa4Overview(),
     getNewsletterStats(),
     getInstagramInsights(),
     getThreadsInsights(),
+    supabase.from("subscribers").select("created_at").gte("created_at", since30),
+    supabase.from("subscribers").select("unsubscribed_at").not("unsubscribed_at", "is", null).gte("unsubscribed_at", since30),
   ])
 
   const toChartData = (rows: { followers: number; recorded_at: string }[] | null) =>
