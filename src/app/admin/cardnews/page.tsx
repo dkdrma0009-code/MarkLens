@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getInstagramInsights } from "@/lib/instagram"
 import CardnewsTable, { type CardnewsRow } from "./CardnewsTable"
@@ -15,6 +16,7 @@ interface CardRecord {
 }
 
 export default async function CardnewsListPage({ searchParams }: { searchParams: Promise<{ term?: string }> }) {
+  await requireAdmin()
   const { term: initialTerm } = await searchParams
   const supabase = createAdminClient()
 

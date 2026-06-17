@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import { getCategoryMeta } from "@/lib/category"
@@ -44,6 +45,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function AdminPreviewPage({ params }: Props) {
+  await requireAdmin()
   const { slug } = await params
   const supabase = createAdminClient()
 

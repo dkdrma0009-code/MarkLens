@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import Link from "next/link"
 import InsightActions from "@/app/admin/insights/InsightActions"
@@ -24,6 +25,7 @@ type AnalyticsInsight = {
 }
 
 export default async function AdminAnalyticsPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
 
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()

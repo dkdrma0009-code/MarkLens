@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import Link from "next/link"
@@ -6,6 +7,7 @@ import InsightActions from "./InsightActions"
 export const dynamic = "force-dynamic"
 
 export default async function AdminInsightsPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
 
   const { data: insights } = await supabase

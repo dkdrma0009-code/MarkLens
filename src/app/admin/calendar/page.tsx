@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { getInstagramInsights } from "@/lib/instagram"
 import { getThreadsInsights } from "@/lib/threads"
 import CalendarView from "./CalendarView"
@@ -5,6 +6,7 @@ import CalendarView from "./CalendarView"
 export const dynamic = "force-dynamic"
 
 export default async function CalendarPage() {
+  await requireAdmin()
   const [igData, threadsData] = await Promise.all([
     getInstagramInsights(),
     getThreadsInsights(),

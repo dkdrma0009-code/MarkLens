@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import CompetitionsClient from "./CompetitionsClient"
 import type { Competition } from "@/types"
@@ -5,6 +6,7 @@ import type { Competition } from "@/types"
 export const dynamic = "force-dynamic"
 
 export default async function CompetitionsAdminPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
   const { data } = await supabase
     .from("competitions")

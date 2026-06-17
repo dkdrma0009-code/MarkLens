@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import Link from "next/link"
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default async function CardnewsPage({ params }: Props) {
+  await requireAdmin()
   const { articleId } = await params
   const supabase = createAdminClient()
 

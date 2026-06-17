@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import SubscriberExport from "./SubscriberExport"
 
 export const dynamic = "force-dynamic"
 
 export default async function AdminSubscribersPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
 
   const { data: subscribers } = await supabase

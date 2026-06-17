@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import HealthPanel from "@/components/admin/HealthPanel"
 import TokenStatusPanel from "@/components/admin/TokenStatusPanel"
@@ -5,6 +6,7 @@ import TokenStatusPanel from "@/components/admin/TokenStatusPanel"
 export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboard() {
+  await requireAdmin()
   const supabase = createAdminClient()
   const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
 

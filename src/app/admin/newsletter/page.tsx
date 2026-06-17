@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import NewsletterControls from "./NewsletterControls"
@@ -6,6 +7,7 @@ import NewsletterPreview from "./NewsletterPreview"
 export const dynamic = 'force-dynamic'
 
 export default async function AdminNewsletterPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
 
   const [

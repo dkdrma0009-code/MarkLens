@@ -1,8 +1,10 @@
 import AdKitStudio from "./AdKitStudio"
+import { requireAdmin } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-export default function AdKitPage() {
+export default async function AdKitPage() {
+  await requireAdmin()
   return (
     <div className="p-8">
       <div className="mb-6">

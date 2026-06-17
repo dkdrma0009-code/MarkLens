@@ -1,8 +1,10 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
 export default async function AdminFeedbackPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
   const { data: responses } = await supabase
     .from("site_feedback")

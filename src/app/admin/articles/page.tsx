@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import type { Article } from "@/types"
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default async function AdminArticlesPage({ searchParams }: Props) {
+  await requireAdmin()
   const { type } = await searchParams
   const isCase = type === "case"
 

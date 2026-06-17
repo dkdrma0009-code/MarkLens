@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import { ToggleSource, AddSourceForm } from "./RssSourceActions"
@@ -5,6 +6,7 @@ import { ToggleSource, AddSourceForm } from "./RssSourceActions"
 export const dynamic = "force-dynamic"
 
 export default async function AdminSourcesPage() {
+  await requireAdmin()
   const supabase = createAdminClient()
 
   const { data: sources } = await supabase
