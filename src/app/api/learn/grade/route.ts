@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { generateText } from "@/lib/ai/llm"
 
 export async function POST(req: Request) {
+  // AI 채점 비용 방지 — IP당 분당 30회 (퀴즈 문제당 1회 호출)
+  const limited = checkRateLimit(req, { key: "learn-grade", limit: 30, windowMs: 60_000 })
+  if (limited) return limited
+
   const { question, correctAnswer, userAnswer } = await req.json()
 
   const correct = String(correctAnswer).trim()

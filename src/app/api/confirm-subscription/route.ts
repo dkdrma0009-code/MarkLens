@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 async function makeConfirmToken(email: string): Promise<string> {
   const secret = process.env.N8N_WEBHOOK_SECRET ?? ""
@@ -72,6 +73,13 @@ const html = (msg: string, sub: string) => `<!DOCTYPE html>
 </html>`
 
 export async function GET(req: Request) {
+  // 웰컴 메일 중복 발송·링크 반복 호출 방지 — IP당 분당 10회
+  const limited = checkRateLimit(req, { key: "confirm-subscription", limit: 10, windowMs: 60_000 })
+  if (limited) return new Response(html("요청이 많습니다", "잠시 후 다시 시도해주세요."), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+    status: 429,
+  })
+
   const { searchParams } = new URL(req.url)
   const email = searchParams.get("email")
   const token = searchParams.get("token")

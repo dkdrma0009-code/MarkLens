@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
 async function makeConfirmToken(email: string): Promise<string> {
@@ -48,6 +49,10 @@ async function sendConfirmEmail(email: string, confirmUrl: string) {
 }
 
 export async function POST(req: Request) {
+  // 이메일 발송 비용·스팸 방지 — 정상 사용자는 1회로 충분, IP당 분당 3회
+  const limited = checkRateLimit(req, { key: "subscribe", limit: 3, windowMs: 60_000 })
+  if (limited) return limited
+
   const { email, source } = await req.json()
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

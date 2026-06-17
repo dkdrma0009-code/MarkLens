@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 
 async function isAdmin(): Promise<boolean> {
@@ -10,6 +11,10 @@ async function isAdmin(): Promise<boolean> {
 }
 
 export async function POST(req: Request) {
+  // 폼 제출 어뷰징 방지 — IP당 분당 5회
+  const limited = checkRateLimit(req, { key: "site-feedback", limit: 5, windowMs: 60_000 })
+  if (limited) return limited
+
   const body = await req.json()
   const { rating, liked, disliked, role, will_subscribe } = body
 

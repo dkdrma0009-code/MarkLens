@@ -1,6 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 export async function GET(req: Request) {
+  // 구독 취소 링크 반복 호출 방지 — IP당 분당 10회
+  const limited = checkRateLimit(req, { key: "unsubscribe", limit: 10, windowMs: 60_000 })
+  if (limited) return new Response("요청이 많습니다. 잠시 후 다시 시도해주세요.", {
+    status: 429,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })
+
   const { searchParams } = new URL(req.url)
   const email = searchParams.get("email")
   const token = searchParams.get("token")
