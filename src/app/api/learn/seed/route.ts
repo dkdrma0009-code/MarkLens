@@ -1,18 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { generateQuestions, buildTrendDigest } from "@/lib/ai/quiz"
+import { isAdmin } from "@/lib/api-auth"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
 
 const LEVELS = ["beginner", "intermediate", "advanced"]
-
-async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 // 풀 채우기: 최근 인사이트를 출제 소스로 트렌드 기반 문제를 생성해 quiz_questions에 적재
 // body: { perCombo?: number, replace?: boolean }

@@ -3,7 +3,8 @@ import { renderCardnewsBuffers } from "./render-buffers"
 import { publishCarousel } from "@/lib/instagram"
 import { publishThreadsCarousel } from "@/lib/threads"
 
-const BUCKET = "cardnews-ig"
+export const CARDNEWS_BUCKET = "cardnews-ig"
+const BUCKET = CARDNEWS_BUCKET
 
 // 캡션 없을 때의 폴백 (인스타는 링크 클릭 불가 → 프로필 유도)
 function defaultCaption(hook: string | null, category: string | null): string {

@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { isAdmin } from "@/lib/api-auth"
 
 export const maxDuration = 30
-
-async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 export async function GET(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

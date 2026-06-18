@@ -18,6 +18,12 @@ const T = VTOKENS
 const FPS = 30
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
 
+// 모든 장면 공용 루트 컨테이너 스타일 — 디자인 토큰 변경이 전 장면에 자동 반영됨
+const CONTAINER_STYLE: React.CSSProperties = {
+  width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column",
+  background: T.BG, padding: T.PADDING, fontFamily: T.FONT, position: "relative", overflow: "hidden",
+}
+
 // 단방향 보간 (clamp 기본)
 function lerp(f: number, from: [number, number], to: [number, number]) {
   return interpolate(f, from, to, clamp)
@@ -26,6 +32,11 @@ function lerp(f: number, from: [number, number], to: [number, number]) {
 // 빠르고 절제된 스프링 (0→1)
 function quickSpring(f: number, delay = 0) {
   return spring({ frame: f - delay, fps: FPS, config: { damping: 20, stiffness: 220, mass: 0.7 } })
+}
+
+// 라벨 등장 fade — 4개 body 장면에서 동일. 타이밍 조정은 여기만 수정.
+function labelFadeOp(frame: number) {
+  return lerp(frame, [0, 8], [0, 1])
 }
 
 // 하단 푸터
@@ -62,11 +73,7 @@ function ambientOrb(frame: number, duration: number) {
 // 세로 프레임 래퍼 (ambient orb 포함)
 function wrap(frame: number, duration: number, children: React.ReactNode[]) {
   return (
-    <div style={{
-      width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column",
-      background: T.BG, padding: T.PADDING, fontFamily: T.FONT, position: "relative",
-      overflow: "hidden",
-    }}>
+    <div style={CONTAINER_STYLE}>
       {ambientOrb(frame, duration)}
       {children}
     </div>
@@ -113,10 +120,7 @@ function coverScene(s: CoverSlide, category: string, frame: number, duration: nu
     const kbScale = lerp(frame, [0, duration], [1.0, 1.07])
     const BAND = 980
     return (
-      <div style={{
-        width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column",
-        background: T.BG, padding: T.PADDING, fontFamily: T.FONT, position: "relative", overflow: "hidden",
-      }}>
+      <div style={CONTAINER_STYLE}>
         {/* Ken Burns 배경 이미지 */}
         <div style={{
           position: "absolute", top: 0, left: 0, width: T.WIDTH, height: BAND, display: "flex",
@@ -145,10 +149,7 @@ function coverScene(s: CoverSlide, category: string, frame: number, duration: nu
 
   // 이미지 없는 표지 — ambient orb 배경
   return (
-    <div style={{
-      width: T.WIDTH, height: T.HEIGHT, display: "flex", flexDirection: "column",
-      background: T.BG, padding: T.PADDING, fontFamily: T.FONT, position: "relative", overflow: "hidden",
-    }}>
+    <div style={CONTAINER_STYLE}>
       {ambientOrb(frame, duration)}
       <div style={{ display: "flex", width: "100%", fontSize: 42, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.06em", opacity: catOp }}>{category}</div>
       <div style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
@@ -167,7 +168,7 @@ function coverScene(s: CoverSlide, category: string, frame: number, duration: nu
 
 function factScene(s: FactSlide, frame: number, duration: number) {
   // 라벨 → 본문 → 출처 순서로 등장
-  const labelOp = lerp(frame, [0, 8], [0, 1])
+  const labelOp = labelFadeOp(frame)
   const bodyOp  = lerp(frame, [8, 18], [0, 1])
   const bodyY   = lerp(frame, [8, 18], [20, 0])
   const srcOp   = lerp(frame, [16, 24], [0, 1])
@@ -189,7 +190,7 @@ function factScene(s: FactSlide, frame: number, duration: number) {
 }
 
 function whyScene(s: WhySlide, frame: number, duration: number) {
-  const labelOp = lerp(frame, [0, 8], [0, 1])
+  const labelOp = labelFadeOp(frame)
 
   // 헤드라인 단어 단위 스프링 스태거
   const words = s.headline.split(" ").filter(Boolean)
@@ -223,7 +224,7 @@ function whyScene(s: WhySlide, frame: number, duration: number) {
 }
 
 function applyScene(s: ApplySlide, frame: number, duration: number) {
-  const labelOp = lerp(frame, [0, 8], [0, 1])
+  const labelOp = labelFadeOp(frame)
   // 실천 포인트 — 스프링 스케일인으로 강조
   const sp     = quickSpring(frame, 8)
   const bodyOp = sp
@@ -243,7 +244,7 @@ function applyScene(s: ApplySlide, frame: number, duration: number) {
 }
 
 function keywordsScene(s: KeywordsSlide, frame: number, duration: number) {
-  const labelOp = lerp(frame, [0, 8], [0, 1])
+  const labelOp = labelFadeOp(frame)
 
   return wrap(frame, duration, [
     <div key="label" style={{ display: "flex", width: "100%", fontSize: 42, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.06em", opacity: labelOp }}>

@@ -50,6 +50,9 @@ function SlideClip({ slide, category, coverImage, duration }: {
   const frame = useCurrentFrame()
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
 
+  // enter [0,ENTER]·exit [duration-EXIT,duration] 창이 겹치면 translateY가 중복 적용됨
+  if (duration <= ENTER + EXIT) throw new Error(`duration(${duration}) must be > ENTER+EXIT(${ENTER + EXIT})`)
+
   let style: React.CSSProperties
 
   if (slide.type === "cover") {

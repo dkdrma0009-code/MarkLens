@@ -1,17 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
 import { buildNewsletterHtml } from "@/lib/newsletter/html"
+import { isAdmin } from "@/lib/api-auth"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
-
-async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 async function sendViaBrevo(to: string, subject: string, html: string, issueId: string): Promise<void> {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {

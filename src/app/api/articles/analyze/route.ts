@@ -1,14 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { analyzeArticle } from "@/lib/ai/analyze"
+import { isAdmin } from "@/lib/api-auth"
 import { NextResponse } from "next/server"
-
-async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 export async function POST(req: Request) {
   if (!await isAdmin()) {

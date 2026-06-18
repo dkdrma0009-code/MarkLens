@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
+import { isAdmin } from "@/lib/api-auth"
 import type { Slide } from "@/lib/cardnews/types"
 
 export const maxDuration = 300
-
-async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 // 비동기 패턴: 렌더를 트리거하고 { renderId, bucketName, functionName } 즉시 반환
 // 프론트엔드가 /status 폴링 → /download 에서 파일 수령

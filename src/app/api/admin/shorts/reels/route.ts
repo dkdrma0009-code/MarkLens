@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { publishReel } from "@/lib/instagram"
 import { renderCardnewsBuffers } from "@/lib/cardnews/render-buffers"
+import { CARDNEWS_BUCKET } from "@/lib/cardnews/publish"
+import { isAdmin } from "@/lib/api-auth"
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3"
 
 export const maxDuration = 300
-
-async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
-}
 
 function parseS3Url(url: string): { bucket: string; key: string; region: string } | null {
   try {
@@ -25,18 +19,16 @@ function parseS3Url(url: string): { bucket: string; key: string; region: string 
   }
 }
 
-const COVER_BUCKET = "cardnews-ig"
-
 // 카드뉴스 표지(슬라이드 1)를 PNG로 렌더해 Supabase에 업로드 → weserv.nl JPEG URL 반환
 async function uploadReelCover(articleId: string): Promise<string | null> {
   const rendered = await renderCardnewsBuffers(articleId)
   if (!rendered?.buffers[0]) return null
 
   const sb = createAdminClient()
-  await sb.storage.createBucket(COVER_BUCKET, { public: true }).catch(() => {})
+  await sb.storage.createBucket(CARDNEWS_BUCKET, { public: true }).catch(() => {})
 
   const path = `${articleId}/reel-cover.png`
-  const { error } = await sb.storage.from(COVER_BUCKET).upload(path, rendered.buffers[0], {
+  const { error } = await sb.storage.from(CARDNEWS_BUCKET).upload(path, rendered.buffers[0], {
     contentType: "image/png",
     upsert: true,
   })
@@ -45,7 +37,7 @@ async function uploadReelCover(articleId: string): Promise<string | null> {
     return null
   }
 
-  const publicUrl = sb.storage.from(COVER_BUCKET).getPublicUrl(path).data.publicUrl
+  const publicUrl = sb.storage.from(CARDNEWS_BUCKET).getPublicUrl(path).data.publicUrl
   // Instagram은 JPEG를 요구 — weserv.nl로 변환
   return `https://images.weserv.nl/?url=${encodeURIComponent(publicUrl)}&output=jpg&w=1080`
 }
@@ -67,7 +59,19 @@ export async function POST(req: Request) {
     }
   }
 
-  const postId = await publishReel(outputFile, caption ?? "", coverUrl)
+  let postId: string
+  try {
+    postId = await publishReel(outputFile, caption ?? "", coverUrl)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error("[shorts/reels] publishReel 실패:", msg)
+    // 이미 업로드한 커버 PNG orphan 방지
+    if (articleId && coverUrl) {
+      const sb = createAdminClient()
+      await sb.storage.from(CARDNEWS_BUCKET).remove([`${articleId}/reel-cover.png`]).catch(() => {})
+    }
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 
   // 발행 성공 시 DB에 기록
   if (articleId) {
