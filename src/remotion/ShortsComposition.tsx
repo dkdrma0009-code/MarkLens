@@ -9,16 +9,15 @@ import {
   continueRender,
   type CalculateMetadataFunction,
 } from "remotion"
-// 상대경로 import — Remotion 자체 webpack은 tsconfig `@/` alias를 모르므로 (templates.tsx는 변경 없이 재사용)
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
 import type { Slide } from "../lib/cardnews/types"
 
 export const FPS = 30
-const SLIDE_FRAMES = 90 // 3초
-const CTA_FRAMES = 120 // 마지막 CTA 4초
-const FADE = 8 // 슬라이드 경계 페이드(약 0.27초)
+const SLIDE_FRAMES = 66  // 2.2s — 정지 구간 최소화
+const CTA_FRAMES = 90    // 3s
+const ENTER = 12         // body 슬라이드 공통 진입 (0.4s)
+const EXIT = 10          // 공통 퇴장 (0.33s)
 
-// type 별칭 — Remotion Composition 제네릭의 Record<string, unknown> 제약 충족 (interface는 불가)
 export type ShortsProps = {
   slides: Slide[]
   category: string
@@ -31,36 +30,62 @@ function slideDuration(s: Slide): number {
   return s.type === "cta" ? CTA_FRAMES : SLIDE_FRAMES
 }
 
-// 슬라이드 수·종류에 따라 전체 길이 계산
 export const calcShortsMetadata: CalculateMetadataFunction<ShortsProps> = ({ props }) => ({
   durationInFrames: Math.max(props.slides.reduce((a, s) => a + slideDuration(s), 0), 1),
 })
 
-// Pretendard @font-face (publicDir=assets → staticFile)
 const FONT_CSS = `
 @font-face{font-family:'Pretendard';font-style:normal;font-weight:400;src:url('${staticFile("fonts/Pretendard-Regular.otf")}') format('opentype');}
 @font-face{font-family:'Pretendard';font-style:normal;font-weight:600;src:url('${staticFile("fonts/Pretendard-SemiBold.otf")}') format('opentype');}
 @font-face{font-family:'Pretendard';font-style:normal;font-weight:700;src:url('${staticFile("fonts/Pretendard-Bold.otf")}') format('opentype');}
 `
 
-// 한 슬라이드 — 등장(fade-in + 살짝 위로) + 종료 fade-out → 슬라이드 간 크로스(딥) 전환
+// 전환 전략:
+//   cover    → 빠른 fade-in, 슬라이드-레프트 exit (후킹 모션 — 가장 강하게)
+//   body ×4  → 통일된 translateY+scale 진입, fade-up 퇴장 (일관된 리듬)
+//   cta      → scale+fade 진입, 퇴장 없음 (마무리)
 function SlideClip({ slide, category, coverImage, duration }: {
   slide: Slide; category: string; coverImage: string | null; duration: number
 }) {
   const frame = useCurrentFrame()
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
-  const enter = interpolate(frame, [0, 15], [0, 1], clamp)
-  const up = interpolate(frame, [0, 15], [24, 0], clamp)
-  const exit = interpolate(frame, [duration - FADE, duration], [1, 0], clamp)
+
+  let style: React.CSSProperties
+
+  if (slide.type === "cover") {
+    const enterOp = interpolate(frame, [0, 8], [0, 1], clamp)
+    const exitOp  = interpolate(frame, [duration - EXIT, duration], [1, 0], clamp)
+    const exitX   = interpolate(frame, [duration - EXIT, duration], [0, -80], clamp)
+    style = {
+      opacity: Math.min(enterOp, exitOp),
+      transform: `translateX(${exitX}px)`,
+    }
+  } else if (slide.type === "cta") {
+    const sc = interpolate(frame, [0, ENTER + 3], [0.94, 1.0], clamp)
+    const op = interpolate(frame, [0, ENTER], [0, 1], clamp)
+    style = { opacity: op, transform: `scale(${sc})` }
+  } else {
+    // body 슬라이드 4종 통일 전환
+    const enterOp = interpolate(frame, [0, ENTER], [0, 1], clamp)
+    const enterY  = interpolate(frame, [0, ENTER], [36, 0], clamp)
+    const enterSc = interpolate(frame, [0, ENTER], [0.96, 1.0], clamp)
+    const exitOp  = interpolate(frame, [duration - EXIT, duration], [1, 0], clamp)
+    const exitY   = interpolate(frame, [duration - EXIT, duration], [0, -20], clamp)
+    style = {
+      opacity: Math.min(enterOp, exitOp),
+      // enter/exit는 상호 배타적 구간 — 더해도 한쪽만 0이 아님
+      transform: `translateY(${enterY + exitY}px) scale(${enterSc})`,
+    }
+  }
+
   return (
-    <AbsoluteFill style={{ opacity: Math.min(enter, exit), transform: `translateY(${up}px)` }}>
-      {renderShortScene(slide, category, { coverImage })}
+    <AbsoluteFill style={style}>
+      {renderShortScene(slide, category, frame, duration, { coverImage })}
     </AbsoluteFill>
   )
 }
 
 export function ShortsComposition({ slides, category, coverImage }: ShortsProps) {
-  // 폰트 로드 완료 후 렌더 (폴백 폰트 노출 방지)
   const [handle] = useState(() => delayRender("load-fonts"))
   useEffect(() => {
     Promise.all([
@@ -80,7 +105,12 @@ export function ShortsComposition({ slides, category, coverImage }: ShortsProps)
       <style>{FONT_CSS}</style>
       {slides.map((slide, i) => (
         <Sequence key={i} from={starts[i]} durationInFrames={durations[i]}>
-          <SlideClip slide={slide} category={category} coverImage={i === 0 ? coverImage : null} duration={durations[i]} />
+          <SlideClip
+            slide={slide}
+            category={category}
+            coverImage={i === 0 ? coverImage : null}
+            duration={durations[i]}
+          />
         </Sequence>
       ))}
     </AbsoluteFill>

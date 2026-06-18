@@ -27,14 +27,5 @@ export async function GET(req: Request) {
     )
   }
 
-  // 공모전 일일 처리(만료 갱신 + RSS 수집)도 같은 크론에서 — 별도 cron 추가 없이
-  let competitions: unknown = null
-  try {
-    const cRes = await fetch(`${base}/api/webhooks/competitions?secret=${secret}`, { method: "POST" })
-    competitions = await cRes.json()
-  } catch (e) {
-    competitions = { error: e instanceof Error ? e.message : String(e) }
-  }
-
-  return NextResponse.json({ articles: data, competitions })
+  return NextResponse.json({ articles: data })
 }

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, FileText, Lightbulb, Mail,
-  BarChart2, Rss, Users, MessageSquare, Image as ImageIcon, Clapperboard, Trophy, CalendarDays
+  BarChart2, Rss, Users, MessageSquare, Image as ImageIcon, Clapperboard, CalendarDays
 } from "lucide-react"
 
 const navItems = [
@@ -12,8 +12,7 @@ const navItems = [
   { href: "/admin/articles",     label: "아티클",   icon: FileText },
   { href: "/admin/insights",     label: "인사이트", icon: Lightbulb },
   { href: "/admin/cardnews",     label: "카드뉴스", icon: ImageIcon },
-  { href: "/admin/competitions", label: "대외활동", icon: Trophy },
-  { href: "/admin/calendar",     label: "캘린더",   icon: CalendarDays },
+{ href: "/admin/calendar",     label: "캘린더",   icon: CalendarDays },
   { href: "/admin/adkit",        label: "광고 패키징", icon: Clapperboard },
   { href: "/admin/newsletter",   label: "뉴스레터", icon: Mail },
   { href: "/admin/subscribers",  label: "구독자",   icon: Users },
