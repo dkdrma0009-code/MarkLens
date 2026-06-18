@@ -135,7 +135,7 @@ export async function getInstagramInsights(): Promise<IgInsights | null> {
 }
 
 // 숏츠 릴스 발행: 공개 S3 URL → Instagram Reels 게시물 id
-export async function publishReel(videoUrl: string, caption: string): Promise<string> {
+export async function publishReel(videoUrl: string, caption: string, coverUrl?: string): Promise<string> {
   const token = await getAccessToken()
   const userId = getUserId()
 
@@ -145,6 +145,7 @@ export async function publishReel(videoUrl: string, caption: string): Promise<st
     video_url: videoUrl,
     caption,
     share_to_feed: "true",
+    ...(coverUrl ? { cover_url: coverUrl } : {}),
   })
 
   // 2) 처리 완료 대기 (동영상 처리는 보통 30~90초 소요)

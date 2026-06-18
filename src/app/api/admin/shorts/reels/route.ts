@@ -2,9 +2,10 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { publishReel } from "@/lib/instagram"
+import { renderCardnewsBuffers } from "@/lib/cardnews/render-buffers"
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3"
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 async function isAdmin(): Promise<boolean> {
   const supabase = await createClient()
@@ -24,6 +25,31 @@ function parseS3Url(url: string): { bucket: string; key: string; region: string 
   }
 }
 
+const COVER_BUCKET = "cardnews-ig"
+
+// 카드뉴스 표지(슬라이드 1)를 PNG로 렌더해 Supabase에 업로드 → weserv.nl JPEG URL 반환
+async function uploadReelCover(articleId: string): Promise<string | null> {
+  const rendered = await renderCardnewsBuffers(articleId)
+  if (!rendered?.buffers[0]) return null
+
+  const sb = createAdminClient()
+  await sb.storage.createBucket(COVER_BUCKET, { public: true }).catch(() => {})
+
+  const path = `${articleId}/reel-cover.png`
+  const { error } = await sb.storage.from(COVER_BUCKET).upload(path, rendered.buffers[0], {
+    contentType: "image/png",
+    upsert: true,
+  })
+  if (error) {
+    console.warn("[shorts/reels] 커버 이미지 업로드 실패:", error.message)
+    return null
+  }
+
+  const publicUrl = sb.storage.from(COVER_BUCKET).getPublicUrl(path).data.publicUrl
+  // Instagram은 JPEG를 요구 — weserv.nl로 변환
+  return `https://images.weserv.nl/?url=${encodeURIComponent(publicUrl)}&output=jpg&w=1080`
+}
+
 // 렌더된 숏츠 mp4를 Instagram Reels로 발행 후 S3 파일 삭제 + DB 기록
 export async function POST(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -31,7 +57,17 @@ export async function POST(req: Request) {
   const { outputFile, caption, articleId } = await req.json().catch(() => ({}))
   if (!outputFile) return NextResponse.json({ error: "outputFile 필요" }, { status: 400 })
 
-  const postId = await publishReel(outputFile, caption ?? "")
+  // 카드뉴스 표지를 릴스 썸네일로 — 실패해도 발행은 계속 진행
+  let coverUrl: string | undefined
+  if (articleId) {
+    try {
+      coverUrl = await uploadReelCover(articleId) ?? undefined
+    } catch (e) {
+      console.warn("[shorts/reels] 커버 생성 실패 (썸네일 없이 발행):", e instanceof Error ? e.message : e)
+    }
+  }
+
+  const postId = await publishReel(outputFile, caption ?? "", coverUrl)
 
   // 발행 성공 시 DB에 기록
   if (articleId) {
