@@ -30,6 +30,7 @@
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
     "remotion": "^4.0.477",
     "resend": "^6.12.4",
     "rss-parser": "^3.13.0",
