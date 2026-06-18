@@ -188,6 +188,7 @@ export default function NotesTab() {
   useEffect(() => { fetchNotes() }, [fetchNotes])
 
   useEffect(() => {
+    if (!search) return  // 마운트 시 빈 검색은 위 effect가 처리
     const t = setTimeout(() => fetchNotes(search), 300)
     return () => clearTimeout(t)
   }, [search, fetchNotes])

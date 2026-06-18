@@ -129,7 +129,7 @@ export default function ReportTab() {
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">최근 분석 히스토리</p>
           <div className="flex flex-col gap-2">
             {sessions.map(s => {
-              const avg = Math.round((s.score_observation + s.score_analysis + s.score_insight + s.score_strategy) / 4)
+              const avg = Math.round(((s.score_observation ?? 0) + (s.score_analysis ?? 0) + (s.score_insight ?? 0) + (s.score_strategy ?? 0)) / 4)
               const date = new Date(s.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })
               return (
                 <div key={s.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">

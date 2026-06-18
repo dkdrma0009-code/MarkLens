@@ -7,10 +7,14 @@ export async function GET(request: Request) {
   const code = searchParams.get("code")
   const next = searchParams.get("next") ?? "/insight-lab"
 
+  // next는 반드시 상대경로여야 함 (open redirect 방지)
+  const safePath = next.startsWith("/") && !next.startsWith("//") ? next : "/insight-lab"
+
   if (code) {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) return NextResponse.redirect(`${origin}/insight-lab?auth_error=1`)
   }
 
-  return NextResponse.redirect(`${origin}${next}`)
+  return NextResponse.redirect(`${origin}${safePath}`)
 }

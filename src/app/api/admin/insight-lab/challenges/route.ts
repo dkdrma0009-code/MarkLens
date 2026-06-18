@@ -27,8 +27,11 @@ export async function PATCH(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
-  const { id, ...updates } = body
+  const { id } = body
   if (!id) return NextResponse.json({ error: "id 필수" }, { status: 400 })
+
+  const ALLOWED = ["title","summary","category","difficulty","source_name","source_url","published_date","active"] as const
+  const updates = Object.fromEntries(ALLOWED.filter(k => k in body).map(k => [k, body[k]]))
 
   const sb = createAdminClient()
   const { data, error } = await sb

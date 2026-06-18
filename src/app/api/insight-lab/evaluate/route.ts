@@ -115,6 +115,13 @@ export async function POST(req: Request) {
 
   if (!answers?.step1) return NextResponse.json({ error: "답변이 없습니다" }, { status: 400 })
 
+  // 길이 제한 (프롬프트 인젝션·토큰 비용 방지)
+  if ((customArticle?.length ?? 0) > 3000) return NextResponse.json({ error: "기사가 너무 깁니다 (최대 3000자)" }, { status: 400 })
+  const ANSWER_MAX = 500
+  for (const key of ["step1","step2","step3","step4","linearAnswer","reframedInsight","step5"] as const) {
+    if ((answers[key]?.length ?? 0) > ANSWER_MAX) return NextResponse.json({ error: `답변이 너무 깁니다 (${key}, 최대 ${ANSWER_MAX}자)` }, { status: 400 })
+  }
+
   // 기사 텍스트
   let articleText = customArticle ?? ""
   if (!articleText && challengeId) {
@@ -152,12 +159,20 @@ export async function POST(req: Request) {
 
   // 통계 upsert
   const today = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
   const { data: st } = await supabase.from("insight_user_stats").select("*").eq("user_id", user.id).single()
   if (st) {
+    const alreadyToday = st.last_activity_date === today
     const n = st.total_sessions + 1
-    const streak = st.last_activity_date === today ? st.streak_days : st.streak_days + 1
+    const newStreak = alreadyToday
+      ? st.streak_days
+      : st.last_activity_date === yesterday
+        ? st.streak_days + 1
+        : 1
+    // 오늘 이미 제출한 경우 XP 추가 적립 방지
+    const xpDelta = alreadyToday ? 0 : feedback.xp
     await supabase.from("insight_user_stats").update({
-      total_sessions: n, total_xp: st.total_xp + feedback.xp, streak_days: streak,
+      total_sessions: n, total_xp: st.total_xp + xpDelta, streak_days: newStreak,
       last_activity_date: today,
       avg_score_observation: ((st.avg_score_observation * (n - 1)) + feedback.scores.observation) / n,
       avg_score_analysis: ((st.avg_score_analysis * (n - 1)) + feedback.scores.analysis) / n,
