@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { renderCampaignFrame, renderAdOverlay, renderAdEndcard, VTOKENS } from "@/lib/shorts/templates"
+import { renderCampaignFrame, renderAdOverlay, renderAdEndcard, VTOKENS } from "@/lib/shorts/preview-templates"
 import { loadFonts, loadAdFonts } from "@/lib/cardnews/fonts"
 import { fetchImageDataUri, fetchImageWithDims } from "@/lib/cardnews/image"
 
