@@ -24,7 +24,12 @@ export default function TokenStatusPanel() {
     if (res?.ok) setStatus(await res.json())
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    fetch("/api/admin/tokens")
+      .then(res => res.ok ? res.json() : null)
+      .catch(() => null)
+      .then((data: TokenStatus | null) => { if (data) setStatus(data) })
+  }, [])
 
   async function handleRefresh(platform: "ig" | "threads" | "both") {
     setRefreshing(true)

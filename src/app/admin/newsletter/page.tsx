@@ -18,6 +18,7 @@ export default async function AdminNewsletterPage() {
     supabase.from("newsletter_issues").select("*").order("issue_number", { ascending: false }).limit(20),
     supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("status", "active"),
     // 최근 60일 내 구독 취소자 — 뉴스레터 발송과 매칭하기 위해 가져옴
+    // eslint-disable-next-line react-hooks/purity
     supabase.from("subscribers").select("unsubscribed_at").not("unsubscribed_at", "is", null).gte("unsubscribed_at", new Date(Date.now() - 60 * 86400 * 1000).toISOString()),
   ])
 

@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
+import Link from "next/link"
 import HealthPanel from "@/components/admin/HealthPanel"
 import TokenStatusPanel from "@/components/admin/TokenStatusPanel"
 
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminDashboard() {
   await requireAdmin()
   const supabase = createAdminClient()
+  // eslint-disable-next-line react-hooks/purity
   const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
 
   const [
@@ -73,12 +75,12 @@ export default async function AdminDashboard() {
                 ? <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full">#{pendingNewsletter[0].issue_number} 대기</span>
                 : <span className="text-xs text-muted-foreground">없음</span>}
             </a>
-            <a href="/admin/cardnews" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
+            <Link href="/admin/cardnews" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
               <span>오늘 예약 발행 카드뉴스</span>
               {(todayScheduled?.length ?? 0) > 0
                 ? <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">{todayScheduled!.length}건</span>
                 : <span className="text-xs text-muted-foreground">없음</span>}
-            </a>
+            </Link>
             <a href="/admin/analytics" className="flex items-center justify-between p-3 text-sm border border-border rounded-md hover:bg-accent transition-colors">
               <span>분석 대시보드</span>
             </a>

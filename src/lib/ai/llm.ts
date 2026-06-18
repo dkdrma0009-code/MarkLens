@@ -44,7 +44,7 @@ async function callGemini(prompt: string, system: string, maxTokens = 4000): Pro
   // 2.5-flash-lite 먼저 (thinking 없음 → 빠름/안정), 실패 시 2.5-flash 폴백
   try {
     return await callGeminiModel("gemini-2.5-flash-lite", prompt, system, maxTokens)
-  } catch (err) {
+  } catch {
     console.log("[AI] Gemini 2.5-flash-lite 실패 → 2.5-flash 재시도")
     return await callGeminiModel("gemini-2.5-flash", prompt, system, maxTokens)
   }

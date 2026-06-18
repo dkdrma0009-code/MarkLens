@@ -76,7 +76,11 @@ export default function InterviewSession() {
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
   const [speaking, setSpeaking] = useState(false) // 면접관 TTS 발화 중
-  const [speechSupported, setSpeechSupported] = useState(false)
+  const [speechSupported] = useState(() => {
+    if (typeof window === "undefined") return false
+    const w = window as unknown as Record<string, unknown>
+    return !!(w.SpeechRecognition || w.webkitSpeechRecognition)
+  })
   const recRef = useRef<{ stop: () => void } | null>(null)
 
   // ── 화상 모드 (v2.1) — 영상은 브라우저에만 저장, 서버 전송 없음 ──
@@ -91,7 +95,7 @@ export default function InterviewSession() {
   const camStreamRef = useRef<MediaStream | null>(null)
 
   function stopCamera() {
-    try { clipRecRef.current?.state === "recording" && clipRecRef.current.stop() } catch {}
+    try { if (clipRecRef.current?.state === "recording") clipRecRef.current.stop() } catch {}
     try { speechSynthesis.cancel() } catch {}
     setSpeaking(false)
     camStreamRef.current?.getTracks().forEach(t => t.stop())
@@ -134,6 +138,7 @@ export default function InterviewSession() {
   useEffect(() => {
     if (stage === "interview" && videoMode && camStream && !feedback && !grading) {
       stopRequestedRef.current = false
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startClip()
       const text = questions[current]?.question
       const startListening = () => { if (speechSupported && !stopRequestedRef.current) startSpeech() }
@@ -163,8 +168,6 @@ export default function InterviewSession() {
   }, [camStream, stage, current, feedback])
 
   useEffect(() => {
-    const w = window as unknown as Record<string, unknown>
-    setSpeechSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition))
     return () => {
       try { recRef.current?.stop() } catch {}
       try { speechSynthesis.cancel() } catch {}

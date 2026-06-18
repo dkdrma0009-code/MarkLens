@@ -46,7 +46,6 @@ function Thumb({ c }: { c: Competition }) {
     )
   }
   // 최후 CSS 폴백 (Satori마저 실패한 극히 드문 경우)
-  const priority = computePriority(c.deadline, c.difficulty)
   return (
     <div className="w-full aspect-[4/3] bg-gray-900 text-white flex flex-col justify-between p-4">
       <div className="flex justify-between text-xs">

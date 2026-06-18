@@ -32,7 +32,8 @@ export async function POST(req: Request) {
   let analyzed = 0
   const errors: string[] = []
 
-  async function processOne(article: Record<string, any>) {
+  type PendingArticle = { id: string; title: string; raw_content: string | null; url: string }
+  async function processOne(article: PendingArticle) {
     try {
       await supabase.from("articles").update({ status: "analyzing" }).eq("id", article.id)
 

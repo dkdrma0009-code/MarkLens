@@ -28,6 +28,7 @@ export default async function AdminAnalyticsPage() {
   await requireAdmin()
   const supabase = createAdminClient()
 
+  // eslint-disable-next-line react-hooks/purity
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   // 카운트 쿼리
