@@ -39,6 +39,33 @@ interface NewsletterInput {
   }>
 }
 
+// Gemini가 부정 제약(금지 어미)을 약하게 따르므로, 생성 후 직접 검사해 위반이 많으면 1회 재생성한다.
+// 모델·프롬프트는 그대로 두고 결정적으로 평평한 어미를 걸러내는 후처리 게이트.
+const BANNED_ENDINGS = [
+  "의미합니다", "시사합니다", "주목해야 합니다", "고민해보겠습니다",
+  "대표적인 사례입니다", "고려해야 할 것입니다", "고려해야 합니다",
+  "필요가 있습니다", "할 수 있습니다",
+]
+const RETRY_THRESHOLD = 2 // 금지 어미가 이 개수 이상이면 재생성
+
+function collectProse(out: NewsletterOutput): string {
+  return [
+    out.intro,
+    ...(out.body_sections ?? []).flatMap(s => s.paragraphs ?? []),
+    out.for_your_career,
+    ...(out.key_takeaways ?? []),
+  ].filter(Boolean).join("\n")
+}
+
+// 발견된 금지 어미를 (중복 포함) 모두 반환 — 재생성 프롬프트에 그대로 인용한다.
+function findBannedEndings(out: NewsletterOutput): string[] {
+  const text = collectProse(out)
+  return BANNED_ENDINGS.flatMap(p => {
+    const n = text.split(p).length - 1
+    return n > 0 ? Array(n).fill(p) : []
+  })
+}
+
 // 생성 시 섹션마다 image_keywords를 받음 — 라우트가 이걸로 Unsplash 검색 후 visual을 채우고 키워드는 제거
 type SectionOut = NewsletterBodySection & { image_keywords?: string[] }
 
@@ -82,6 +109,24 @@ ${insightsSummary}
   "for_your_career": "3~4문장. 면접·포트폴리오 활용 + 한 줄 면접 답변 예시."
 }`
 
+  // 1차 생성. 금지 어미가 임계치 이상이면, 위반 문구를 콕 집어 1회만 재생성하고 더 깨끗한 쪽을 채택.
+  const first = await generateOnce(prompt)
+  const firstHits = findBannedEndings(first)
+  if (firstHits.length < RETRY_THRESHOLD) return first
+
+  const retryPrompt = `${prompt}
+
+[재작성 지시] 직전 초안에서 아래 표현이 ${firstHits.length}번 반복돼 글이 평평했다. 이번엔 이 표현들을 단 한 번도 쓰지 말고, 매 문장 어미를 다르게 끝내라(단정형·질문·체언 종결 섞기):
+- ${[...new Set(firstHits)].join("\n- ")}`
+
+  const second = await generateOnce(retryPrompt).catch(() => null)
+  if (!second) return first
+  // 더 적게 위반한 쪽 채택 (재생성이 동률이면 새 버전 유지)
+  return findBannedEndings(second).length <= firstHits.length ? second : first
+}
+
+// 1회 생성 + 구조 검증/정규화. 호출부의 lint·재생성 루프에서 재사용한다.
+async function generateOnce(prompt: string): Promise<NewsletterOutput> {
   const data = await geminiJson<NewsletterOutput>(SYSTEM, prompt, 5000)
   if (!data?.topic_headline || !data?.body_sections?.length) {
     throw new Error("뉴스레터 생성 실패 (구조 불완전)")
