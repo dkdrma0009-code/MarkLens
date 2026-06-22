@@ -15,6 +15,7 @@ export async function GET(req: Request) {
   const secret = process.env.N8N_WEBHOOK_SECRET
   if (!secret) return NextResponse.json({ error: "N8N_WEBHOOK_SECRET not configured" }, { status: 500 })
 
+  // 1) 수집
   const res = await fetch(`${base}/api/webhooks/collect?secret=${secret}`, {
     method: "POST",
   })
@@ -27,5 +28,25 @@ export async function GET(req: Request) {
     )
   }
 
-  return NextResponse.json({ articles: data })
+  // 2) 분석 — 과거 n8n 단독 의존으로 분석이 멈췄던 사고 재발 방지.
+  //    analyze-pending은 1회 5건 처리하므로, maxDuration 내 시간 예산 안에서 pending 큐가 빌 때까지 반복 호출한다.
+  const ANALYZE_BUDGET_MS = 230_000 // 300s 한도 내 여유 확보
+  const startedAt = Date.now()
+  let analyzed = 0
+  while (Date.now() - startedAt < ANALYZE_BUDGET_MS) {
+    const ar = await fetch(`${base}/api/webhooks/analyze-pending?secret=${secret}`, { method: "POST" })
+    const ad = await ar.json()
+    if (!ar.ok) {
+      await sendAdminAlert(
+        "아티클 분석 cron 실패",
+        `오류: ${ad.error ?? JSON.stringify(ad)}\n분석 누적: ${analyzed}건\n시각: ${new Date().toISOString()}`
+      )
+      break
+    }
+    analyzed += ad.analyzed ?? 0
+    // 큐가 비었거나(메시지) 이번 배치에서 한 건도 처리 못 하면(전부 reject/실패) 종료
+    if (ad.message === "No pending articles" || !ad.analyzed) break
+  }
+
+  return NextResponse.json({ collect: data, analyzed })
 }
