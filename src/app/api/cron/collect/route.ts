@@ -50,5 +50,27 @@ export async function GET(req: Request) {
     if (ad.message === "No pending articles") break
   }
 
-  return NextResponse.json({ collect: data, analyzed })
+  // 3) 파이프라인 적체 감지 — "에러 없이 조용히 멈춤"을 잡는 안전망.
+  //    과거 분석 stall(9일)은 에러가 아니라 미실행이라 어떤 알림에도 안 걸렸다.
+  //    드레인 후에도 48h 이상 묵은 pending이 많으면 분석이 밀리고 있다는 신호 → 알림.
+  let staleBacklog = 0
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const sb = createAdminClient()
+    const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString()
+    const { count } = await sb
+      .from("articles")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lt("created_at", cutoff)
+    staleBacklog = count ?? 0
+    if (staleBacklog > 20) {
+      await sendAdminAlert(
+        "분석 파이프라인 적체 경고",
+        `48시간 이상 미분석 상태인 pending 아티클이 ${staleBacklog}건입니다.\n분석이 밀리거나 멈췄을 수 있습니다 (이번 실행 분석: ${analyzed}건).\n시각: ${new Date().toISOString()}`
+      )
+    }
+  } catch { /* 헬스체크 실패는 본 작업에 영향 없음 */ }
+
+  return NextResponse.json({ collect: data, analyzed, staleBacklog })
 }
