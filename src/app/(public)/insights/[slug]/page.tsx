@@ -148,7 +148,7 @@ export default async function InsightDetailPage({ params }: Props) {
       {/* 썸네일 — 상단에는 이미지만 */}
       {article?.image_url && (
         <div className="relative rounded-2xl overflow-hidden mb-8 h-72">
-          <Image src={article.image_url} alt="" fill className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
+          <Image src={article.image_url} alt="" fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
         </div>
       )}
 
