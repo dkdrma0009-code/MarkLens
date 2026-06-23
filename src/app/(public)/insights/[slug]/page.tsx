@@ -1,6 +1,7 @@
 import { createPublicClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getCategoryMeta } from "@/lib/category"
+import { isHotlinkBlocked } from "@/lib/images"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import ArticleChat from "@/components/ArticleChat"
@@ -145,10 +146,15 @@ export default async function InsightDetailPage({ params }: Props) {
         인사이트 목록
       </Link>
 
-      {/* 썸네일 — 상단에는 이미지만 */}
+      {/* 썸네일 — 상단에는 이미지만. 핫링크 차단 매체는 깨진 이미지 대신 카테고리 그라데이션 폴백
+          (InsightCard 카드와 동일 정책 — 저작권 존중 + 깨짐 방지) */}
       {article?.image_url && (
         <div className="relative rounded-2xl overflow-hidden mb-8 h-72">
-          <Image src={article.image_url} alt="" fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
+          {isHotlinkBlocked(article.image_url) ? (
+            <div className={`absolute inset-0 bg-gradient-to-br ${meta.gradient}`} />
+          ) : (
+            <Image src={article.image_url} alt="" fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
+          )}
         </div>
       )}
 
