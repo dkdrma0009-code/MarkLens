@@ -11,6 +11,7 @@ Supabase는 마이그레이션 CLI 없이 **대시보드 → SQL Editor에 직�
 | 004 | `004_insight_lab.sql` | 인사이트 랩 테이블 (insight_challenges/sessions/notes/user_stats) + RLS + 샘플 챌린지 | — |
 | 005 | `005_grants.sql` | public 스키마 전체 GRANT ALL (PostgREST 접근용) | 001~004 (모든 테이블 생성 후) |
 | 006 | `006_grants_tighten.sql` | anon/authenticated 권한을 최소 집합으로 축소 (005를 덮어씀) | **반드시 005 이후** |
+| 007 | `007_newsletter_approved_at.sql` | newsletter_issues.approved_at 추가 (코드가 기대하나 누락됐던 컬럼 — 발송 후 상태 업데이트·승인 워크플로용) | 001 |
 
 ## 주의
 
