@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import InsightCard from "@/components/InsightCard"
 import { Search, X } from "lucide-react"
@@ -21,16 +22,23 @@ const CATEGORIES = [
 const PAGE_SIZE = 12
 
 interface Props {
-  category?: string
   allInsights: Insight[]
 }
 
-export default function InsightsClient({ category, allInsights }: Props) {
+export default function InsightsClient({ allInsights }: Props) {
+  // 카테고리는 URL 쿼리에서 읽는다 — 서버가 searchParams를 안 읽어 페이지가 캐시(ISR)되고,
+  // 카테고리 전환은 서버 왕복 없이 클라이언트 필터로 즉시 반영된다.
+  const searchParams = useSearchParams()
+  const category = searchParams.get("category") ?? ""
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
   const [, startTransition] = useTransition()
 
+  // 카테고리 전환 시 "더 보기" 페이지 수를 처음으로 리셋
+  useEffect(() => { setPage(1) }, [category])
+
   const filtered = allInsights.filter(insight => {
+    if (category && insight.category !== category) return false
     if (!query) return true
     const q = query.toLowerCase()
     return (
