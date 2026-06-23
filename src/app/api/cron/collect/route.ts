@@ -44,8 +44,10 @@ export async function GET(req: Request) {
       break
     }
     analyzed += ad.analyzed ?? 0
-    // 큐가 비었거나(메시지) 이번 배치에서 한 건도 처리 못 하면(전부 reject/실패) 종료
-    if (ad.message === "No pending articles" || !ad.analyzed) break
+    // 큐가 완전히 빌 때만 종료. 배치가 전부 reject(hook 없음)되면 analyzed=0이지만
+    // 큐엔 아직 pending이 남아 있으므로, analyzed로 끊지 말고 "No pending" 신호로만 끊는다.
+    // (poison 아티클 무한루프는 시간 예산이 차단)
+    if (ad.message === "No pending articles") break
   }
 
   return NextResponse.json({ collect: data, analyzed })
