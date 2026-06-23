@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdmin } from "@/lib/api-auth"
+import { revalidatePublicContent } from "@/lib/revalidate"
 import { NextResponse } from "next/server"
 
 export async function PATCH(
@@ -40,6 +41,9 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: "Update failed" }, { status: 500 })
   }
+
+  // 발행/비발행 변경은 공개 페이지(홈·목록·상세)에 즉시 반영되어야 한다 (ISR 캐시 무효화)
+  revalidatePublicContent()
 
   return NextResponse.json({ success: true })
 }

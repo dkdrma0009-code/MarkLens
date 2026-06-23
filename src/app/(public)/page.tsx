@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { createClient } from "@/lib/supabase/server"
+import { createPublicClient } from "@/lib/supabase/server"
 import InsightCard from "@/components/InsightCard"
 import NewsletterInlineCta from "@/components/NewsletterInlineCta"
 import type { Insight } from "@/types"
@@ -27,7 +27,7 @@ export const revalidate = 3600
 const CAMPAIGN_SOURCES = ["muse-by-clio", "campaign-brief", "adweek", "creative-review"]
 
 export default async function HomePage() {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data: allRecent } = await supabase
     .from("insights")

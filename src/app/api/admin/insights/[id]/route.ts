@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdmin } from "@/lib/api-auth"
+import { revalidatePublicContent } from "@/lib/revalidate"
 import { NextResponse } from "next/server"
 
 export async function PATCH(
@@ -21,6 +22,7 @@ export async function PATCH(
   const { error } = await supabase.from("insights").update(updates).eq("id", id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidatePublicContent() // 편집 내용이 캐시된 공개 페이지에 즉시 반영되게
   return NextResponse.json({ success: true })
 }
 
@@ -49,5 +51,6 @@ export async function DELETE(
     .update({ status: "pending" })
     .eq("id", insight.article_id)
 
+  revalidatePublicContent() // 삭제·비공개 전환이 캐시된 공개 페이지에 즉시 반영되게
   return NextResponse.json({ success: true })
 }

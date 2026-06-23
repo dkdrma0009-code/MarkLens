@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { revalidatePublicContent } from "@/lib/revalidate"
 import { NextResponse } from "next/server"
 
 export async function POST() {
@@ -28,5 +29,6 @@ export async function POST() {
 
   await db.from("articles").update({ status: "published" }).in("id", validIds)
 
+  revalidatePublicContent() // 대량 발행을 공개 페이지에 즉시 반영 (ISR 캐시 무효화)
   return NextResponse.json({ success: true, published: validIds.length })
 }

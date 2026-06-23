@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createPublicClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getCategoryMeta } from "@/lib/category"
 import Link from "next/link"
@@ -14,7 +14,21 @@ import ViewCounter from "@/components/ViewCounter"
 import Image from "next/image"
 import type { Metadata } from "next"
 
-export const dynamic = "force-dynamic"
+// 발행 콘텐츠는 자주 안 바뀌므로 ISR로 캐시(홈·목록과 동일 정책). 공개 데이터만 읽어
+// 쿠키를 안 쓰므로(createPublicClient) 실제로 캐시가 적용된다. 가장 많이 공유되는 페이지의 속도↑.
+export const revalidate = 3600
+
+// 동적 라우트는 generateStaticParams가 있어야 빌드 시 prerender + ISR 캐시된다.
+// 발행된 인사이트 슬러그를 모두 미리 생성. 목록에 없는 신규 슬러그는 dynamicParams 기본값(true)으로
+// 첫 요청 시 on-demand 생성 후 캐시된다. (발행 시 revalidatePublicContent로 즉시 갱신)
+export async function generateStaticParams() {
+  const supabase = createPublicClient()
+  const { data } = await supabase
+    .from("insights")
+    .select("slug, article:articles!inner(status)")
+    .eq("article.status", "published")
+  return (data ?? []).map((i) => ({ slug: i.slug as string }))
+}
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -22,7 +36,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data: insight } = await supabase
     .from("insights")
     .select("hook, summary, category, article:articles(title, image_url, source_name)")
@@ -62,7 +76,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function InsightDetailPage({ params }: Props) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data: insight } = await supabase
     .from("insights")
