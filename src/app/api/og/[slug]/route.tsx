@@ -41,19 +41,19 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "48px",
+          padding: "72px",
           background: `linear-gradient(135deg, ${colors.from}, ${colors.to})`,
           fontFamily: "sans-serif",
         }}
       >
         {/* Top: MarkLens label */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
               background: "rgba(255,255,255,0.2)",
               borderRadius: "999px",
-              padding: "6px 14px",
-              fontSize: "13px",
+              padding: "9px 21px",
+              fontSize: "20px",
               fontWeight: 700,
               color: "white",
               letterSpacing: "0.05em",
@@ -65,8 +65,8 @@ export async function GET(
             style={{
               background: "rgba(255,255,255,0.15)",
               borderRadius: "999px",
-              padding: "6px 14px",
-              fontSize: "13px",
+              padding: "9px 21px",
+              fontSize: "20px",
               fontWeight: 600,
               color: "rgba(255,255,255,0.9)",
             }}
@@ -78,12 +78,12 @@ export async function GET(
         {/* Center: Hook text */}
         <div
           style={{
-            fontSize: hook.length > 30 ? "36px" : "44px",
+            fontSize: hook.length > 30 ? "54px" : "66px",
             fontWeight: 800,
             color: "white",
             lineHeight: 1.25,
             letterSpacing: "-0.02em",
-            maxWidth: "520px",
+            maxWidth: "920px",
           }}
         >
           {hook}
@@ -91,35 +91,35 @@ export async function GET(
 
         {/* Bottom: source */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: "15px", color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+          <div style={{ fontSize: "22px", color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
             {source}
           </div>
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
+              gap: "9px",
               background: "rgba(255,255,255,0.15)",
-              borderRadius: "8px",
-              padding: "8px 16px",
+              borderRadius: "12px",
+              padding: "12px 24px",
             }}
           >
             <div
               style={{
-                width: "8px",
-                height: "8px",
+                width: "12px",
+                height: "12px",
                 borderRadius: "50%",
                 background: "white",
               }}
             />
-            <span style={{ fontSize: "14px", color: "white", fontWeight: 700 }}>marklens.site</span>
+            <span style={{ fontSize: "21px", color: "white", fontWeight: 700 }}>marklens.site</span>
           </div>
         </div>
       </div>
     ),
     {
-      width: 800,
-      height: 450,
+      width: 1200,
+      height: 630,
     }
   )
 }

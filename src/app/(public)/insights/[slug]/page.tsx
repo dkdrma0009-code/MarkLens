@@ -34,8 +34,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = insight.article as { title?: string; image_url?: string } | null
   const title = insight.hook ?? article?.title ?? "MarkLens 인사이트"
   const description = insight.summary ?? "글로벌 마케팅 트렌드에서 선별한 실무 인사이트"
-  const image = article?.image_url
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+  // 공유 이미지는 동적 브랜드 OG 카드(hook 텍스트 + 카테고리 컬러)를 사용.
+  // 원본 기사 image_url은 핫링크 차단 시 깨지고 브랜드도 없어 공유 전환에 불리하므로 쓰지 않는다.
+  const ogImage = `${base}/api/og/${slug}`
 
   return {
     title: `${title} | MarkLens`,
@@ -46,14 +48,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: `${base}/insights/${slug}`,
       siteName: "MarkLens",
-      ...(image ? { images: [{ url: image, width: 1200, height: 630 }] } : {}),
+      images: [{ url: ogImage, width: 1200, height: 630 }],
       type: "article",
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
-      ...(image ? { images: [image] } : {}),
+      images: [ogImage],
     },
   }
 }
