@@ -37,7 +37,14 @@ async function callGeminiModel(model: string, prompt: string, system: string, ma
   )
   const data = await res.json()
   if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(data)}`)
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+  // 빈 응답(safety 차단·MAX_TOKENS로 thinking만 소진 등)은 에러로 취급 → 폴백 체인이 작동하게.
+  // 그냥 ""를 반환하면 호출부(심사·분석)가 파싱 실패로 그대로 죽는다.
+  if (!text.trim()) {
+    const reason = data.candidates?.[0]?.finishReason ?? "empty"
+    throw new Error(`Gemini empty response (${model}, finishReason=${reason})`)
+  }
+  return text
 }
 
 async function callGemini(prompt: string, system: string, maxTokens = 4000): Promise<string> {
