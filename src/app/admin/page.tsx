@@ -29,7 +29,7 @@ export default async function AdminDashboard() {
     // 승인 대기 뉴스레터 (draft + approved_at 없음)
     supabase.from("newsletter_issues").select("id, issue_number, title").eq("status", "draft").is("approved_at", null).limit(1),
     // 오늘 예약 발행 예정인 카드뉴스
-    supabase.from("cardnews").select("id, article_id, scheduled_at").not("scheduled_at", "is", null).is("posted_at", null).lte("scheduled_at", `${todayKst}T23:59:59Z`).limit(5),
+    supabase.from("cardnews").select("article_id, scheduled_at").not("scheduled_at", "is", null).is("posted_at", null).lte("scheduled_at", `${todayKst}T23:59:59Z`).limit(5),
   ])
 
   const stats = [

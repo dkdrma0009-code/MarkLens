@@ -77,7 +77,7 @@ export default async function AdminAnalyticsPage() {
     getNewsletterStats(),
     getInstagramInsights(),
     getThreadsInsights(),
-    supabase.from("subscribers").select("created_at").gte("created_at", since30),
+    supabase.from("subscribers").select("subscribed_at").gte("subscribed_at", since30),
     supabase.from("subscribers").select("unsubscribed_at").not("unsubscribed_at", "is", null).gte("unsubscribed_at", since30),
   ])
 
@@ -89,7 +89,7 @@ export default async function AdminAnalyticsPage() {
     for (const r of rows) { map[r.date] = (map[r.date] ?? 0) + 1 }
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }))
   }
-  const newSubsByDay = groupByDay((newSubsRaw ?? []).map(r => ({ date: r.created_at.slice(0, 10) })))
+  const newSubsByDay = groupByDay((newSubsRaw ?? []).map(r => ({ date: (r.subscribed_at as string).slice(0, 10) })))
   const unsubsByDay = groupByDay((unsubsRaw ?? []).map(r => ({ date: (r.unsubscribed_at as string).slice(0, 10) })))
   const totalNew30 = newSubsRaw?.length ?? 0
   const totalUnsub30 = unsubsRaw?.length ?? 0
