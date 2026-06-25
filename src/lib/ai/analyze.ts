@@ -87,6 +87,63 @@ interface InsightOutput {
   quiz?: object | null
 }
 
+type NarrativeDraft = {
+  hook: string
+  summary: string
+  key_takeaways: string[]
+  why_it_matters: string
+  practical_applications: string
+  interview_points: string[]
+}
+
+// 자기비판·개선 패스(reflexion) — 초안 분석을 편집장 관점으로 다듬는다.
+// 배치(cron) 분석에서만 돌아 사용자 대기에 영향 없음. 실패·불완전 시 원본 유지.
+async function refineAnalysis(article: ArticleInput, draft: NarrativeDraft): Promise<Partial<NarrativeDraft> | null> {
+  if (!draft.hook && !draft.why_it_matters) return null // 빈 초안은 다듬을 게 없음 (webhook이 reject)
+
+  const system = `당신은 MarkLens의 편집장입니다. 후배가 쓴 초안 분석을 더 날카롭게 다듬습니다.
+
+다듬는 기준:
+- 직선 차단: '문제→뻔한 해결'의 1차원 논리를 한 번 꺾어 '판을 옮기는' 통찰로 (예: 탐색이 피곤하다→추천강화 같은 직선 결론 금지).
+- 진부함 제거: "누구나 떠올릴 답"을 독창적 관점으로, 일반론을 구체적 주장으로.
+- 액션 구체화: 실전 적용을 모호한 조언 대신 바로 실행 가능한 단계로.
+- 문장 리듬: 같은 어미 반복·AI투("~을 의미합니다/시사합니다/할 수 있습니다") 제거, 단정형 섞기.
+- 사실 보존: 초안의 사실·고유명사·수치를 바꾸거나 새로 지어내지 말 것. 없는 통계 금지.
+- 마크다운 금지, 한국어. 이미 충분히 좋은 부분은 그대로 두고 약한 부분만 고친다.`
+
+  const prompt = `[원문 제목] ${article.title}
+[원문 일부] ${article.content.slice(0, 1500)}
+
+[초안 분석]
+${JSON.stringify({
+    hook: draft.hook,
+    summary: draft.summary,
+    key_takeaways: draft.key_takeaways,
+    why_it_matters: draft.why_it_matters,
+    practical_applications: draft.practical_applications,
+    interview_points: draft.interview_points,
+  }, null, 1)}
+
+위 초안을 기준에 따라 다듬어 동일한 JSON 스키마로만 출력하세요. JSON 외 텍스트 금지.`
+
+  try {
+    const text = await generateText({ system, prompt, maxTokens: 3000 })
+    const m = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").match(/\{[\s\S]*\}/)
+    if (!m) return null
+    const p = JSON.parse(m[0])
+    const out: Partial<NarrativeDraft> = {}
+    if (typeof p.hook === "string" && p.hook.trim()) out.hook = p.hook.trim()
+    if (typeof p.summary === "string" && p.summary.trim()) out.summary = p.summary
+    if (Array.isArray(p.key_takeaways) && p.key_takeaways.length) out.key_takeaways = p.key_takeaways.map(String)
+    if (typeof p.why_it_matters === "string" && p.why_it_matters.trim()) out.why_it_matters = p.why_it_matters
+    if (typeof p.practical_applications === "string" && p.practical_applications.trim()) out.practical_applications = p.practical_applications
+    if (Array.isArray(p.interview_points) && p.interview_points.length) out.interview_points = p.interview_points.map(String)
+    return Object.keys(out).length ? out : null
+  } catch {
+    return null
+  }
+}
+
 export async function analyzeArticle(article: ArticleInput): Promise<InsightOutput> {
   // 분류 + 분석을 1번 호출로 통합 — AI 호출 횟수 절반으로 감소
   const combinedText = await generateText({
@@ -143,6 +200,10 @@ ${article.content.substring(0, 3000)}
     interview_points: Array.isArray(parsed.interview_points) ? parsed.interview_points : [],
     marketing_terms: Array.isArray(parsed.marketing_terms) ? parsed.marketing_terms : [],
   }
+
+  // 자기비판·개선 패스 (배치 전용 — 사용자 대기 영향 없음). 개선분이 슬러그·퀴즈에도 반영되게 먼저 실행.
+  const refined = await refineAnalysis(article, analysis)
+  if (refined) Object.assign(analysis, refined)
 
   const quizContent = [analysis.why_it_matters, analysis.practical_applications, analysis.summary]
     .filter(Boolean).join("\n\n")
