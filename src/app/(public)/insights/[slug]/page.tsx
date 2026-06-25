@@ -12,6 +12,7 @@ import InterviewSoundbites from "@/components/InterviewSoundbites"
 import ShareButtons from "@/components/ShareButtons"
 import NewsletterInlineCta from "@/components/NewsletterInlineCta"
 import ViewCounter from "@/components/ViewCounter"
+import ReadingProgress from "@/components/ReadingProgress"
 import Image from "next/image"
 import type { Metadata } from "next"
 
@@ -114,6 +115,18 @@ export default async function InsightDetailPage({ params }: Props) {
     insight.practical_applications && { q: "실무에 어떻게 적용하나?", a: String(insight.practical_applications).slice(0, 600) },
   ].filter(Boolean) as { q: string; a: string }[]
 
+  // 목차 — 이 글에 실제로 렌더되는 섹션만 (섹션 id와 1:1 대응)
+  const toc = [
+    insight.summary && { id: "summary", label: "핵심 요약" },
+    insight.key_takeaways?.length && { id: "takeaways", label: "이것만 기억하세요" },
+    insight.why_it_matters && { id: "why", label: "왜 중요한가" },
+    insight.practical_applications && { id: "apply", label: "실전 적용법" },
+    insight.framework_analysis && { id: "framework", label: "프레임워크 분석" },
+    terms.length && { id: "terms", label: "마케팅 용어" },
+    insight.interview_points?.length && { id: "interview", label: "면접 한 마디" },
+    (insight.quiz?.questions?.length || insight.quiz?.question) && { id: "learn", label: "학습 퀴즈" },
+  ].filter(Boolean) as { id: string; label: string }[]
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -166,6 +179,8 @@ export default async function InsightDetailPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+
+      <ReadingProgress color={meta.color} />
 
       {/* Back */}
       <Link href="/insights"
@@ -220,9 +235,26 @@ export default async function InsightDetailPage({ params }: Props) {
         </div>
       </div>
 
+      {/* ── 목차 ── (이 글에 있는 섹션만, 3개 이상일 때만 노출) */}
+      {toc.length >= 3 && (
+        <nav aria-label="목차" className="rounded-2xl border border-gray-100 bg-gray-50/70 p-5 mb-12">
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">목차</p>
+          <ul className="flex flex-wrap gap-x-5 gap-y-2">
+            {toc.map((t) => (
+              <li key={t.id}>
+                <a href={`#${t.id}`} className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  style={{ textDecorationColor: meta.color }}>
+                  {t.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
       {/* ── 핵심 요약 ── */}
       {insight.summary && (
-        <div className="rounded-2xl p-7 mb-14" style={{ backgroundColor: meta.color + "12" }}>
+        <div id="summary" className="scroll-mt-20 rounded-2xl p-7 mb-14" style={{ backgroundColor: meta.color + "12" }}>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-5 rounded-full" style={{ backgroundColor: meta.color }} />
             <span className="text-sm font-bold uppercase tracking-widest" style={{ color: meta.color }}>핵심 요약</span>
@@ -233,7 +265,7 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* ── 이것만 기억하세요 ── */}
       {insight.key_takeaways?.length > 0 && (
-        <Section title="이것만 기억하세요">
+        <Section id="takeaways" title="이것만 기억하세요">
           <div className="space-y-3">
             {insight.key_takeaways.map((item: string, i: number) => (
               <div key={i} className="flex gap-4 p-5 rounded-2xl bg-gray-50 border border-gray-100">
@@ -250,21 +282,21 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* ── 왜 중요한가 ── */}
       {insight.why_it_matters && (
-        <Section title="왜 중요한가">
+        <Section id="why" title="왜 중요한가">
           <Prose text={insight.why_it_matters} />
         </Section>
       )}
 
       {/* ── 실전 적용법 ── */}
       {insight.practical_applications && (
-        <Section title="실전 적용법">
+        <Section id="apply" title="실전 적용법">
           <Prose text={insight.practical_applications} />
         </Section>
       )}
 
       {/* ── 프레임워크 분석 ── */}
       {insight.framework_analysis && (
-        <Section title="프레임워크 분석">
+        <Section id="framework" title="프레임워크 분석">
           <div className="rounded-2xl bg-gray-50 border border-gray-100 p-7">
             <Prose text={insight.framework_analysis} />
           </div>
@@ -273,7 +305,7 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* ── 마케팅 용어 풀이 ── (생성된 marketing_terms 데이터 노출 + 구조화) */}
       {terms.length > 0 && (
-        <Section title="이 글의 마케팅 용어">
+        <Section id="terms" title="이 글의 마케팅 용어">
           <dl className="space-y-3">
             {terms.map((t, i) => (
               <div key={i} className="rounded-2xl bg-gray-50 border border-gray-100 p-5">
@@ -290,14 +322,14 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* ── 면접 한 마디 ── */}
       {insight.interview_points?.length > 0 && (
-        <Section title="면접에서 이렇게 말해보세요">
+        <Section id="interview" title="면접에서 이렇게 말해보세요">
           <InterviewSoundbites items={insight.interview_points} color={meta.color} />
         </Section>
       )}
 
       {/* ── 마케팅 학습하기 ── */}
       {(insight.quiz?.questions?.length > 0 || insight.quiz?.question) && (
-        <Section title="마케팅 학습하기">
+        <Section id="learn" title="마케팅 학습하기">
           <InsightQuiz quiz={insight.quiz} color={meta.color} />
         </Section>
       )}
@@ -361,10 +393,10 @@ export default async function InsightDetailPage({ params }: Props) {
 
 /* ─── 공통 컴포넌트 ─── */
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
     <div className="mb-14">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">{title}</h2>
+      <h2 id={id} className="scroll-mt-20 text-2xl font-bold text-gray-900 mb-6">{title}</h2>
       {children}
     </div>
   )
