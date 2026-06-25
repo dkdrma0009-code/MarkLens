@@ -99,14 +99,27 @@ export default async function InsightDetailPage({ params }: Props) {
   const article = insight.article
   const meta = getCategoryMeta(insight.category)
 
-  // 구글 리치 스니펫용 Article 구조화 데이터
+  // 이 글에 등장하는 마케팅 용어 (생성·저장돼 있으나 그동안 화면에 노출 안 됨 → 복원 + 구조화 데이터)
+  const terms: { term: string; definition: string }[] = Array.isArray(insight.marketing_terms)
+    ? insight.marketing_terms.filter((t: { term?: string; definition?: string }) => t?.term && t?.definition)
+    : []
+
+  // 구글 리치 스니펫 + AI 답변엔진(AEO) 인용용 구조화 데이터
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
+  const title = insight.hook ?? article?.title ?? ""
+  // FAQ — 본문에 실제로 존재하는 Q&A 구조 (요약·왜 중요·실전 적용)
+  const faqs = [
+    insight.summary && { q: `${title} — 핵심은 무엇인가?`, a: String(insight.summary) },
+    insight.why_it_matters && { q: "마케터에게 왜 중요한가?", a: String(insight.why_it_matters).slice(0, 600) },
+    insight.practical_applications && { q: "실무에 어떻게 적용하나?", a: String(insight.practical_applications).slice(0, 600) },
+  ].filter(Boolean) as { q: string; a: string }[]
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "Article",
-        headline: insight.hook ?? article?.title ?? "",
+        headline: title,
         description: insight.summary ?? undefined,
         ...(article?.image_url ? { image: [article.image_url] } : {}),
         datePublished: insight.created_at,
@@ -125,9 +138,24 @@ export default async function InsightDetailPage({ params }: Props) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "인사이트", item: `${base}/insights` },
-          { "@type": "ListItem", position: 2, name: insight.hook ?? article?.title ?? "", item: `${base}/insights/${slug}` },
+          { "@type": "ListItem", position: 2, name: title, item: `${base}/insights/${slug}` },
         ],
       },
+      // FAQPage — AI 답변엔진이 Q&A를 인용하기 쉽게
+      ...(faqs.length ? [{
+        "@type": "FAQPage",
+        mainEntity: faqs.map(f => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      }] : []),
+      // DefinedTermSet — 마케팅 용어 정의 (AEO에서 정의는 인용 가치 높음)
+      ...(terms.length ? [{
+        "@type": "DefinedTermSet",
+        name: `${title} — 마케팅 용어`,
+        hasDefinedTerm: terms.map(t => ({ "@type": "DefinedTerm", name: t.term, description: t.definition })),
+      }] : []),
     ],
   }
 
@@ -240,6 +268,23 @@ export default async function InsightDetailPage({ params }: Props) {
           <div className="rounded-2xl bg-gray-50 border border-gray-100 p-7">
             <Prose text={insight.framework_analysis} />
           </div>
+        </Section>
+      )}
+
+      {/* ── 마케팅 용어 풀이 ── (생성된 marketing_terms 데이터 노출 + 구조화) */}
+      {terms.length > 0 && (
+        <Section title="이 글의 마케팅 용어">
+          <dl className="space-y-3">
+            {terms.map((t, i) => (
+              <div key={i} className="rounded-2xl bg-gray-50 border border-gray-100 p-5">
+                <dt className="text-base font-bold text-gray-900 mb-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full mr-2 align-middle" style={{ backgroundColor: meta.color }} />
+                  {t.term}
+                </dt>
+                <dd className="text-base leading-relaxed text-gray-600">{t.definition}</dd>
+              </div>
+            ))}
+          </dl>
         </Section>
       )}
 
