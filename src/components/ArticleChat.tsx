@@ -125,6 +125,7 @@ export default function ArticleChat({ context, color }: { context: string; color
               <span className="text-sm font-bold text-white">AI에게 물어보세요</span>
             </div>
             <button onClick={() => { setOpen(false); abortRef.current?.abort() }}
+              aria-label="채팅 닫기"
               className="text-white/80 hover:text-white transition-colors">
               <X className="w-4 h-4" />
             </button>
@@ -168,12 +169,14 @@ export default function ArticleChat({ context, color }: { context: string; color
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="질문을 입력하세요..."
+              aria-label="질문 입력"
               disabled={streaming}
               className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 transition-colors disabled:opacity-60"
             />
             <button
               onClick={send}
               disabled={streaming || !input.trim()}
+              aria-label="질문 전송"
               className="px-3 py-2 rounded-xl text-white disabled:opacity-40 transition-opacity flex-shrink-0"
               style={{ backgroundColor: color }}
             >

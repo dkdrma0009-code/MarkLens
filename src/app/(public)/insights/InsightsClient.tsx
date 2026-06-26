@@ -78,6 +78,7 @@ export default function InsightsClient({ allInsights }: Props) {
           {query && (
             <button
               onClick={() => handleSearch("")}
+              aria-label="검색어 지우기"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               <X className="w-3.5 h-3.5" />
