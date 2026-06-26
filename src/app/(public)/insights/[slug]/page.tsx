@@ -332,6 +332,9 @@ export default async function InsightDetailPage({ params }: Props) {
               </div>
             ))}
           </dl>
+          <Link href="/glossary" className="inline-block mt-4 text-sm text-gray-400 hover:text-gray-900 transition-colors">
+            → 전체 마케팅 용어 사전 보기
+          </Link>
         </Section>
       )}
 
