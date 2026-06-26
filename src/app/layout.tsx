@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   },
   title: "MarkLens — Where Marketing Trends Become Action",
   description: "마케팅 트렌드를 선별해 실무와 포트폴리오에 바로 적용 가능한 인사이트로 전합니다. 주니어 마케터와 취준생을 위한 마케팅 미디어.",
+  // RSS 피드 자동 발견 (브라우저·RSS 리더)
+  alternates: {
+    types: { "application/rss+xml": "/feed.xml" },
+  },
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
