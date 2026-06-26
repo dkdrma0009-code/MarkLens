@@ -88,14 +88,29 @@ export default async function InsightDetailPage({ params }: Props) {
 
   if (!insight) notFound()
 
-  const { data: related } = await supabase
+  // 관련 인사이트 — 같은 카테고리만 보는 대신 태그·키워드 겹침으로 관련도 랭킹.
+  // 후보를 넉넉히 받아 JS에서 점수화(겹침×2 + 같은 카테고리 보너스, 최신순 동점 처리).
+  // ISR 캐시라 이 연산은 빌드/재검증 시점에만 돈다.
+  const { data: relatedPool } = await supabase
     .from("insights")
     .select("*, article:articles!inner(*)")
-    .eq("category", insight.category)
     .eq("articles.status", "published")
     .neq("id", insight.id)
     .order("created_at", { ascending: false })
-    .limit(3)
+    .limit(60)
+
+  const myTags = new Set(
+    [...(insight.tags ?? []), ...(insight.keywords ?? [])].map((s: string) => String(s).toLowerCase())
+  )
+  const related = (relatedPool ?? [])
+    .map((c) => {
+      const ct = [...((c.tags as string[]) ?? []), ...((c.keywords as string[]) ?? [])].map((s) => String(s).toLowerCase())
+      const overlap = ct.filter((t) => myTags.has(t)).length
+      return { c, score: overlap * 2 + (c.category === insight.category ? 1 : 0) }
+    })
+    .sort((a, b) => b.score - a.score) // 동점은 최신순(쿼리 정렬 + 안정 정렬)
+    .slice(0, 3)
+    .map((s) => s.c)
 
   const article = insight.article
   const meta = getCategoryMeta(insight.category)
