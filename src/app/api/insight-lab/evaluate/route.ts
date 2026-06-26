@@ -47,12 +47,6 @@ ${getTechniquesForPrompt()}
   "techniqueExplanation": "해당 기법의 작동 원리 2-3문장 (일반론, 특정 작품 인용 금지)",
   "techniqueExample": "이 케이스에 기법을 적용한 가상 예시 (실존 사례 아님을 명시)",
   "clicheWords": ["뻔한단어1", "뻔한단어2"],
-  "comments": {
-    "observation": "관찰력 코멘트",
-    "analysis": "분석력 코멘트",
-    "insight": "인사이트력 코멘트",
-    "strategy": "전략력 코멘트"
-  },
   "summary": "심사위원 총평 1-2문장",
   "tips": ["구체적 개선 팁 1", "구체적 개선 팁 2"]
 }`
@@ -72,7 +66,9 @@ ${article}
 
 function parseResponse(raw: string): InsightFeedback | null {
   try {
-    const match = raw.match(/\{[\s\S]*\}/)
+    // 마크다운 펜스 제거 후 첫 JSON 블록 추출
+    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "")
+    const match = cleaned.match(/\{[\s\S]*\}/)
     if (!match) return null
     const p = JSON.parse(match[0])
     const scores: InsightScores = {
@@ -137,10 +133,17 @@ export async function POST(req: Request) {
   }
   if (!articleText) return NextResponse.json({ error: "기사 내용이 없습니다" }, { status: 400 })
 
-  // 심사
-  const raw = await generateText({ system: buildJudgeSystem(), prompt: buildPrompt(articleText, answers), maxTokens: 1200 })
+  // 심사 — 근거 포함 출력이 길어 토큰을 넉넉히(이전 1200은 truncation으로 "심사 실패"의 원인).
+  // generateText(일반 모드)가 flash-lite의 JSON-모드 빈응답 문제 없이 더 안정적.
+  let raw: string
+  try {
+    raw = await generateText({ system: buildJudgeSystem(), prompt: buildPrompt(articleText, answers), maxTokens: 2500 })
+  } catch {
+    // 모든 AI 프로바이더 실패(예: Gemini 503 과부하 + Claude/OpenAI 크레딧 소진) — 친절한 안내
+    return NextResponse.json({ error: "심사위원이 잠시 몰려 있어요. 30초 후 다시 시도해주세요." }, { status: 503 })
+  }
   const feedback = parseResponse(raw)
-  if (!feedback) return NextResponse.json({ error: "심사 실패 — 다시 시도해주세요" }, { status: 500 })
+  if (!feedback) return NextResponse.json({ error: "심사 결과를 못 읽었어요. 다시 시도해주세요." }, { status: 500 })
 
   // 세션 저장
   const { data: session } = await supabase.from("insight_sessions").insert({
