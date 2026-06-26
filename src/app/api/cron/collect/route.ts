@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { sendAdminAlert } from "@/lib/alert"
+import { runOnboardingDrip } from "@/lib/newsletter/onboarding"
 
 // Vercel Cron이 매일 UTC 00:00에 호출
 // CRON_SECRET 환경변수로 인증
@@ -27,6 +28,11 @@ export async function GET(req: Request) {
       `오류: ${data.error ?? JSON.stringify(data)}\n시각: ${new Date().toISOString()}`
     )
   }
+
+  // 1.5) 온보딩 드립 — 신규 구독자에게 단계별 활성화 메일 발송 (별도 크론 슬롯 안 늘리려 여기 통합).
+  //      빠르고(이메일 몇 통) 중요하므로 긴 분석 루프 앞에서 먼저 실행. 컬럼 없으면 no-op.
+  let drip = { sent: 0 }
+  try { drip = await runOnboardingDrip() } catch { /* 드립 실패는 수집·분석에 영향 없음 */ }
 
   // 2) 분석 — 과거 n8n 단독 의존으로 분석이 멈췄던 사고 재발 방지.
   //    analyze-pending은 1회 5건 처리하므로, maxDuration 내 시간 예산 안에서 pending 큐가 빌 때까지 반복 호출한다.
@@ -72,5 +78,5 @@ export async function GET(req: Request) {
     }
   } catch { /* 헬스체크 실패는 본 작업에 영향 없음 */ }
 
-  return NextResponse.json({ collect: data, analyzed, staleBacklog })
+  return NextResponse.json({ collect: data, analyzed, staleBacklog, dripSent: drip.sent })
 }
