@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { formatDate } from "@/lib/utils"
 import Link from "next/link"
 import InsightActions from "./InsightActions"
+import ShareCopy from "./ShareCopy"
 
 export const dynamic = "force-dynamic"
 
@@ -12,7 +13,7 @@ export default async function AdminInsightsPage() {
 
   const { data: insights } = await supabase
     .from("insights")
-    .select("id, slug, hook, category, view_count, created_at, article_id, article:articles(title, source_name, status)")
+    .select("id, slug, hook, summary, tags, category, view_count, created_at, article_id, article:articles(title, source_name, status)")
     .order("created_at", { ascending: false })
     .limit(200)
 
@@ -20,6 +21,8 @@ export default async function AdminInsightsPage() {
     id: string
     slug: string
     hook?: string | null
+    summary?: string | null
+    tags?: string[] | null
     category?: string | null
     view_count?: number | null
     created_at: string
@@ -91,7 +94,12 @@ export default async function AdminInsightsPage() {
                     {formatDate(insight.created_at)}
                   </td>
                   <td className="px-4 py-3">
-                    <InsightActions insightId={insight.id} />
+                    <div className="flex items-center gap-2">
+                      {insight.article?.status === "published" && (
+                        <ShareCopy hook={insight.hook} summary={insight.summary} slug={insight.slug} category={insight.category} tags={insight.tags} />
+                      )}
+                      <InsightActions insightId={insight.id} />
+                    </div>
                   </td>
                 </tr>
               ))}
