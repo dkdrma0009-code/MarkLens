@@ -123,6 +123,7 @@ async function refineAnalysis(article: ArticleInput, draft: NarrativeDraft): Pro
 - 균형(신뢰도): 트렌드를 무비판적으로 찬양만 하면, 함정·한계·반대 시각을 why_it_matters에 한 줄 더한다("단, ~는 과장일 수 있다" / "모든 브랜드에 통하진 않는다"). 단 근거 없는 비관도 금지.
 - 문장 리듬: 같은 어미 반복·AI투("~을 의미합니다/시사합니다/할 수 있습니다") 제거, 단정형 섞기.
 - 사실 보존: 초안의 사실·고유명사·수치를 바꾸거나 새로 지어내지 말 것. 없는 통계 금지.
+- hook(최고 레버): 제목·공유카드·슬러그를 전부 결정한다. 머릿속으로 서로 다른 각도(반전/숫자/질문/위기감)의 후보 5개를 떠올린 뒤, 가장 강한 1개만 hook으로 출력한다. 20~35자, 단정형, 진부어("~이 중요해지고 있다","새로운 시대") 금지, 구체적 그림·고유명사. 좋은 예: "검색은 죽지 않았다. 검색창이 사라졌을 뿐"
 - 마크다운 금지, 한국어. 이미 충분히 좋은 부분은 그대로 두고 약한 부분만 고친다.`
 
   const prompt = `[원문 제목] ${article.title}
@@ -138,7 +139,7 @@ ${JSON.stringify({
     interview_points: draft.interview_points,
   }, null, 1)}
 
-위 초안을 기준에 따라 다듬어 동일한 JSON 스키마로만 출력하세요. JSON 외 텍스트 금지.`
+위 초안을 기준에 따라 다듬어 동일한 JSON 스키마로만 출력하세요(hook은 후보 5개 중 최고 1개). JSON 외 텍스트 금지.`
 
   try {
     const text = await generateText({ system, prompt, maxTokens: 3000 })
@@ -153,37 +154,6 @@ ${JSON.stringify({
     if (typeof p.practical_applications === "string" && p.practical_applications.trim()) out.practical_applications = p.practical_applications
     if (Array.isArray(p.interview_points) && p.interview_points.length) out.interview_points = p.interview_points.map(String)
     return Object.keys(out).length ? out : null
-  } catch {
-    return null
-  }
-}
-
-// hook 전용 best-of-N — hook은 제목·OG 공유카드·슬러그·공유문구를 전부 결정하는 최고 레버 필드.
-// 후보 5개를 발산시킨 뒤 가장 강한 1개를 고른다. 배치 전용. 실패 시 원본 hook 유지.
-async function generateBestHook(article: ArticleInput, draftHook: string, summary: string): Promise<string | null> {
-  const system = `당신은 한국어 마케팅 카피라이터입니다. 인사이트 글의 후킹 제목(hook)을 뽑습니다.
-
-좋은 hook의 조건:
-- 20~35자. 반전·의외성·궁금증·위기감 중 하나를 담는다.
-- 단정형. 진부한 표현 금지("~이 중요해지고 있다", "새로운 시대", "주목받고 있다").
-- 추상어 대신 구체적 그림. 가능하면 고유명사·숫자.
-좋은 예: "검색은 죽지 않았다. 검색창이 사라졌을 뿐" / "광고는 끝났다. 브랜드는 사람을 빌린다" / "1초 만에 스킵당하는 광고, 그래서 더 짧아진다"`
-
-  const prompt = `주제: ${article.title}
-요약: ${summary}
-현재 초안 hook: ${draftHook || "(없음)"}
-
-서로 다른 각도(반전/숫자/질문/위기감)의 hook 후보 5개를 만들고, 가장 강한 1개를 best로 고르세요.
-JSON으로만 출력: {"candidates":["...","...","...","...","..."],"best":"가장 강한 하나"}`
-
-  try {
-    const text = await generateText({ system, prompt, maxTokens: 800 })
-    const m = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").match(/\{[\s\S]*\}/)
-    if (!m) return null
-    const best = String(JSON.parse(m[0]).best ?? "").trim()
-    // 유효성: 적당한 길이, 마크다운/따옴표 잔여 제거
-    const clean = best.replace(/^["']|["']$/g, "").trim()
-    return clean.length >= 8 && clean.length <= 60 ? clean : null
   } catch {
     return null
   }
@@ -251,13 +221,10 @@ practical_applications 예: "첫째, 콘텐츠를 질문-답변 구조로 다시
     marketing_terms: Array.isArray(parsed.marketing_terms) ? parsed.marketing_terms : [],
   }
 
-  // 자기비판·개선 패스 (배치 전용 — 사용자 대기 영향 없음). 개선분이 슬러그·퀴즈에도 반영되게 먼저 실행.
+  // 자기비판·개선 패스 (배치 전용 — 사용자 대기 영향 없음). hook best-of-N도 이 패스에 통합(2패스로 유지).
+  // 개선분이 슬러그·퀴즈에도 반영되게 먼저 실행.
   const refined = await refineAnalysis(article, analysis)
   if (refined) Object.assign(analysis, refined)
-
-  // hook 전용 best-of-N — 제목·OG카드·슬러그·공유문구를 결정하는 최고 레버 필드만 집중 강화
-  const bestHook = await generateBestHook(article, analysis.hook, analysis.summary)
-  if (bestHook) analysis.hook = bestHook
 
   const quizContent = [analysis.why_it_matters, analysis.practical_applications, analysis.summary]
     .filter(Boolean).join("\n\n")

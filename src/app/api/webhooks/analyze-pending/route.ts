@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     .eq("status", "pending")
     .not("raw_content", "is", null)
     .order("created_at", { ascending: true })
-    .limit(5)
+    .limit(3) // 분석이 article당 2패스(생성+refine)로 무거워져 배치 축소 — 크론 타임아웃 방지
 
   if (!articles || articles.length === 0) {
     return NextResponse.json({ message: "No pending articles", analyzed: 0 })

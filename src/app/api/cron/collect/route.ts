@@ -36,7 +36,9 @@ export async function GET(req: Request) {
 
   // 2) 분석 — 과거 n8n 단독 의존으로 분석이 멈췄던 사고 재발 방지.
   //    analyze-pending은 1회 5건 처리하므로, maxDuration 내 시간 예산 안에서 pending 큐가 빌 때까지 반복 호출한다.
-  const ANALYZE_BUDGET_MS = 230_000 // 300s 한도 내 여유 확보
+  // 분석이 article당 2패스(생성+refine)로 무거워져 예산 축소 — 마지막 호출이 끝나도 maxDuration 300s 내.
+  // (수집·온보딩·적체체크 오버헤드 + 마지막 analyze 호출 시간을 합쳐도 300s 안에 들도록)
+  const ANALYZE_BUDGET_MS = 150_000
   const startedAt = Date.now()
   let analyzed = 0
   while (Date.now() - startedAt < ANALYZE_BUDGET_MS) {
