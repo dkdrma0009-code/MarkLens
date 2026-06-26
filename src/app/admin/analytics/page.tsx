@@ -106,6 +106,19 @@ export default async function AdminAnalyticsPage() {
   const totalViews = typedInsights.reduce((sum, i) => sum + (i.view_count ?? 0), 0)
   const totalLikes = Object.values(likeMap).reduce((sum, n) => sum + n, 0)
 
+  // 카테고리별 성과 — "어떤 주제가 평균적으로 잘 먹히나"(큐레이션·생성 피드백). 평균 조회수 내림차순.
+  const catAgg: Record<string, { count: number; views: number; likes: number }> = {}
+  for (const ins of typedInsights) {
+    const c = ins.category ?? "기타"
+    const a = (catAgg[c] = catAgg[c] ?? { count: 0, views: 0, likes: 0 })
+    a.count++
+    a.views += ins.view_count ?? 0
+    a.likes += likeMap[ins.id] ?? 0
+  }
+  const catPerf = Object.entries(catAgg)
+    .map(([cat, v]) => ({ cat, ...v, avgViews: v.count ? v.views / v.count : 0 }))
+    .sort((a, b) => b.avgViews - a.avgViews)
+
   const stats = [
     { label: "전체 아티클", value: totalArticles ?? 0 },
     { label: "발행된 인사이트", value: publishedArticles ?? 0 },
@@ -156,6 +169,40 @@ export default async function AdminAnalyticsPage() {
           </div>
         ))}
       </div>
+
+      {/* 카테고리별 성과 — 무엇을 더 다룰지(큐레이션·생성) 결정 신호 */}
+      {catPerf.length > 0 && (
+        <div className="border border-border rounded-lg overflow-hidden bg-background mb-8">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-medium">카테고리별 성과</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">평균 조회수 높은 주제를 더 다루는 신호로 활용</p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/30">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-8">#</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">글 수</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">평균 조회</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">총 조회</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">좋아요</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {catPerf.map((c, i) => (
+                <tr key={c.cat} className="hover:bg-muted/20 transition-colors">
+                  <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{i + 1}</td>
+                  <td className="px-4 py-3 font-medium">{c.cat}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{c.count}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold">{c.avgViews.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{c.views.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{c.likes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Insights Table */}
       {typedInsights.length > 0 && (
