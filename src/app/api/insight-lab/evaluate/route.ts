@@ -6,7 +6,7 @@ import { getTechniquesForPrompt } from "@/lib/insight-lab/techniques"
 import type { InsightFeedback, InsightScores } from "@/types/insight-lab"
 
 function buildJudgeSystem(): string {
-  return `당신은 마케팅 공모전 본선 심사위원입니다. 칭찬이 아니라 '직선/꺾기'를 가려내는 게 임무입니다.
+  return `당신은 마케팅 공모전 본선 심사위원입니다. 사용자의 답을 실제로 읽고, 근거를 들어 평가합니다.
 
 직선의 정의: 문제→해결이 곧장 이어지면 진부합니다.
 예) 탐색이 피곤하다→추천 강화 / 시간이 없다→빠르게 / 인지도가 낮다→광고 확대
@@ -15,19 +15,28 @@ function buildJudgeSystem(): string {
 평가 기준:
 - pivot(꺾임 점수, 1-5): 판을 옮겼나. 5=완전히 옮김. 직선이면 1-2.
 - cliche(진부함 점수, 1-5): "이 답을 떠올릴 사람이 몇 %일까" 관점. 5=누구나 생각함. 1-2=독창적.
-- observation(관찰력, 0-100): 현상을 구체적·정확하게 포착했는가.
-- analysis(분석력, 0-100): 원인을 논리적·깊이 있게 분석했는가.
+- observation(관찰력, 0-100): 현상·맥락을 구체적·정확하게 포착했는가.
+- analysis(분석력, 0-100): 원인을 논리적·깊이 있게 짚었는가.
 - insight(인사이트력, 0-100): 핵심 인사이트가 날카롭고 독창적인가.
 - strategy(전략력, 0-100): 브랜드 기회가 구체적이고 실행 가능한가.
 
-활용 가능한 꺾기 기법 사전 (techniqueId → 이름 · 트리거):
+활용 가능한 꺾기 기법 사전:
 ${getTechniquesForPrompt()}
+
+판정 원칙 (가장 중요):
+- 무조건 직선이라 단정하지 말 것. 사용자의 '인사이트'와 '브랜드 기회'를 실제로 읽고 판정한다.
+- 점수 일관성 필수: 진부하고 뻔한 답(cliche 4-5)은 pivot이 낮다(1-2). 독창적으로 판을 옮긴 답(pivot 4-5)은 cliche가 낮다(1-2). pivot과 cliche가 둘 다 높은 모순은 금지.
+- "꺾였다"는 오직 '판을 잘 옮겨 독창적이다'는 긍정 의미로만 쓴다. 논점에서 벗어났다는 뜻으로 쓰지 말 것.
+- pivotJudgment 형식:
+  · pivot<=2 → "아직 직선입니다 — <사용자 답의 어느 부분이 왜 뻔한지 근거>"
+  · pivot>=3 → "잘 꺾었습니다 — <무엇을 어떻게 옮겼는지>"
+- 직선일 때 reframeQuestion은 '판을 어디로 옮길지' 묻는 질문. 이미 꺾였으면 '한 단계 더' 밀어주는 질문.
+- clicheReason·reframeQuestion은 사용자 답의 구체적 표현·논리를 근거로. 정답을 주지 말고 질문으로만.
+- 막연한 칭찬("좋네요") 금지.
 
 출력 규칙:
 - JSON 형식으로만 응답. 다른 텍스트 절대 포함 금지.
-- techniqueExample 필드: 반드시 "이렇게 꺾을 수도 있습니다(가상 예시)"로 표기. 실존 캠페인/수상작 내용을 사실처럼 서술 금지. 특정 브랜드 실제 사례를 지어내는 것 금지.
-- 막연한 칭찬("좋네요") 금지. 직선이면 "아직 직선입니다"라고 단언.
-- reframeQuestion: 정답을 주지 말고, 질문으로만 제시.
+- techniqueExample: "이렇게 꺾을 수도 있습니다(가상 예시)"로 표기. 실존 캠페인·수상작·브랜드 사례를 사실처럼 지어내지 말 것.
 
 {
   "scores": { "pivot": 2, "cliche": 4, "observation": 70, "analysis": 60, "insight": 45, "strategy": 55 },
@@ -54,13 +63,11 @@ function buildPrompt(article: string, answers: Record<string, string>): string {
 ${article}
 
 ## 사용자 답변
-1. 현상 관찰: ${answers.step1 || "(미입력)"}
-2. 원인 분석: ${answers.step2 || "(미입력)"}
-3. 숨은 욕구: ${answers.step3 || "(미입력)"}
-4. 핵심 인사이트 (초안): ${answers.step4 || "(미입력)"}
-5. 직선 첫 반응 (꺾기 전): ${answers.linearAnswer || "(미입력)"}
-6. 꺾은 인사이트 (직선 차단 후): ${answers.reframedInsight || "(미입력)"}
-7. 브랜드 기회: ${answers.step5 || "(미입력)"}`
+1. 관찰·맥락: ${answers.observation || "(미입력)"}
+2. 핵심 인사이트: ${answers.insight || "(미입력)"}
+3. 브랜드 기회 (아이디어): ${answers.opportunity || "(미입력)"}
+
+위 답을 읽고, 특히 '브랜드 기회'와 '핵심 인사이트'가 직선인지 꺾였는지 판정하세요.`
 }
 
 function parseResponse(raw: string): InsightFeedback | null {
@@ -113,12 +120,12 @@ export async function POST(req: Request) {
     answers: Record<string, string>
   }
 
-  if (!answers?.step1) return NextResponse.json({ error: "답변이 없습니다" }, { status: 400 })
+  if (!answers?.observation) return NextResponse.json({ error: "답변이 없습니다" }, { status: 400 })
 
   // 길이 제한 (프롬프트 인젝션·토큰 비용 방지)
   if ((customArticle?.length ?? 0) > 3000) return NextResponse.json({ error: "기사가 너무 깁니다 (최대 3000자)" }, { status: 400 })
-  const ANSWER_MAX = 500
-  for (const key of ["step1","step2","step3","step4","linearAnswer","reframedInsight","step5"] as const) {
+  const ANSWER_MAX = 600
+  for (const key of ["observation","insight","opportunity"] as const) {
     if ((answers[key]?.length ?? 0) > ANSWER_MAX) return NextResponse.json({ error: `답변이 너무 깁니다 (${key}, 최대 ${ANSWER_MAX}자)` }, { status: 400 })
   }
 
@@ -140,13 +147,14 @@ export async function POST(req: Request) {
     user_id: user.id,
     challenge_id: challengeId ?? null,
     custom_article_text: customArticle ?? null,
-    step1_observation: answers.step1,
-    step2_cause: answers.step2 ?? "",
-    step3_desire: answers.step3 ?? "",
-    step4_insight: answers.step4 ?? "",
-    step4_linear: answers.linearAnswer ?? "",
-    step4_reframed: answers.reframedInsight ?? "",
-    step5_opportunity: answers.step5 ?? "",
+    // 3단계 재설계: observation/insight/opportunity → 기존 컬럼에 매핑(마이그레이션 없음)
+    step1_observation: answers.observation,
+    step2_cause: "",
+    step3_desire: "",
+    step4_insight: answers.insight ?? "",
+    step4_linear: "",
+    step4_reframed: "",
+    step5_opportunity: answers.opportunity ?? "",
     score_cliche: feedback.scores.cliche,
     score_pivot: feedback.scores.pivot,
     score_observation: feedback.scores.observation,
