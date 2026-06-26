@@ -22,7 +22,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: base, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${base}/insights`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${base}/practice`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
-{ url: `${base}/newsletter`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    // 타깃 검색 의도(마케팅 면접 연습·퀴즈·인사이트 분석 훈련)에 걸리는 도구 페이지 — 색인 대상
+    { url: `${base}/insight-lab`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
+    { url: `${base}/interview`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/learn`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/newsletter`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     ...insightUrls,
   ]
