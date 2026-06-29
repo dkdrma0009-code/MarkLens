@@ -54,11 +54,16 @@ const KIND_LABEL: Record<Question["kind"], string> = {
   behavioral: "🙋 인성·경험 질문",
 }
 
-export default function InterviewSession() {
-  const [stage, setStage] = useState<Stage>("settings")
-  const [role, setRole] = useState(ROLES[0].key)
+interface InterviewSessionProps {
+  externalQuestions?: Question[]
+  externalRole?: string
+}
+
+export default function InterviewSession({ externalQuestions, externalRole }: InterviewSessionProps = {}) {
+  const [stage, setStage] = useState<Stage>(externalQuestions?.length ? "interview" : "settings")
+  const [role, setRole] = useState(externalRole ?? ROLES[0].key)
   const [count, setCount] = useState(5)
-  const [questions, setQuestions] = useState<Question[]>([])
+  const [questions, setQuestions] = useState<Question[]>(externalQuestions ?? [])
   const [current, setCurrent] = useState(0)
   const [answer, setAnswer] = useState("")
   const [feedback, setFeedback] = useState<Feedback | null>(null)
