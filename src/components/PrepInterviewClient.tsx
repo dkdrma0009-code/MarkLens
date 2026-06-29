@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { Loader2 } from "lucide-react"
 import InterviewSession from "@/components/InterviewSession"
 
@@ -24,6 +24,18 @@ export default function PrepInterviewClient() {
   const [count, setCount] = useState(5)
 
   const [questions, setQuestions] = useState<Question[]>([])
+  const [sessionKey, setSessionKey] = useState(0)  // 증가시키면 InterviewSession 재마운트
+
+  async function fetchQuestions(): Promise<Question[]> {
+    const res = await fetch("/api/interview/custom-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyName, jobTitle, jd, coverLetter, portfolio, count }),
+    })
+    const data = await res.json()
+    if (!data.questions?.length) throw new Error(data.error ?? "질문 생성 실패")
+    return data.questions as Question[]
+  }
 
   async function generate() {
     if (!coverLetter.trim() && !jd.trim()) {
@@ -33,14 +45,9 @@ export default function PrepInterviewClient() {
     setError("")
     setLoading(true)
     try {
-      const res = await fetch("/api/interview/custom-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName, jobTitle, jd, coverLetter, portfolio, count }),
-      })
-      const data = await res.json()
-      if (!data.questions?.length) throw new Error(data.error ?? "질문 생성 실패")
-      setQuestions(data.questions)
+      const qs = await fetchQuestions()
+      setQuestions(qs)
+      setSessionKey(k => k + 1)
       setStep("interview")
     } catch (e) {
       setError(e instanceof Error ? e.message : "질문 생성에 실패했어요. 다시 시도해주세요.")
@@ -49,19 +56,51 @@ export default function PrepInterviewClient() {
     }
   }
 
+  // InterviewSession의 "새 질문으로 다시" 버튼이 호출 — 새 질문만 반환, 컴포넌트 재마운트 안 함
+  const handleRetry = useCallback(async (): Promise<Question[]> => {
+    return await fetchQuestions()
+  // fetchQuestions는 클로저로 최신 form state를 참조하므로 deps 포함
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyName, jobTitle, jd, coverLetter, portfolio, count])
+
+  // InterviewSession의 "정보 다시 입력" 버튼이 호출
+  function handleGoBack() {
+    setStep("form")
+  }
+
+  // 자소서 앞부분 요약을 피드백 API에 넘겨 model_answer 맥락화
+  const feedbackContext = [
+    jobTitle && `직무: ${jobTitle}`,
+    companyName && `기업: ${companyName}`,
+    coverLetter.trim() && `자기소개서 요약: ${coverLetter.trim().slice(0, 400)}`,
+  ].filter(Boolean).join("\n")
+
   if (step === "interview") {
     return (
       <div>
-        <div className="mb-8 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+        <div className="mb-8 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
           <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
             {companyName && <span className="font-bold">{companyName}</span>}
             {companyName && jobTitle && " · "}
             {jobTitle && <span>{jobTitle}</span>}
-            {(companyName || jobTitle) && " 맞춤 면접 질문 "}
-            <span className="font-semibold">{questions.length}개</span>가 준비됐어요.
+            {(companyName || jobTitle) && " "}맞춤 질문 <span className="font-bold">{questions.length}개</span> 준비됐어요
           </p>
+          <button
+            onClick={handleGoBack}
+            className="text-xs text-emerald-600 dark:text-emerald-400 underline underline-offset-2 whitespace-nowrap ml-3"
+          >
+            정보 수정
+          </button>
         </div>
-        <InterviewSession externalQuestions={questions} externalRole={jobTitle || "마케팅"} />
+        <InterviewSession
+          key={sessionKey}
+          externalQuestions={questions}
+          externalRole={jobTitle || "마케팅"}
+          externalCompanyName={companyName}
+          feedbackContext={feedbackContext}
+          onGoBack={handleGoBack}
+          onRetry={handleRetry}
+        />
       </div>
     )
   }
@@ -116,10 +155,10 @@ export default function PrepInterviewClient() {
           value={coverLetter}
           onChange={e => setCoverLetter(e.target.value)}
           placeholder="자기소개서 전문 또는 주요 항목 내용을 붙여넣어 주세요."
-          rows={6}
+          rows={7}
           className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
         />
-        <p className="text-xs text-gray-400 mt-1">자기소개서에 언급한 구체적인 경험을 파고드는 질문이 나와요.</p>
+        <p className="text-xs text-gray-400 mt-1">자기소개서에 언급한 구체적인 경험을 파고드는 질문 + 모범답안 맥락화에 활용돼요.</p>
       </div>
 
       <div>
@@ -177,7 +216,7 @@ export default function PrepInterviewClient() {
 
       {loading && (
         <p className="text-center text-sm text-gray-400">
-          자기소개서와 JD를 분석해서 실제 면접관이 물어볼 법한 질문을 만들고 있어요. (10~30초 소요)
+          자기소개서와 채용공고를 분석 중이에요. 10~30초 정도 걸려요.
         </p>
       )}
     </div>

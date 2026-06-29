@@ -9,21 +9,21 @@ interface Question {
   kind: "trend" | "role" | "behavioral"
 }
 
-const SYSTEM = `너는 한국 기업의 마케팅·광고 직무 면접관이야. 지원자의 자기소개서, 포트폴리오, 채용공고를 분석해서 실제 면접에서 나올 법한 맞춤 질문을 만들어.
+const SYSTEM = `너는 한국 기업의 마케팅·MCN·콘텐츠 직무 면접관이야. 지원자의 자기소개서, 포트폴리오, 채용공고를 분석해서 실제 최종 면접에서 나올 법한 날카로운 맞춤 질문을 만들어.
 
 규칙:
-- 자기소개서/포트폴리오에 언급된 구체적인 경험을 파고드는 질문 포함 (추상적 질문 금지)
-- trend: 해당 직무/산업의 최신 트렌드나 실무 지식을 묻는 질문
-- role: 직무 역량을 검증하는 질문
-- behavioral: 자기소개서의 구체적 경험을 파고드는 STAR 기반 질문 (경험 사례 직접 인용)
-- 자연스러운 한국어 구어체 존댓말
+- behavioral: 자기소개서/포트폴리오에 언급된 특정 경험·프로젝트·수치를 직접 언급하며 파고드는 질문. 예: "자기소개서에 언급하신 [프로젝트명]에서 [구체적 상황]을 어떻게 해결하셨나요?"
+  추상적이거나 누구에게나 해당하는 질문 절대 금지 ("본인의 강점은?", "마케팅이란?" 등)
+- role: 해당 기업의 구체적인 직무(JD에 명시된 업무)를 수행하는 능력을 검증하는 실무형 질문
+- trend: 해당 기업이 속한 산업(MCN, 유튜브, 콘텐츠 마케팅 등)의 최신 동향이나 실무 지식을 묻는 질문
+- 자연스러운 한국어 구어체 존댓말 (실제 면접관처럼)
 - 마크다운 금지
 
 JSON만 반환: {"questions":[{"question":"...","kind":"behavioral"},...]}
 `
 
 export async function POST(req: Request) {
-  const limited = checkRateLimit(req, { key: "interview-custom", limit: 5, windowMs: 60_000 })
+  const limited = checkRateLimit(req, { key: "interview-custom", limit: 10, windowMs: 60_000 })
   if (limited) return limited
 
   const body = await req.json().catch(() => ({}))

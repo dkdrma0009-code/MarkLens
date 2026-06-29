@@ -57,10 +57,15 @@ const KIND_LABEL: Record<Question["kind"], string> = {
 interface InterviewSessionProps {
   externalQuestions?: Question[]
   externalRole?: string
+  externalCompanyName?: string  // 리포트 API에 전달
+  feedbackContext?: string  // 자소서/JD 요약 — 피드백 API에 전달해 모범답안 맥락화
+  onGoBack?: () => void     // "직무 바꾸기" 오버라이드 — prep 모드에서 폼으로 돌아가기
+  onRetry?: () => Promise<Question[]>  // "같은 설정으로 다시" 오버라이드 — prep 모드 재생성
 }
 
-export default function InterviewSession({ externalQuestions, externalRole }: InterviewSessionProps = {}) {
-  const [stage, setStage] = useState<Stage>(externalQuestions?.length ? "interview" : "settings")
+export default function InterviewSession({ externalQuestions, externalRole, externalCompanyName, feedbackContext, onGoBack, onRetry }: InterviewSessionProps = {}) {
+  const isPrepMode = !!externalQuestions?.length
+  const [stage, setStage] = useState<Stage>(isPrepMode ? "interview" : "settings")
   const [role, setRole] = useState(externalRole ?? ROLES[0].key)
   const [count, setCount] = useState(5)
   const [questions, setQuestions] = useState<Question[]>(externalQuestions ?? [])
@@ -276,7 +281,7 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
     })
   }
 
-  async function start() {
+  async function start(prevStage: Stage = "settings") {
     setStage("loading")
 
     // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행)
@@ -298,14 +303,21 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
     }
 
     try {
-      const res = await fetch("/api/interview/questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, count }),
-      })
-      const data = await res.json()
-      if (!data.questions?.length) throw new Error()
-      setQuestions(data.questions)
+      let newQuestions: Question[]
+      if (onRetry) {
+        // prep 모드: 커스텀 질문 재생성 (onRetry는 PrepInterviewClient가 주입)
+        newQuestions = await onRetry()
+      } else {
+        const res = await fetch("/api/interview/questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role, count }),
+        })
+        const data = await res.json()
+        if (!data.questions?.length) throw new Error()
+        newQuestions = data.questions
+      }
+      setQuestions(newQuestions)
       setCurrent(0)
       setAnswer("")
       setFeedback(null)
@@ -313,7 +325,7 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
       setReport(null)
       setStage("interview")
     } catch {
-      setStage("settings")
+      setStage(prevStage)
       alert("질문 생성에 실패했어요. 다시 시도해주세요.")
     }
   }
@@ -344,7 +356,7 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
       const res = await fetch("/api/interview/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q.question, answer, role }),
+        body: JSON.stringify({ question: q.question, answer, role, context: feedbackContext }),
       })
       const data = await res.json()
       if (!data.improve) throw new Error()
@@ -364,7 +376,7 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
       const res = await fetch("/api/interview/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, qa }),
+        body: JSON.stringify({ role, qa, companyName: externalCompanyName }),
       })
       const data = await res.json()
       if (!data.summary) throw new Error()
@@ -493,7 +505,7 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
         {speechSupported ? " 마이크 버튼으로 음성 답변도 가능해요." : " (음성 답변은 크롬 브라우저에서 지원돼요)"}
       </div>
 
-      <button onClick={start}
+      <button onClick={() => start("settings")}
         className="w-full py-4 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold hover:opacity-90 transition-opacity">
         면접 시작하기
       </button>
@@ -703,7 +715,7 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
       {report && (
         <>
           <div className="text-center py-10 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{role} · 모의면접 결과</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{role}{isPrepMode ? " · 맞춤 면접 결과" : " · 모의면접 결과"}</p>
             <p className="text-6xl font-black text-gray-900 dark:text-gray-100 mb-2">{report.score}<span className="text-3xl text-gray-400">점</span></p>
             <p className="text-gray-500 text-base px-8 leading-relaxed">{report.summary}</p>
           </div>
@@ -793,13 +805,17 @@ export default function InterviewSession({ externalQuestions, externalRole }: In
       )}
 
       <div className="flex gap-3">
-        <button onClick={start}
+        <button onClick={() => start("report")}
           className="flex-1 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
-          <RotateCcw className="w-4 h-4" /> 같은 직무로 다시
+          <RotateCcw className="w-4 h-4" /> {isPrepMode ? "새 질문으로 다시" : "같은 직무로 다시"}
         </button>
-        <button onClick={() => { stopCamera(); setStage("settings") }}
+        <button onClick={() => {
+          stopCamera()
+          if (onGoBack) onGoBack()
+          else setStage("settings")
+        }}
           className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity">
-          직무 바꾸기
+          {isPrepMode ? "정보 다시 입력" : "직무 바꾸기"}
         </button>
       </div>
     </div>
