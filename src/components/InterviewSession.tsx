@@ -523,6 +523,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 면접 진행 ──
   if (stage === "interview" && q) return (
     <div>
+      {isPrepMode && current === 0 && !feedback && (
+        <div className="mb-5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
+          💡 맞춤 면접 질문이에요. 자기소개서 경험을 구체적으로 답해보세요.
+          {speechSupported ? " 마이크로 소리 내어 말하면 더 효과적이에요." : ""}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm text-gray-400 font-medium">{current + 1} / {questions.length}</span>
         <span className="text-sm text-gray-400">{KIND_LABEL[q.kind] ?? ""}</span>

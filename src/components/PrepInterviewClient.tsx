@@ -68,11 +68,12 @@ export default function PrepInterviewClient() {
     setStep("form")
   }
 
-  // 자소서 앞부분 요약을 피드백 API에 넘겨 model_answer 맥락화
+  // 자소서 + 포트폴리오를 피드백 API에 넘겨 model_answer 맥락화 (600자 한도는 서버 측)
   const feedbackContext = [
     jobTitle && `직무: ${jobTitle}`,
     companyName && `기업: ${companyName}`,
-    coverLetter.trim() && `자기소개서 요약: ${coverLetter.trim().slice(0, 400)}`,
+    portfolio.trim() && `포트폴리오 핵심: ${portfolio.trim().slice(0, 150)}`,
+    coverLetter.trim() && `자기소개서: ${coverLetter.trim().slice(0, 350)}`,
   ].filter(Boolean).join("\n")
 
   if (step === "interview") {
