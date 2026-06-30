@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "prepare": "husky"
+    "prepare": "husky",
+    "shorts:deploy": "node scripts/deploy-shorts-site.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
