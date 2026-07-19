@@ -148,16 +148,29 @@ export async function publishReel(videoUrl: string, caption: string, coverUrl?: 
     ...(coverUrl ? { cover_url: coverUrl } : {}),
   })
 
-  // 2) 처리 완료 대기 (동영상 처리는 보통 30~90초 소요)
-  for (let i = 0; i < 30; i++) {
+  // 2) 처리 완료 대기 — FINISHED까지 폴링. 영상 트랜스코딩은 보통 30~90초, 길면 수 분.
+  //    FINISHED에 도달 못 한 채 발행하면 2207027("not ready")이 나므로, 미도달 시 발행하지 않고 명확히 실패한다.
+  let ready = false
+  for (let i = 0; i < 48; i++) { // 48 × 5s = 240s (라우트 maxDuration 300s 내)
     await new Promise(r => setTimeout(r, 5000))
     const s = await containerStatus(token, reelsId)
-    if (s === "FINISHED") break
+    if (s === "FINISHED") { ready = true; break }
     if (s === "ERROR" || s === "EXPIRED") throw new Error(`릴스 처리 실패: ${s}`)
   }
+  if (!ready) throw new Error("릴스 처리 시간 초과 — 잠시 후 다시 시도하세요")
 
-  // 3) 발행
-  return igPost(token, `${userId}/media_publish`, { creation_id: reelsId })
+  // 3) 발행 — FINISHED 직후에도 잠깐 2207027(not ready)이 날 수 있어 재시도
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 6000))
+    try {
+      return await igPost(token, `${userId}/media_publish`, { creation_id: reelsId })
+    } catch (e) {
+      lastErr = e
+      if (!(e instanceof Error && e.message.includes("2207027"))) throw e
+    }
+  }
+  throw lastErr
 }
 
 // 장수명 토큰 갱신 → app_config에 저장 (cron에서 주기 호출). 반환: 남은 유효일
