@@ -10,6 +10,7 @@ import {
   type CalculateMetadataFunction,
 } from "remotion"
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
+import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
 
 export const FPS = 30
@@ -135,6 +136,7 @@ export function ReelComposition({ slides, category, coverImage }: ReelProps) {
   return (
     <AbsoluteFill style={{ backgroundColor: VTOKENS.BG }}>
       <style>{FONT_CSS}</style>
+      <Bgm />
       {reelSlides.map((slide, i) => (
         <Sequence key={i} from={starts[i]} durationInFrames={durations[i]}>
           <ReelClip

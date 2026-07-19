@@ -10,6 +10,7 @@ import {
   type CalculateMetadataFunction,
 } from "remotion"
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
+import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
 
 export const FPS = 30
@@ -106,6 +107,7 @@ export function ShortsComposition({ slides, category, coverImage }: ShortsProps)
   return (
     <AbsoluteFill style={{ backgroundColor: VTOKENS.BG }}>
       <style>{FONT_CSS}</style>
+      <Bgm />
       {slides.map((slide, i) => (
         <Sequence key={i} from={starts[i]} durationInFrames={durations[i]}>
           <SlideClip
