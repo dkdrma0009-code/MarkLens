@@ -134,6 +134,25 @@ export async function getInstagramInsights(): Promise<IgInsights | null> {
   }
 }
 
+// 단일 게시물 지표 — 성과 진단(diagnose)용. 게시물이 삭제됐거나 지표 미지원이면 null.
+export async function getMediaInsight(
+  mediaId: string,
+): Promise<{ reach: number; likes: number; saved: number; shares: number; comments: number } | null> {
+  try {
+    const token = await getAccessToken()
+    const ins = await fetch(`${GRAPH}/${mediaId}/insights?metric=reach,likes,saved,shares,comments&access_token=${token}`).then(r => r.json())
+    if (!ins?.data) return null
+    const map: Record<string, number> = {}
+    for (const d of ins.data) map[d.name] = d.values?.[0]?.value ?? 0
+    return {
+      reach: map.reach ?? 0, likes: map.likes ?? 0, saved: map.saved ?? 0,
+      shares: map.shares ?? 0, comments: map.comments ?? 0,
+    }
+  } catch {
+    return null
+  }
+}
+
 // 숏츠 릴스 발행: 공개 S3 URL → Instagram Reels 게시물 id
 export async function publishReel(videoUrl: string, caption: string, coverUrl?: string): Promise<string> {
   const token = await getAccessToken()

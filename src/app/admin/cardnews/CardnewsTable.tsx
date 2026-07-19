@@ -46,6 +46,12 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
     articleId: string; outputFile: string; slug: string; caption: string
     kind: "숏츠" | "릴스컷"   // 모달 문구·다운로드 파일명이 렌더한 컷과 어긋나지 않도록
   } | null>(null)
+  const [diagnoseModal, setDiagnoseModal] = useState<{
+    articleId: string; loading: boolean; error?: string
+    verdict?: string; causes?: string[]; fix?: string; newHeadlines?: string[]
+    coverText?: string
+    stats?: { reach: number; likes: number; saved: number; shares: number; comments: number }
+  } | null>(null)
   const router = useRouter()
   const [term, setTerm] = useState(initialTerm ?? "")
   const [termBusy, setTermBusy] = useState(false)
@@ -305,6 +311,23 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
     }
   }
 
+  // 성과 부진 진단 — 발행된 게시물의 IG 지표 + 표지 문구를 AI가 분석해 "왜 안 터졌나 + 새 표지 훅" 제시
+  async function diagnose(r: CardnewsRow) {
+    setDiagnoseModal({ articleId: r.articleId, loading: true })
+    try {
+      const res = await fetch("/api/admin/shorts/diagnose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: r.articleId }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setDiagnoseModal({ articleId: r.articleId, loading: false, error: data.error ?? "진단 실패" }); return }
+      setDiagnoseModal({ articleId: r.articleId, loading: false, ...data })
+    } catch {
+      setDiagnoseModal({ articleId: r.articleId, loading: false, error: "진단 요청 실패" })
+    }
+  }
+
   async function publishToInstagram(r: CardnewsRow) {
     if (!confirm(`"${r.hook ?? "카드뉴스"}"를 인스타그램에 지금 발행할까요?\n실제로 @marklens.site 피드에 게시됩니다.`)) return
     setRowBusy(r.articleId, true)
@@ -327,6 +350,59 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
 
   return (
     <>
+      {/* 성과 진단 리포트 모달 */}
+      {diagnoseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDiagnoseModal(null)}>
+          <div className="bg-background border border-border rounded-xl p-6 w-full max-w-lg shadow-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold mb-3">📉 성과 진단</h3>
+            {diagnoseModal.loading ? (
+              <p className="text-sm text-muted-foreground animate-pulse py-8 text-center">지표 분석 중... (약 10초)</p>
+            ) : diagnoseModal.error ? (
+              <p className="text-sm text-amber-600 py-4">{diagnoseModal.error}</p>
+            ) : (
+              <div className="space-y-4 text-sm">
+                {diagnoseModal.stats && (
+                  <div className="flex flex-wrap gap-1.5 text-xs">
+                    {([["도달", diagnoseModal.stats.reach], ["저장", diagnoseModal.stats.saved], ["공유", diagnoseModal.stats.shares], ["♥", diagnoseModal.stats.likes], ["댓글", diagnoseModal.stats.comments]] as [string, number][]).map(([k, v]) => (
+                      <span key={k} className="px-2 py-1 rounded bg-muted/50 tabular-nums">{k} {v}</span>
+                    ))}
+                  </div>
+                )}
+                {diagnoseModal.coverText && <p className="text-xs text-muted-foreground">표지: {diagnoseModal.coverText}</p>}
+                {diagnoseModal.verdict && <p className="font-medium leading-relaxed">{diagnoseModal.verdict}</p>}
+                {!!diagnoseModal.causes?.length && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">원인</p>
+                    <ul className="space-y-1 list-disc list-inside text-muted-foreground leading-relaxed">
+                      {diagnoseModal.causes.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {diagnoseModal.fix && (
+                  <div className="rounded-md bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 p-3">
+                    <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">🎯 지금 할 것</p>
+                    <p className="leading-relaxed">{diagnoseModal.fix}</p>
+                  </div>
+                )}
+                {!!diagnoseModal.newHeadlines?.length && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">새 표지 훅 (첫 3초)</p>
+                    <div className="space-y-1.5">
+                      {diagnoseModal.newHeadlines.map((h, i) => (
+                        <div key={i} className="text-xs px-3 py-2 rounded-md border border-border whitespace-pre-line">{h}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end mt-5">
+              <button onClick={() => setDiagnoseModal(null)} className="text-xs px-3 py-2 rounded-md border border-border hover:bg-muted/50">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 숏츠 렌더 완료 — 다운로드 / 릴스 발행 선택 모달 */}
       {shortsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -538,6 +614,15 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
                         >
                           🎞 릴스컷
                         </button>
+                        {r.postedAt && (
+                          <button
+                            onClick={() => diagnose(r)}
+                            className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50"
+                            title="성과 진단 — 왜 안 터졌나 + 첫 3초 개선안"
+                          >
+                            📉 진단
+                          </button>
+                        )}
                         {!r.postedAt && (
                           <label
                             title={r.scheduledAt ? `예약됨: ${r.scheduledAt.slice(0, 10)} 해제하려면 클릭 후 날짜 지우기` : "발행 날짜 예약"}
