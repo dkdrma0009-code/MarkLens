@@ -551,7 +551,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
           <thead className="border-b border-border bg-muted/30">
             <tr>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">표지</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">인사이트</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground w-full">인사이트</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">카테고리</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">발행일</th>
@@ -577,7 +577,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
                       {r.usePhoto ? "📷 기사 사진" : "Aa 타이포"}{!r.cardAt ? " · 프리뷰" : ""}
                     </p>
                   </td>
-                  <td className="px-4 py-3 max-w-sm">
+                  <td className="px-4 py-3 w-full max-w-0">
                     <p className="font-medium line-clamp-2 leading-snug">{r.hook ?? "—"}</p>
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{r.title ?? "—"}</p>
                   </td>
