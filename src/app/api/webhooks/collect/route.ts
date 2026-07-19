@@ -5,6 +5,24 @@ import Parser from "rss-parser"
 
 const CAMPAIGN_SLUGS = ["muse-by-clio", "campaign-brief", "adweek", "creative-review"]
 
+// ── 유사 제목 근접 중복 방지 ──
+// URL은 다르지만 같은 사건을 재보도하거나, 정기 리포트가 달마다 거의 같은 제목으로 반복되는 경우
+// (예: "Cable News Ratings for May/June 2026")를 제목 토큰 자카드로 걸러낸다. 주제만 비슷하고
+// 제목이 다른 기사는 안 걸린다(오탐 방지).
+const STOP = new Set(["the", "a", "an", "of", "for", "to", "in", "on", "and", "is", "are", "with", "this", "that", "how", "why", "new", "its", "by", "at", "as", "from", "was", "were", "be", "you", "your", "not", "has", "have", "will", "can", "it", "or", "here", "what", "who"])
+function titleTokens(t: string): Set<string> {
+  return new Set(
+    t.toLowerCase().replace(/[^a-z0-9가-힣\s]/g, " ").split(/\s+/).filter(w => w.length > 1 && !STOP.has(w))
+  )
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0
+  let inter = 0
+  for (const x of a) if (b.has(x)) inter++
+  return inter / (a.size + b.size - inter)
+}
+const SIM_THRESHOLD = 0.6
+
 const parser = new Parser({
   timeout: 10000,
   headers: { "User-Agent": "MarkLens/1.0" },
@@ -71,7 +89,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "No active sources", collected: 0 })
   }
 
+  // 근접 중복 판정용 — 최근 30일 제목 토큰셋 (신규 삽입분도 이 배열에 누적해 같은 실행 내 중복도 차단)
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
+  const { data: recentArts } = await supabase.from("articles").select("title").gte("created_at", since).limit(600)
+  const seenTitles: Set<string>[] = (recentArts ?? []).map(a => titleTokens(a.title ?? "")).filter(s => s.size > 0)
+
   let totalNew = 0
+  let skippedDup = 0
   const errors: string[] = []
 
   for (const source of sources) {
@@ -91,7 +115,14 @@ export async function POST(req: Request) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
 
-        // 중복 체크 후 삽입
+        // 근접 중복(유사 제목) 사전 차단 — 토큰 3개 이상일 때만 판정(짧은 제목 오탐 방지)
+        const tokens = titleTokens(item.title!.trim())
+        if (tokens.size >= 3 && seenTitles.some(s => jaccard(tokens, s) >= SIM_THRESHOLD)) {
+          skippedDup++
+          continue
+        }
+
+        // URL 완전일치 중복은 unique constraint가 차단
         const { error } = await supabase
           .from("articles")
           .insert({
@@ -108,8 +139,7 @@ export async function POST(req: Request) {
           })
           .select()
 
-        if (!error) totalNew++
-        // 중복(unique constraint)은 무시
+        if (!error) { totalNew++; seenTitles.push(tokens) } // 신규분도 누적 → 같은 실행 내 중복 차단
       }
 
       // last_fetched_at 업데이트
@@ -126,6 +156,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     success: true,
     collected: totalNew,
+    skippedDuplicates: skippedDup,
     sources: sources.length,
     errors: errors.length > 0 ? errors : undefined,
   })
