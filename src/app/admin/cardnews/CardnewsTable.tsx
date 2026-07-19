@@ -328,6 +328,27 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
     }
   }
 
+  // 진단이 제안한 새 훅으로 표지 교체 → 자동으로 릴스 재렌더 (도달의 핵심이라 릴스로)
+  async function applyHook(articleId: string, headline: string) {
+    const toastId = toast.loading("표지 교체 중...")
+    try {
+      const res = await fetch("/api/admin/cardnews/set-cover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId, headline }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "표지 교체 실패")
+      patchRow(articleId, { cardAt: new Date().toISOString() }) // 표지 미리보기 캐시버스트
+      toast.success("표지 교체 완료 — 릴스 재렌더 시작" + (data.warnings?.length ? ` (글자수 경고 ${data.warnings.length})` : ""), { id: toastId })
+      setDiagnoseModal(null)
+      const row = rows.find(r => r.articleId === articleId)
+      if (row) await generateShorts(row, "Reel")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "표지 교체 실패", { id: toastId })
+    }
+  }
+
   async function publishToInstagram(r: CardnewsRow) {
     if (!confirm(`"${r.hook ?? "카드뉴스"}"를 인스타그램에 지금 발행할까요?\n실제로 @marklens.site 피드에 게시됩니다.`)) return
     setRowBusy(r.articleId, true)
@@ -389,7 +410,16 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5">새 표지 훅 (첫 3초)</p>
                     <div className="space-y-1.5">
                       {diagnoseModal.newHeadlines.map((h, i) => (
-                        <div key={i} className="text-xs px-3 py-2 rounded-md border border-border whitespace-pre-line">{h}</div>
+                        <div key={i} className="flex items-stretch gap-2">
+                          <div className="flex-1 text-xs px-3 py-2 rounded-md border border-border whitespace-pre-line">{h}</div>
+                          <button
+                            onClick={() => applyHook(diagnoseModal.articleId, h)}
+                            className="text-xs px-2.5 rounded-md font-medium border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 whitespace-nowrap"
+                            title="이 훅으로 표지 교체 후 릴스 재렌더"
+                          >
+                            교체+재렌더
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
