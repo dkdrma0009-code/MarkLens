@@ -123,12 +123,20 @@ function coverScene(s: CoverSlide, category: string, frame: number, duration: nu
     const BAND = 980
     return (
       <div style={CONTAINER_STYLE}>
-        {/* Ken Burns 배경 이미지 */}
+        {/* Ken Burns 배경 이미지.
+            줌은 BAND 높이 창(overflow:hidden) 안에서만 일어나야 한다. 창 없이 이미지에
+            직접 scale을 걸면 하단 경계가 BAND 아래로 밀려나(980→1048) 고정 위치인
+            아래 그라디언트를 벗어나고, 페이드 없이 잘린 사진 끝이 그대로 드러난다. */}
         <div style={{
-          position: "absolute", top: 0, left: 0, width: T.WIDTH, height: BAND, display: "flex",
-          backgroundImage: `url(${coverImage})`, backgroundSize: "cover", backgroundPosition: "center",
-          transform: `scale(${kbScale})`, transformOrigin: "center top",
-        }} />
+          position: "absolute", top: 0, left: 0, width: T.WIDTH, height: BAND,
+          display: "flex", overflow: "hidden",
+        }}>
+          <div style={{
+            width: "100%", height: "100%", display: "flex",
+            backgroundImage: `url(${coverImage})`, backgroundSize: "cover", backgroundPosition: "center",
+            transform: `scale(${kbScale})`, transformOrigin: "center top",
+          }} />
+        </div>
         <div style={{
           position: "absolute", top: BAND - 380, left: 0, width: T.WIDTH, height: 380, display: "flex",
           background: "linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,0.6) 55%, rgba(10,10,10,1) 100%)",
