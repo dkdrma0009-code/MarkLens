@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { refreshIgToken } from "@/lib/instagram"
 import { refreshThreadsToken } from "@/lib/threads"
 import { publishCardnews } from "@/lib/cardnews/publish"
+import { revalidatePublicContent } from "@/lib/revalidate"
 import { sendAdminAlert } from "@/lib/alert"
 import { NextResponse } from "next/server"
 
@@ -82,51 +83,45 @@ export async function GET(req: Request) {
     }
   }
 
-  // ⑥ 자동 파이프라인 스위치 확인 (app_config.ig_auto_publish === "on")
+  // ⑥ 통일 드립 스위치 (app_config.ig_auto_publish === "on")
   const { data: flag } = await supabase.from("app_config").select("value").eq("key", "ig_auto_publish").single()
   if (flag?.value !== "on") {
     return NextResponse.json({ ...result, autoPublish: "off" })
   }
 
-  // ③ 자동 생성: 발행 인사이트 중 카드뉴스 없는 것 최대 3건 생성 (큐 채우기)
-  const { data: pubIns } = await supabase
+  // 하루 1건 통일 드립: ready 인사이트 1개 → 사이트 공개 + 카드뉴스 생성 + IG/Threads 동시 발행.
+  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 최신 것부터 릴리스(신선도 우선).
+  const { data: readyRows } = await supabase
     .from("insights")
-    .select("article_id, created_at, article:articles!inner(status)")
-    .eq("article.status", "published")
+    .select("article_id, hook, summary, created_at, article:articles!inner(status)")
+    .eq("article.status", "ready")
     .order("created_at", { ascending: false })
-    .limit(100)
-  const { data: existing } = await supabase.from("cardnews").select("article_id")
-  const have = new Set((existing ?? []).map(c => c.article_id))
-  const toGen = (pubIns ?? []).filter(i => !have.has(i.article_id)).slice(0, 3)
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
-  let generated = 0
-  for (const ins of toGen) {
-    try {
-      const r = await fetch(`${base}/api/admin/cardnews/generate?secret=${process.env.N8N_WEBHOOK_SECRET}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: ins.article_id }),
-      })
-      if (r.ok) generated++
-    } catch { /* 개별 실패 무시 */ }
+    .limit(5)
+  const pick = (readyRows ?? []).find(r => r.hook && r.summary)
+  if (!pick) {
+    return NextResponse.json({ ...result, autoPublish: "on", drip: "대기 중인 ready 인사이트 없음" })
   }
-  result.generated = generated
+  const articleId = pick.article_id
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
 
-  // ④ 미발행 카드뉴스 중 가장 오래된 1건 발행
-  const { data: next } = await supabase
-    .from("cardnews")
-    .select("article_id")
-    .is("posted_at", null)
-    .order("updated_at", { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // 1) 사이트 공개 (ready → published) + ISR 캐시 무효화
+  await supabase.from("articles").update({ status: "published" }).eq("id", articleId)
+  try { revalidatePublicContent() } catch { /* 무효화 실패는 발행에 영향 없음 */ }
 
-  if (!next) return NextResponse.json({ ...result, autoPublish: "on", published: "없음(모두 발행됨)" })
-
+  // 2) 카드뉴스 생성 (발행 전 반드시 존재해야 함 — 이미 있으면 재생성/갱신)
   try {
-    const postId = await publishCardnews(next.article_id)
-    return NextResponse.json({ ...result, autoPublish: "on", publishedArticleId: next.article_id, postId })
+    await fetch(`${base}/api/admin/cardnews/generate?secret=${process.env.N8N_WEBHOOK_SECRET}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleId }),
+    })
+  } catch (e) { result.cardnewsGenError = e instanceof Error ? e.message : String(e) }
+
+  // 3) IG + Threads 동시 발행 (publishCardnews가 둘 다 처리)
+  try {
+    const postId = await publishCardnews(articleId)
+    return NextResponse.json({ ...result, autoPublish: "on", drip: { articleId, hook: pick.hook, sitePublished: true, postId } })
   } catch (e) {
-    return NextResponse.json({ ...result, autoPublish: "on", publishError: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return NextResponse.json({ ...result, autoPublish: "on", drip: { articleId, sitePublished: true, publishError: e instanceof Error ? e.message : String(e) } }, { status: 500 })
   }
 }
