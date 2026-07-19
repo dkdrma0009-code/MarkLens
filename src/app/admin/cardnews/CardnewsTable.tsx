@@ -44,6 +44,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
   const bulkStop = useRef(false)
   const [shortsModal, setShortsModal] = useState<{
     articleId: string; outputFile: string; slug: string; caption: string
+    kind: "숏츠" | "릴스컷"   // 모달 문구·다운로드 파일명이 렌더한 컷과 어긋나지 않도록
   } | null>(null)
   const router = useRouter()
   const [term, setTerm] = useState(initialTerm ?? "")
@@ -194,15 +195,18 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
     }
   }
 
-  async function generateShorts(r: CardnewsRow) {
+  // composition="Reel"은 릴스컷 — 정보 나열 장면을 빼고 켄번즈 모션을 넣은 짧은 버전
+  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" = "Shorts") {
+    const kind = composition === "Reel" ? "릴스컷" : "숏츠"
+    const prefix = composition.toLowerCase()
     setRowBusy(r.articleId, true)
-    const toastId = toast.loading("숏츠 렌더 시작 중...")
+    const toastId = toast.loading(`${kind} 렌더 시작 중...`)
     try {
       // 1) 렌더 트리거
       const triggerRes = await fetch("/api/admin/shorts/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: r.articleId }),
+        body: JSON.stringify({ articleId: r.articleId, composition }),
       })
       if (!triggerRes.ok) {
         const data = await triggerRes.json().catch(() => ({}))
@@ -216,10 +220,10 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `shorts-${r.articleId.slice(0, 6)}.mp4`
+        a.download = `${prefix}-${r.articleId.slice(0, 6)}.mp4`
         a.click()
         URL.revokeObjectURL(url)
-        toast.success("숏츠 다운로드 완료! 🎬", { id: toastId })
+        toast.success(`${kind} 다운로드 완료! 🎬`, { id: toastId })
         return
       }
 
@@ -242,7 +246,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
         if (status.status === "done" && status.outputFile) {
           toast.success("렌더 완료! 다운로드 또는 릴스 발행을 선택하세요.", { id: toastId })
           // 릴스 캡션 = 카드뉴스 카루셀 풀 캡션(후킹+본문+CTA+해시태그) 재사용, 없으면 hook 폴백
-          setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: caption || r.hook || "" })
+          setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: caption || r.hook || "", kind })
           return
         }
       }
@@ -256,7 +260,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
 
   async function downloadShorts() {
     if (!shortsModal) return
-    const { outputFile, slug, articleId } = shortsModal
+    const { outputFile, slug, articleId, kind } = shortsModal
     setShortsModal(null)
     setRowBusy(articleId, true)
     const toastId = toast.loading("파일 다운로드 중...")
@@ -268,10 +272,10 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `shorts-${slug}.mp4`
+      a.download = `${kind === "릴스컷" ? "reel" : "shorts"}-${slug}.mp4`
       a.click()
       URL.revokeObjectURL(url)
-      toast.success("숏츠 다운로드 완료! 🎬", { id: toastId })
+      toast.success(`${kind} 다운로드 완료! 🎬`, { id: toastId })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "다운로드 실패", { id: toastId })
     } finally {
@@ -327,7 +331,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       {shortsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-background border border-border rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-sm font-semibold mb-1">숏츠 렌더 완료</h3>
+            <h3 className="text-sm font-semibold mb-1">{shortsModal.kind} 렌더 완료</h3>
             <p className="text-xs text-muted-foreground mb-4">다운로드하거나 인스타 릴스로 바로 발행하세요.</p>
             <label className="block text-xs font-medium mb-1.5">릴스 캡션</label>
             <textarea
@@ -525,6 +529,14 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
                           title="9:16 숏츠(mp4) 생성 — AWS Lambda 렌더"
                         >
                           🎬 숏츠
+                        </button>
+                        <button
+                          onClick={() => generateShorts(r, "Reel")}
+                          disabled={isBusy}
+                          className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+                          title="릴스컷(mp4) 생성 — 후킹·의미·실전·CTA 4장 + 켄번즈 모션"
+                        >
+                          🎞 릴스컷
                         </button>
                         {!r.postedAt && (
                           <label

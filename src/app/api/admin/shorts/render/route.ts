@@ -11,8 +11,18 @@ export const maxDuration = 300
 export async function POST(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { articleId } = await req.json().catch(() => ({}))
+  const { articleId, composition } = await req.json().catch(() => ({}))
   if (!articleId) return NextResponse.json({ error: "articleId required" }, { status: 400 })
+
+  // 렌더할 컴포지션. 미지정 시 Shorts — 기존 호출부는 그대로 동작한다.
+  // Reel은 정보 나열 장면(fact·keywords)을 빼고 켄번즈 모션을 넣은 릴스 전용 컷.
+  const COMPOSITIONS = ["Shorts", "Reel"] as const
+  type CompositionId = (typeof COMPOSITIONS)[number]
+  const compositionId: CompositionId = composition ?? "Shorts"
+  if (!COMPOSITIONS.includes(compositionId)) {
+    return NextResponse.json({ error: `composition은 ${COMPOSITIONS.join(" | ")} 중 하나여야 합니다` }, { status: 400 })
+  }
+  const filePrefix = compositionId.toLowerCase()
 
   const supabase = createAdminClient()
   const [{ data: card }, { data: insight }, { data: article }] = await Promise.all([
@@ -50,7 +60,7 @@ export async function POST(req: Request) {
         region: "ap-northeast-2",
         functionName,
         serveUrl,
-        composition: "Shorts",
+        composition: compositionId,
         inputProps: { slides, category, coverImage },
         codec: "h264",
         // private → outputFile이 presigned URL(서명 포함). 다운로드·릴스(IG fetch) 모두 이걸로 동작.
@@ -84,16 +94,16 @@ export async function POST(req: Request) {
     entryPoint: path.default.join(process.cwd(), "src", "remotion", "index.ts"),
     publicDir: path.default.join(process.cwd(), "assets"),
   })
-  const composition = await selectComposition({ serveUrl: localServeUrl, id: "Shorts", inputProps })
-  const outputLocation = path.default.join(os.tmpdir(), `shorts-${slug}-${Date.now()}.mp4`)
-  await renderMedia({ composition, serveUrl: localServeUrl, codec: "h264", outputLocation, inputProps })
+  const selected = await selectComposition({ serveUrl: localServeUrl, id: compositionId, inputProps })
+  const outputLocation = path.default.join(os.tmpdir(), `${filePrefix}-${slug}-${Date.now()}.mp4`)
+  await renderMedia({ composition: selected, serveUrl: localServeUrl, codec: "h264", outputLocation, inputProps })
 
   const buf = await readFile(outputLocation)
   await unlink(outputLocation).catch(() => {})
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "video/mp4",
-      "Content-Disposition": `attachment; filename="shorts-${slug}.mp4"`,
+      "Content-Disposition": `attachment; filename="${filePrefix}-${slug}.mp4"`,
     },
   })
 }

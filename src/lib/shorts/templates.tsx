@@ -40,11 +40,13 @@ function labelFadeOp(frame: number) {
 }
 
 // 하단 푸터
-function footer(page: number, total: number) {
+// showPage=false는 릴스용 — 자동재생 영상에는 넘길 장이 없어 페이지 표시가 의미 없고,
+// 릴스는 슬라이드를 골라 쓰므로 카드뉴스 기준 번호(n/6)가 맞지도 않는다.
+function footer(page: number, total: number, showPage = true) {
   return (
     <div key="footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
       <div style={{ display: "flex", fontSize: 38, fontWeight: 600, color: T.SUB, letterSpacing: "0.12em" }}>MARKLENS</div>
-      <div style={{ display: "flex", fontSize: 38, color: T.SUB }}>{`${page} / ${total}`}</div>
+      {showPage && <div style={{ display: "flex", fontSize: 38, color: T.SUB }}>{`${page} / ${total}`}</div>}
     </div>
   )
 }
@@ -100,7 +102,7 @@ function highlightLine(line: string, highlight: string | undefined, key: number,
 
 /* ── 6종 장면 ── */
 
-function coverScene(s: CoverSlide, category: string, frame: number, duration: number, coverImage?: string | null) {
+function coverScene(s: CoverSlide, category: string, frame: number, duration: number, coverImage?: string | null, showPage = true) {
   // 카테고리 라벨 fade-in
   const catOp = lerp(frame, [0, 8], [0, 1])
 
@@ -142,7 +144,7 @@ function coverScene(s: CoverSlide, category: string, frame: number, duration: nu
           </div>
           {s.sub ? <div style={{ display: "flex", fontSize: 46, color: "#C9C9C9", marginTop: 40, opacity: subOp, transform: `translateY(${subY}px)` }}>{s.sub}</div> : null}
         </div>
-        {footer(1, 6)}
+        {footer(1, 6, showPage)}
       </div>
     )
   }
@@ -161,12 +163,12 @@ function coverScene(s: CoverSlide, category: string, frame: number, duration: nu
         </div>
         {s.sub ? <div style={{ display: "flex", fontSize: 48, color: T.SUB, marginTop: 48, opacity: subOp, transform: `translateY(${subY}px)` }}>{s.sub}</div> : null}
       </div>
-      {footer(1, 6)}
+      {footer(1, 6, showPage)}
     </div>
   )
 }
 
-function factScene(s: FactSlide, frame: number, duration: number) {
+function factScene(s: FactSlide, frame: number, duration: number, showPage = true) {
   // 라벨 → 본문 → 출처 순서로 등장
   const labelOp = labelFadeOp(frame)
   const bodyOp  = lerp(frame, [8, 18], [0, 1])
@@ -185,11 +187,11 @@ function factScene(s: FactSlide, frame: number, duration: number) {
         ? <div style={{ display: "flex", fontSize: 38, color: T.SUB, marginTop: 64, opacity: srcOp }}>출처 · {s.source}</div>
         : null}
     </div>,
-    footer(2, 6),
+    footer(2, 6, showPage),
   ])
 }
 
-function whyScene(s: WhySlide, frame: number, duration: number) {
+function whyScene(s: WhySlide, frame: number, duration: number, showPage = true) {
   const labelOp = labelFadeOp(frame)
 
   // 헤드라인 단어 단위 스프링 스태거
@@ -219,11 +221,11 @@ function whyScene(s: WhySlide, frame: number, duration: number) {
         {s.body}
       </div>
     </div>,
-    footer(3, 6),
+    footer(3, 6, showPage),
   ])
 }
 
-function applyScene(s: ApplySlide, frame: number, duration: number) {
+function applyScene(s: ApplySlide, frame: number, duration: number, showPage = true) {
   const labelOp = labelFadeOp(frame)
   // 실천 포인트 — 스프링 스케일인으로 강조
   const sp     = quickSpring(frame, 8)
@@ -239,11 +241,11 @@ function applyScene(s: ApplySlide, frame: number, duration: number) {
         {s.body}
       </div>
     </div>,
-    footer(4, 6),
+    footer(4, 6, showPage),
   ])
 }
 
-function keywordsScene(s: KeywordsSlide, frame: number, duration: number) {
+function keywordsScene(s: KeywordsSlide, frame: number, duration: number, showPage = true) {
   const labelOp = labelFadeOp(frame)
 
   return wrap(frame, duration, [
@@ -268,11 +270,11 @@ function keywordsScene(s: KeywordsSlide, frame: number, duration: number) {
         )
       })}
     </div>,
-    footer(5, 6),
+    footer(5, 6, showPage),
   ])
 }
 
-function ctaScene(s: CtaSlide, frame: number, duration: number) {
+function ctaScene(s: CtaSlide, frame: number, duration: number, showPage = true) {
   // 헤드라인: 스프링 진입
   const headSp = quickSpring(frame, 0)
   const headOp = headSp
@@ -298,7 +300,7 @@ function ctaScene(s: CtaSlide, frame: number, duration: number) {
         marklens.site
       </div>
     </div>,
-    footer(6, 6),
+    footer(6, 6, showPage),
   ])
 }
 
@@ -426,14 +428,16 @@ export function renderShortScene(
   category: string,
   frame: number,
   duration: number,
-  opts?: { coverImage?: string | null },
+  // showPage 미지정 시 true — 기존 숏츠 출력은 그대로 유지된다.
+  opts?: { coverImage?: string | null; showPage?: boolean },
 ): React.ReactElement {
+  const showPage = opts?.showPage ?? true
   switch (slide.type) {
-    case "cover":    return coverScene(slide, category, frame, duration, opts?.coverImage)
-    case "fact":     return factScene(slide, frame, duration)
-    case "why":      return whyScene(slide, frame, duration)
-    case "apply":    return applyScene(slide, frame, duration)
-    case "keywords": return keywordsScene(slide, frame, duration)
-    case "cta":      return ctaScene(slide, frame, duration)
+    case "cover":    return coverScene(slide, category, frame, duration, opts?.coverImage, showPage)
+    case "fact":     return factScene(slide, frame, duration, showPage)
+    case "why":      return whyScene(slide, frame, duration, showPage)
+    case "apply":    return applyScene(slide, frame, duration, showPage)
+    case "keywords": return keywordsScene(slide, frame, duration, showPage)
+    case "cta":      return ctaScene(slide, frame, duration, showPage)
   }
 }
