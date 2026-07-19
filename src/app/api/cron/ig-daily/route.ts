@@ -90,12 +90,12 @@ export async function GET(req: Request) {
   }
 
   // 하루 1건 통일 드립: ready 인사이트 1개 → 사이트 공개 + 카드뉴스 생성 + IG/Threads 동시 발행.
-  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 최신 것부터 릴리스(신선도 우선).
+  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 오래된 것부터 릴리스(FIFO — 백로그 소진).
   const { data: readyRows } = await supabase
     .from("insights")
     .select("article_id, hook, summary, created_at, article:articles!inner(status)")
     .eq("article.status", "ready")
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: true })
     .limit(5)
   const pick = (readyRows ?? []).find(r => r.hook && r.summary)
   if (!pick) {
