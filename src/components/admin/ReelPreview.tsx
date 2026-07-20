@@ -73,6 +73,7 @@ export default function ReelPreview({
           <div className="flex gap-1.5">
             {([
               ["text", "기본"],
+              ["cinematic", "시네마틱"],
               ["editorial", "에디토리얼"],
               ["fullbleed", "풀블리드"],
             ] as const).map(([v, lbl]) => (
@@ -90,11 +91,13 @@ export default function ReelPreview({
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1.5">
-            {settings.layout === "editorial"
-              ? "DESIGN_PROMPT.md 디자인 시스템 — 흰 배경, 흑백만, 사진 없음."
-              : settings.layout === "fullbleed"
-                ? "장면마다 스톡 사진. 디자인 시스템의 스톡 이미지 금지 조항과 충돌합니다."
-                : "기존 릴스컷 — 검정 배경, 표지에만 사진."}
+            {settings.layout === "cinematic"
+              ? "make-cinematic-photo-reel 스킬의 룩 — 필름 그레이딩·그레인·비네트·중앙 타이틀 카드."
+              : settings.layout === "editorial"
+                ? "DESIGN_PROMPT.md 디자인 시스템 — 흰 배경, 흑백만, 사진 없음."
+                : settings.layout === "fullbleed"
+                  ? "장면마다 스톡 사진, 하단 정렬 텍스트."
+                  : "기존 릴스컷 — 검정 배경, 표지에만 사진."}
           </p>
           {settings.layout === "fullbleed" && !Object.keys(photos).length && (
             <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-1">

@@ -12,6 +12,7 @@ import {
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
 import { renderFullbleedScene } from "../lib/shorts/fullbleed"
 import { renderEditorialScene } from "../lib/shorts/editorial"
+import { renderCinematicScene } from "../lib/shorts/cinematic"
 import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
 import type { ReelPhotos } from "../lib/shorts/reel-photos"
@@ -31,9 +32,10 @@ export type ReelSettings = {
   kenBurns: number             // 켄번즈 드리프트 진폭 (0 = 끔)
   // text      — 검정 배경 + 좌측 정렬 (카드뉴스 씬 재사용, 표지만 사진)
   // editorial — DESIGN_PROMPT.md 디자인 시스템: 흰 배경, 흑백만, 사진 없음
-  // fullbleed — 장면마다 Unsplash 사진이 화면을 채움 (디자인 시스템의 스톡 이미지
-  //             금지 조항과 충돌 — 비교용으로만 남겨둠)
-  layout: "text" | "editorial" | "fullbleed"
+  // fullbleed — 장면마다 Unsplash 사진이 화면을 채움
+  // cinematic — make-cinematic-photo-reel 스킬의 룩: 필름 그레이딩·그레인·비네트·
+  //             팬 포함 켄번즈·중앙 타이틀 카드·검정 페이드
+  layout: "text" | "editorial" | "fullbleed" | "cinematic"
 }
 
 // 릴스는 시청 유지가 도달을 만든다. Shorts와 달리 정보 나열 장면(fact·keywords)을
@@ -113,10 +115,11 @@ function kenBurnsScale(frame: number, duration: number, index: number, amount: n
 }
 
 // 전환 전략은 Shorts와 동일(검증된 리듬). 차이는 위 켄번즈가 곱해진다는 것뿐.
-function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layout, photo }: {
+function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layout, photo, isFirst, isLast }: {
   slide: Slide; category: string; coverImage: string | null
   duration: number; index: number; kenBurns: number
   layout: ReelSettings["layout"]; photo?: ReelPhotos[Slide["type"]]
+  isFirst: boolean; isLast: boolean
 }) {
   const frame = useCurrentFrame()
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
@@ -127,8 +130,18 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layo
   const kb = kenBurnsScale(frame, duration, index, kenBurns)
   // fullbleed는 켄번즈를 배경 사진에만 건다(장면 안에서 처리). 장면 전체를 확대하면
   // 가장자리에 붙은 크레딧·워드마크가 화면 밖으로 잘린다.
-  const sceneKb = layout === "fullbleed" ? 1 : kb
+  const sceneKb = layout === "fullbleed" || layout === "cinematic" ? 1 : kb
   let style: React.CSSProperties
+
+  // cinematic 은 켄번즈·타이틀 페이드·검정 페이드를 장면 안에서 모두 처리한다.
+  // 바깥에서 전환을 또 걸면 이중으로 적용돼 원본 스킬의 리듬이 깨진다.
+  if (layout === "cinematic") {
+    return (
+      <AbsoluteFill>
+        {renderCinematicScene(slide, category, frame, duration, FPS, index, isFirst, isLast, photo)}
+      </AbsoluteFill>
+    )
+  }
 
   if (slide.type === "cover") {
     const enterOp = interpolate(frame, [0, 8], [0, 1], clamp)
@@ -202,6 +215,8 @@ export function ReelComposition({ slides, category, coverImage, settings, photos
             kenBurns={cfg.kenBurns}
             layout={cfg.layout}
             photo={photos?.[slide.type]}
+            isFirst={i === 0}
+            isLast={i === reelSlides.length - 1}
           />
         </Sequence>
       ))}
