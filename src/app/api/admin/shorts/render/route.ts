@@ -11,7 +11,9 @@ export const maxDuration = 300
 export async function POST(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { articleId, composition, settings } = await req.json().catch(() => ({}))
+  // photos는 미리보기가 해석해 둔 장면별 배경 사진. 여기서 다시 조회하지 않는다 —
+  // Unsplash가 다른 사진을 돌려주면 미리보기와 결과가 달라진다.
+  const { articleId, composition, settings, photos } = await req.json().catch(() => ({}))
   if (!articleId) return NextResponse.json({ error: "articleId required" }, { status: 400 })
 
   // 렌더할 컴포지션. 미지정 시 Shorts — 기존 호출부는 그대로 동작한다.
@@ -63,7 +65,7 @@ export async function POST(req: Request) {
         composition: compositionId,
         // settings는 미리보기(Player)에서 조절한 연출값. 여기로 그대로 넘기지 않으면
         // 미리보기와 최종 렌더가 달라진다. Shorts는 이 prop을 무시한다.
-        inputProps: { slides, category, coverImage, settings },
+        inputProps: { slides, category, coverImage, settings, photos },
         codec: "h264",
         // private → outputFile이 presigned URL(서명 포함). 다운로드·릴스(IG fetch) 모두 이걸로 동작.
         // public(공개 ACL)을 쓰면 역할에 s3:PutObjectAcl 권한이 필요해 실패 → private은 그 호출 자체가 없음.
@@ -84,7 +86,7 @@ export async function POST(req: Request) {
 
   // ── 로컬 개발: 번들러 직접 렌더 (동기) ──
   const coverImage = usePhoto ? await fetchImageDataUri(article?.image_url) : null
-  const inputProps = { slides, category, coverImage, settings }
+  const inputProps = { slides, category, coverImage, settings, photos }
 
   const path = await import("node:path")
   const os = await import("node:os")

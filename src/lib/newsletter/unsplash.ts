@@ -8,12 +8,16 @@ interface UnsplashResult {
   creditLink: string  // user.links.html
 }
 
-export async function searchUnsplash(query: string): Promise<UnsplashResult | null> {
+// orientation 기본 landscape — 뉴스레터 본문용. 릴스(9:16)는 "portrait"로 호출한다.
+export async function searchUnsplash(
+  query: string,
+  orientation: "landscape" | "portrait" = "landscape",
+): Promise<UnsplashResult | null> {
   const key = process.env.UNSPLASH_ACCESS_KEY
   if (!key || !query.trim()) return null
   try {
     const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape`,
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=${orientation}`,
       { headers: { Authorization: `Client-ID ${key}` } }
     )
     if (!res.ok) return null

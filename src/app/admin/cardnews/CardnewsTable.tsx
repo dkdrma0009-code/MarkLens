@@ -12,6 +12,7 @@ const ReelPreview = dynamic(() => import("@/components/admin/ReelPreview"), {
   loading: () => <div className="h-[462px] rounded-[10px] bg-muted animate-pulse" />,
 })
 import { DEFAULT_REEL_SETTINGS, type ReelSettings } from "@/remotion/ReelComposition"
+import type { ReelPhotos } from "@/lib/shorts/reel-photos"
 import type { Slide } from "@/lib/cardnews/types"
 
 export interface CardnewsRow {
@@ -63,6 +64,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
   // 릴스 미리보기 — 렌더 전에 연출을 조절해 보는 모달 (Remotion Player)
   const [reelPreview, setReelPreview] = useState<{
     row: CardnewsRow; slides: Slide[]; category: string; coverImage: string | null
+    photos: ReelPhotos
     settings: ReelSettings
   } | null>(null)
   const router = useRouter()
@@ -224,6 +226,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       if (!res.ok) throw new Error(data.error ?? "불러오기 실패")
       setReelPreview({
         row: r, slides: data.slides, category: data.category, coverImage: data.coverImage,
+        photos: data.photos ?? {},
         settings: { ...DEFAULT_REEL_SETTINGS },
       })
       toast.dismiss(toastId)
@@ -236,7 +239,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
 
   // composition="Reel"은 릴스컷 — 정보 나열 장면을 빼고 켄번즈 모션을 넣은 짧은 버전.
   // settings는 미리보기에서 조절한 값. 미지정이면 컴포지션 기본값이 쓰인다.
-  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" = "Shorts", settings?: ReelSettings) {
+  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" = "Shorts", settings?: ReelSettings, photos?: ReelPhotos) {
     const kind = composition === "Reel" ? "릴스컷" : "숏츠"
     const prefix = composition.toLowerCase()
     setRowBusy(r.articleId, true)
@@ -246,7 +249,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       const triggerRes = await fetch("/api/admin/shorts/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: r.articleId, composition, settings }),
+        body: JSON.stringify({ articleId: r.articleId, composition, settings, photos }),
       })
       if (!triggerRes.ok) {
         const data = await triggerRes.json().catch(() => ({}))
@@ -479,6 +482,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
               slides={reelPreview.slides}
               category={reelPreview.category}
               coverImage={reelPreview.coverImage}
+              photos={reelPreview.photos}
               settings={reelPreview.settings}
               onChange={next => setReelPreview(p => (p ? { ...p, settings: next } : p))}
             />
@@ -491,9 +495,9 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
               </button>
               <button
                 onClick={() => {
-                  const { row, settings } = reelPreview
+                  const { row, settings, photos } = reelPreview
                   setReelPreview(null)
-                  generateShorts(row, "Reel", settings)
+                  generateShorts(row, "Reel", settings, photos)
                 }}
                 className="text-xs px-3 py-2 rounded-md font-medium bg-indigo-600 text-white hover:bg-indigo-500"
               >

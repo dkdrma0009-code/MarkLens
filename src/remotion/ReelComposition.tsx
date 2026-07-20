@@ -10,8 +10,10 @@ import {
   type CalculateMetadataFunction,
 } from "remotion"
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
+import { renderFullbleedScene } from "../lib/shorts/fullbleed"
 import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
+import type { ReelPhotos } from "../lib/shorts/reel-photos"
 
 export const FPS = 30
 
@@ -26,6 +28,9 @@ export type ReelSettings = {
   slideSeconds: number         // 일반 장면 길이(초)
   ctaSeconds: number           // CTA 장면 길이(초)
   kenBurns: number             // 켄번즈 드리프트 진폭 (0 = 끔)
+  // text     — 검정 배경 + 좌측 정렬 (카드뉴스 씬 재사용, 표지만 사진)
+  // fullbleed — 장면마다 Unsplash 사진이 화면을 채우고 텍스트가 위에 얹힘
+  layout: "text" | "fullbleed"
 }
 
 // 릴스는 시청 유지가 도달을 만든다. Shorts와 달리 정보 나열 장면(fact·keywords)을
@@ -36,13 +41,17 @@ export const DEFAULT_REEL_SETTINGS: ReelSettings = {
   slideSeconds: 2.2,
   ctaSeconds: 3.0,
   kenBurns: 0.045,
+  layout: "text",
 }
 
 export type ReelProps = {
   slides: Slide[]
   category: string
-  coverImage: string | null // data URI (표지 1장만)
+  coverImage: string | null // data URI 또는 URL (text 레이아웃의 표지 1장)
   settings?: Partial<ReelSettings>
+  // fullbleed 레이아웃의 장면별 배경 사진. 미리보기와 렌더가 **같은 객체**를 써야
+  // 한다 — 각자 Unsplash를 조회하면 다른 사진이 나온다.
+  photos?: ReelPhotos
 }
 
 export const defaultReelProps: ReelProps = { slides: [], category: "마케팅", coverImage: null }
@@ -101,9 +110,10 @@ function kenBurnsScale(frame: number, duration: number, index: number, amount: n
 }
 
 // 전환 전략은 Shorts와 동일(검증된 리듬). 차이는 위 켄번즈가 곱해진다는 것뿐.
-function ReelClip({ slide, category, coverImage, duration, index, kenBurns }: {
+function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layout, photo }: {
   slide: Slide; category: string; coverImage: string | null
   duration: number; index: number; kenBurns: number
+  layout: ReelSettings["layout"]; photo?: ReelPhotos[Slide["type"]]
 }) {
   const frame = useCurrentFrame()
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
@@ -112,6 +122,9 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns }: {
   if (duration <= ENTER + EXIT) throw new Error(`duration(${duration}) must be > ENTER+EXIT(${ENTER + EXIT})`)
 
   const kb = kenBurnsScale(frame, duration, index, kenBurns)
+  // fullbleed는 켄번즈를 배경 사진에만 건다(장면 안에서 처리). 장면 전체를 확대하면
+  // 가장자리에 붙은 크레딧·워드마크가 화면 밖으로 잘린다.
+  const sceneKb = layout === "fullbleed" ? 1 : kb
   let style: React.CSSProperties
 
   if (slide.type === "cover") {
@@ -120,12 +133,12 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns }: {
     const exitX   = interpolate(frame, [duration - EXIT, duration], [0, -80], clamp)
     style = {
       opacity: Math.min(enterOp, exitOp),
-      transform: `translateX(${exitX}px) scale(${kb})`,
+      transform: `translateX(${exitX}px) scale(${sceneKb})`,
     }
   } else if (slide.type === "cta") {
     const sc = interpolate(frame, [0, ENTER + 3], [0.94, 1.0], clamp)
     const op = interpolate(frame, [0, ENTER], [0, 1], clamp)
-    style = { opacity: op, transform: `scale(${sc * kb})` }
+    style = { opacity: op, transform: `scale(${sc * sceneKb})` }
   } else {
     const enterOp = interpolate(frame, [0, ENTER], [0, 1], clamp)
     const enterY  = interpolate(frame, [0, ENTER], [36, 0], clamp)
@@ -135,19 +148,22 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns }: {
     style = {
       opacity: Math.min(enterOp, exitOp),
       // enter/exit는 상호 배타적 구간 — 더해도 한쪽만 0이 아님
-      transform: `translateY(${enterY + exitY}px) scale(${enterSc * kb})`,
+      transform: `translateY(${enterY + exitY}px) scale(${enterSc * sceneKb})`,
     }
   }
 
   return (
     <AbsoluteFill style={style}>
-      {/* 릴스는 넘길 장이 없으므로 페이지 표시를 끈다 */}
-      {renderShortScene(slide, category, frame, duration, { coverImage, showPage: false })}
+      {/* 릴스는 넘길 장이 없으므로 페이지 표시를 끈다 (text 레이아웃 한정 —
+          fullbleed는 애초에 페이지 표시가 없다) */}
+      {layout === "fullbleed"
+        ? renderFullbleedScene(slide, category, frame, kb, photo)
+        : renderShortScene(slide, category, frame, duration, { coverImage, showPage: false })}
     </AbsoluteFill>
   )
 }
 
-export function ReelComposition({ slides, category, coverImage, settings }: ReelProps) {
+export function ReelComposition({ slides, category, coverImage, settings, photos }: ReelProps) {
   const [handle] = useState(() => delayRender("load-fonts"))
   useEffect(() => {
     Promise.all([
@@ -177,6 +193,8 @@ export function ReelComposition({ slides, category, coverImage, settings }: Reel
             duration={durations[i]}
             index={i}
             kenBurns={cfg.kenBurns}
+            layout={cfg.layout}
+            photo={photos?.[slide.type]}
           />
         </Sequence>
       ))}

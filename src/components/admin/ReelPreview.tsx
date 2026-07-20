@@ -7,6 +7,7 @@ import {
   DEFAULT_REEL_SETTINGS, FPS, type ReelSettings,
 } from "@/remotion/ReelComposition"
 import type { Slide } from "@/lib/cardnews/types"
+import type { ReelPhotos } from "@/lib/shorts/reel-photos"
 
 const SLIDE_LABELS: Record<Slide["type"], string> = {
   cover: "표지", fact: "무슨 일", why: "왜 중요", apply: "실전", keywords: "키워드", cta: "구독",
@@ -15,17 +16,18 @@ const SLIDE_LABELS: Record<Slide["type"], string> = {
 const CANDIDATES: Slide["type"][] = ["cover", "fact", "why", "apply", "keywords", "cta"]
 
 export default function ReelPreview({
-  slides, category, coverImage, settings, onChange,
+  slides, category, coverImage, photos, settings, onChange,
 }: {
   slides: Slide[]
   category: string
   coverImage: string | null
+  photos: ReelPhotos
   settings: ReelSettings
   onChange: (next: ReelSettings) => void
 }) {
   const inputProps = useMemo(
-    () => ({ slides, category, coverImage, settings }),
-    [slides, category, coverImage, settings],
+    () => ({ slides, category, coverImage, settings, photos }),
+    [slides, category, coverImage, settings, photos],
   )
 
   // 길이는 렌더와 같은 함수를 쓴다 — 따로 구하면 미리보기와 결과가 어긋난다.
@@ -66,6 +68,30 @@ export default function ReelPreview({
       </div>
 
       <div className="flex-1 space-y-4 text-xs">
+        <div>
+          <p className="font-semibold mb-1.5">레이아웃</p>
+          <div className="flex gap-1.5">
+            {([["text", "기본 (검정 배경)"], ["fullbleed", "풀블리드 (사진)"]] as const).map(([v, lbl]) => (
+              <button
+                key={v}
+                onClick={() => onChange({ ...settings, layout: v })}
+                className={`px-2.5 py-1.5 rounded-md border font-medium ${
+                  settings.layout === v
+                    ? "border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
+                    : "border-border text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {settings.layout === "fullbleed" && !Object.keys(photos).length && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-1.5">
+              사진을 못 받아왔습니다 — 단색 배경으로 렌더됩니다.
+            </p>
+          )}
+        </div>
+
         <div>
           <p className="font-semibold mb-1.5">장면 선택</p>
           <div className="flex flex-wrap gap-1.5">
