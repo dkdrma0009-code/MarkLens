@@ -11,6 +11,7 @@ import {
 } from "remotion"
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
 import { renderFullbleedScene } from "../lib/shorts/fullbleed"
+import { renderEditorialScene } from "../lib/shorts/editorial"
 import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
 import type { ReelPhotos } from "../lib/shorts/reel-photos"
@@ -28,9 +29,11 @@ export type ReelSettings = {
   slideSeconds: number         // 일반 장면 길이(초)
   ctaSeconds: number           // CTA 장면 길이(초)
   kenBurns: number             // 켄번즈 드리프트 진폭 (0 = 끔)
-  // text     — 검정 배경 + 좌측 정렬 (카드뉴스 씬 재사용, 표지만 사진)
-  // fullbleed — 장면마다 Unsplash 사진이 화면을 채우고 텍스트가 위에 얹힘
-  layout: "text" | "fullbleed"
+  // text      — 검정 배경 + 좌측 정렬 (카드뉴스 씬 재사용, 표지만 사진)
+  // editorial — DESIGN_PROMPT.md 디자인 시스템: 흰 배경, 흑백만, 사진 없음
+  // fullbleed — 장면마다 Unsplash 사진이 화면을 채움 (디자인 시스템의 스톡 이미지
+  //             금지 조항과 충돌 — 비교용으로만 남겨둠)
+  layout: "text" | "editorial" | "fullbleed"
 }
 
 // 릴스는 시청 유지가 도달을 만든다. Shorts와 달리 정보 나열 장면(fact·keywords)을
@@ -158,7 +161,9 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layo
           fullbleed는 애초에 페이지 표시가 없다) */}
       {layout === "fullbleed"
         ? renderFullbleedScene(slide, category, frame, kb, photo)
-        : renderShortScene(slide, category, frame, duration, { coverImage, showPage: false })}
+        : layout === "editorial"
+          ? renderEditorialScene(slide, category, frame)
+          : renderShortScene(slide, category, frame, duration, { coverImage, showPage: false })}
     </AbsoluteFill>
   )
 }
@@ -180,8 +185,10 @@ export function ReelComposition({ slides, category, coverImage, settings, photos
   const reelSlides = pickReelSlides(slides, settings)
   const durations = reelSlides.map(s => slideDuration(s, cfg))
   const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0))
+  // 바탕색은 레이아웃을 따라간다 — 장면이 opacity로 전환되는 동안 이 색이 비친다.
+  // 흰 배경 에디토리얼에 검정 바탕을 두면 전환마다 검정으로 깜빡인다.
   return (
-    <AbsoluteFill style={{ backgroundColor: VTOKENS.BG }}>
+    <AbsoluteFill style={{ backgroundColor: cfg.layout === "editorial" ? "#FFFFFF" : VTOKENS.BG }}>
       <style>{FONT_CSS}</style>
       <Bgm />
       {reelSlides.map((slide, i) => (

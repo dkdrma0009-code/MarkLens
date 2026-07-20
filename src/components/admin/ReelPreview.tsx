@@ -71,7 +71,11 @@ export default function ReelPreview({
         <div>
           <p className="font-semibold mb-1.5">레이아웃</p>
           <div className="flex gap-1.5">
-            {([["text", "기본 (검정 배경)"], ["fullbleed", "풀블리드 (사진)"]] as const).map(([v, lbl]) => (
+            {([
+              ["text", "기본"],
+              ["editorial", "에디토리얼"],
+              ["fullbleed", "풀블리드"],
+            ] as const).map(([v, lbl]) => (
               <button
                 key={v}
                 onClick={() => onChange({ ...settings, layout: v })}
@@ -85,8 +89,15 @@ export default function ReelPreview({
               </button>
             ))}
           </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            {settings.layout === "editorial"
+              ? "DESIGN_PROMPT.md 디자인 시스템 — 흰 배경, 흑백만, 사진 없음."
+              : settings.layout === "fullbleed"
+                ? "장면마다 스톡 사진. 디자인 시스템의 스톡 이미지 금지 조항과 충돌합니다."
+                : "기존 릴스컷 — 검정 배경, 표지에만 사진."}
+          </p>
           {settings.layout === "fullbleed" && !Object.keys(photos).length && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-1.5">
+            <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-1">
               사진을 못 받아왔습니다 — 단색 배경으로 렌더됩니다.
             </p>
           )}
