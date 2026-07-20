@@ -1,10 +1,18 @@
 "use client"
 
 import { useMemo, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { formatDate } from "@/lib/utils"
+// Remotion Player는 브라우저 전용이라 서버 번들에 넣지 않는다.
+const ReelPreview = dynamic(() => import("@/components/admin/ReelPreview"), {
+  ssr: false,
+  loading: () => <div className="h-[462px] rounded-[10px] bg-muted animate-pulse" />,
+})
+import { DEFAULT_REEL_SETTINGS, type ReelSettings } from "@/remotion/ReelComposition"
+import type { Slide } from "@/lib/cardnews/types"
 
 export interface CardnewsRow {
   articleId: string
@@ -51,6 +59,11 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
     verdict?: string; causes?: string[]; fix?: string; newHeadlines?: string[]
     coverText?: string
     stats?: { reach: number; likes: number; saved: number; shares: number; comments: number }
+  } | null>(null)
+  // 릴스 미리보기 — 렌더 전에 연출을 조절해 보는 모달 (Remotion Player)
+  const [reelPreview, setReelPreview] = useState<{
+    row: CardnewsRow; slides: Slide[]; category: string; coverImage: string | null
+    settings: ReelSettings
   } | null>(null)
   const router = useRouter()
   const [term, setTerm] = useState(initialTerm ?? "")
@@ -201,8 +214,29 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
     }
   }
 
-  // composition="Reel"은 릴스컷 — 정보 나열 장면을 빼고 켄번즈 모션을 넣은 짧은 버전
-  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" = "Shorts") {
+  // 릴스컷 미리보기 열기 — 슬라이드를 받아 Player로 재생하며 연출을 조절한다.
+  async function openReelPreview(r: CardnewsRow) {
+    setRowBusy(r.articleId, true)
+    const toastId = toast.loading("미리보기 불러오는 중...")
+    try {
+      const res = await fetch(`/api/admin/cardnews/slides?articleId=${r.articleId}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "불러오기 실패")
+      setReelPreview({
+        row: r, slides: data.slides, category: data.category, coverImage: data.coverImage,
+        settings: { ...DEFAULT_REEL_SETTINGS },
+      })
+      toast.dismiss(toastId)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "불러오기 실패", { id: toastId })
+    } finally {
+      setRowBusy(r.articleId, false)
+    }
+  }
+
+  // composition="Reel"은 릴스컷 — 정보 나열 장면을 빼고 켄번즈 모션을 넣은 짧은 버전.
+  // settings는 미리보기에서 조절한 값. 미지정이면 컴포지션 기본값이 쓰인다.
+  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" = "Shorts", settings?: ReelSettings) {
     const kind = composition === "Reel" ? "릴스컷" : "숏츠"
     const prefix = composition.toLowerCase()
     setRowBusy(r.articleId, true)
@@ -212,7 +246,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       const triggerRes = await fetch("/api/admin/shorts/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: r.articleId, composition }),
+        body: JSON.stringify({ articleId: r.articleId, composition, settings }),
       })
       if (!triggerRes.ok) {
         const data = await triggerRes.json().catch(() => ({}))
@@ -433,6 +467,43 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
         </div>
       )}
 
+      {/* 릴스컷 미리보기 — Player로 재생하며 연출 조절 후 렌더 */}
+      {reelPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background border border-border rounded-xl p-6 w-full max-w-3xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-sm font-semibold mb-1">릴스컷 미리보기</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              재생해 보고 연출을 조절하세요. 여기 보이는 그대로 렌더됩니다.
+            </p>
+            <ReelPreview
+              slides={reelPreview.slides}
+              category={reelPreview.category}
+              coverImage={reelPreview.coverImage}
+              settings={reelPreview.settings}
+              onChange={next => setReelPreview(p => (p ? { ...p, settings: next } : p))}
+            />
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setReelPreview(null)}
+                className="text-xs px-3 py-2 rounded-md border border-border hover:bg-muted/50"
+              >
+                닫기
+              </button>
+              <button
+                onClick={() => {
+                  const { row, settings } = reelPreview
+                  setReelPreview(null)
+                  generateShorts(row, "Reel", settings)
+                }}
+                className="text-xs px-3 py-2 rounded-md font-medium bg-indigo-600 text-white hover:bg-indigo-500"
+              >
+                이 설정으로 렌더
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 숏츠 렌더 완료 — 다운로드 / 릴스 발행 선택 모달 */}
       {shortsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -637,10 +708,10 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
                           🎬 숏츠
                         </button>
                         <button
-                          onClick={() => generateShorts(r, "Reel")}
+                          onClick={() => openReelPreview(r)}
                           disabled={isBusy}
                           className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
-                          title="릴스컷(mp4) 생성 — 후킹·의미·실전·CTA 4장 + 켄번즈 모션"
+                          title="릴스컷 미리보기 — 연출을 조절해 보고 렌더"
                         >
                           🎞 릴스컷
                         </button>

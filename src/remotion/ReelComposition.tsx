@@ -15,40 +15,68 @@ import type { Slide } from "../lib/cardnews/types"
 
 export const FPS = 30
 
-// 릴스는 시청 유지가 도달을 만든다. Shorts와 달리 정보 나열 장면(fact·keywords)을
-// 빼고 후킹 → 의미 → 실전 → 구독 흐름만 남긴다. 읽어야 하는 장면은 카드뉴스가 맡는다.
-const REEL_SLIDE_TYPES: Slide["type"][] = ["cover", "why", "apply", "cta"]
-
-const SLIDE_FRAMES = 66  // 2.2s
-const CTA_FRAMES = 90    // 3s
-const ENTER = 12         // 진입 (0.4s)
+const ENTER = 12         // 진입 (0.4s) — 전환 리듬은 검증된 값이라 고정
 const EXIT = 10          // 퇴장 (0.33s)
 
-// 켄번즈 드리프트 진폭. 사진이 아니라 텍스트 장면이라 4~5%면 충분하고,
-// 더 키우면 글자가 흔들려 읽기 어려워진다.
-const KB_AMOUNT = 0.045
+// 어드민에서 조절 가능한 연출값. 기사별로 저장하며, 미지정 항목은 아래 기본값을 쓴다.
+// ⚠️ Player 미리보기와 Lambda 렌더가 **같은 값**을 받아야 한다. 한쪽만 바뀌면
+//    미리보기가 결과와 달라져 미리보기의 존재 의미가 없어진다.
+export type ReelSettings = {
+  slideTypes: Slide["type"][]  // 사용할 장면과 순서
+  slideSeconds: number         // 일반 장면 길이(초)
+  ctaSeconds: number           // CTA 장면 길이(초)
+  kenBurns: number             // 켄번즈 드리프트 진폭 (0 = 끔)
+}
+
+// 릴스는 시청 유지가 도달을 만든다. Shorts와 달리 정보 나열 장면(fact·keywords)을
+// 빼고 후킹 → 의미 → 실전 → 구독 흐름만 남긴다. 읽어야 하는 장면은 카드뉴스가 맡는다.
+// 켄번즈는 텍스트 장면이라 4~5%면 충분하고, 더 키우면 글자가 흔들려 읽기 어렵다.
+export const DEFAULT_REEL_SETTINGS: ReelSettings = {
+  slideTypes: ["cover", "why", "apply", "cta"],
+  slideSeconds: 2.2,
+  ctaSeconds: 3.0,
+  kenBurns: 0.045,
+}
 
 export type ReelProps = {
   slides: Slide[]
   category: string
   coverImage: string | null // data URI (표지 1장만)
+  settings?: Partial<ReelSettings>
 }
 
 export const defaultReelProps: ReelProps = { slides: [], category: "마케팅", coverImage: null }
 
-export function pickReelSlides(slides: Slide[]): Slide[] {
-  return slides.filter(s => REEL_SLIDE_TYPES.includes(s.type))
+export function resolveSettings(s?: Partial<ReelSettings>): ReelSettings {
+  return { ...DEFAULT_REEL_SETTINGS, ...s }
 }
 
-function slideDuration(s: Slide): number {
-  return s.type === "cta" ? CTA_FRAMES : SLIDE_FRAMES
+// slideTypes 순서대로 정렬한다 — 단순 filter는 원본 배열 순서를 따르므로
+// 어드민에서 장면 순서를 바꿔도 반영되지 않는다.
+export function pickReelSlides(slides: Slide[], settings?: Partial<ReelSettings>): Slide[] {
+  const { slideTypes } = resolveSettings(settings)
+  return slideTypes
+    .map(t => slides.find(s => s.type === t))
+    .filter((s): s is Slide => s !== undefined)
+}
+
+function slideDuration(s: Slide, cfg: ReelSettings): number {
+  const sec = s.type === "cta" ? cfg.ctaSeconds : cfg.slideSeconds
+  return Math.max(ENTER + EXIT + 1, Math.round(sec * FPS))
+}
+
+// 길이 계산은 여기 하나뿐이어야 한다. Player 미리보기도 이걸 쓴다 —
+// 각자 계산하면 조절값에 따라 미리보기와 렌더 길이가 어긋난다.
+export function calcReelDurationInFrames(slides: Slide[], settings?: Partial<ReelSettings>): number {
+  const cfg = resolveSettings(settings)
+  return Math.max(
+    pickReelSlides(slides, settings).reduce((a, s) => a + slideDuration(s, cfg), 0),
+    1,
+  )
 }
 
 export const calcReelMetadata: CalculateMetadataFunction<ReelProps> = ({ props }) => ({
-  durationInFrames: Math.max(
-    pickReelSlides(props.slides).reduce((a, s) => a + slideDuration(s), 0),
-    1,
-  ),
+  durationInFrames: calcReelDurationInFrames(props.slides, props.settings),
 })
 
 const FONT_CSS = `
@@ -61,19 +89,21 @@ const FONT_CSS = `
 // 완전히 멈추는데, 릴스에서 정지 화면은 스크롤을 부른다. 여기서 그 구간을 메운다.
 // 홀짝으로 인/아웃을 교차해 장면마다 방향이 바뀌게 한다.
 // 배율은 항상 1.0 이상 — 1 미만이면 씬 컨테이너(overflow:hidden) 가장자리가 드러난다.
-function kenBurnsScale(frame: number, duration: number, index: number): number {
+function kenBurnsScale(frame: number, duration: number, index: number, amount: number): number {
+  if (amount <= 0) return 1
   const zoomIn = index % 2 === 0
   return interpolate(
     frame,
     [0, duration],
-    zoomIn ? [1, 1 + KB_AMOUNT] : [1 + KB_AMOUNT, 1],
+    zoomIn ? [1, 1 + amount] : [1 + amount, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   )
 }
 
 // 전환 전략은 Shorts와 동일(검증된 리듬). 차이는 위 켄번즈가 곱해진다는 것뿐.
-function ReelClip({ slide, category, coverImage, duration, index }: {
-  slide: Slide; category: string; coverImage: string | null; duration: number; index: number
+function ReelClip({ slide, category, coverImage, duration, index, kenBurns }: {
+  slide: Slide; category: string; coverImage: string | null
+  duration: number; index: number; kenBurns: number
 }) {
   const frame = useCurrentFrame()
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
@@ -81,7 +111,7 @@ function ReelClip({ slide, category, coverImage, duration, index }: {
   // enter [0,ENTER]·exit [duration-EXIT,duration] 창이 겹치면 translateY가 중복 적용됨
   if (duration <= ENTER + EXIT) throw new Error(`duration(${duration}) must be > ENTER+EXIT(${ENTER + EXIT})`)
 
-  const kb = kenBurnsScale(frame, duration, index)
+  const kb = kenBurnsScale(frame, duration, index, kenBurns)
   let style: React.CSSProperties
 
   if (slide.type === "cover") {
@@ -117,7 +147,7 @@ function ReelClip({ slide, category, coverImage, duration, index }: {
   )
 }
 
-export function ReelComposition({ slides, category, coverImage }: ReelProps) {
+export function ReelComposition({ slides, category, coverImage, settings }: ReelProps) {
   const [handle] = useState(() => delayRender("load-fonts"))
   useEffect(() => {
     Promise.all([
@@ -130,8 +160,9 @@ export function ReelComposition({ slides, category, coverImage }: ReelProps) {
       .catch(() => continueRender(handle))
   }, [handle])
 
-  const reelSlides = pickReelSlides(slides)
-  const durations = reelSlides.map(slideDuration)
+  const cfg = resolveSettings(settings)
+  const reelSlides = pickReelSlides(slides, settings)
+  const durations = reelSlides.map(s => slideDuration(s, cfg))
   const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0))
   return (
     <AbsoluteFill style={{ backgroundColor: VTOKENS.BG }}>
@@ -145,6 +176,7 @@ export function ReelComposition({ slides, category, coverImage }: ReelProps) {
             coverImage={slide.type === "cover" ? coverImage : null}
             duration={durations[i]}
             index={i}
+            kenBurns={cfg.kenBurns}
           />
         </Sequence>
       ))}
