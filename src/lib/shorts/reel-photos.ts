@@ -26,9 +26,14 @@ async function buildQueries(slides: Slide[], category: string): Promise<Record<s
     system:
       "You turn Korean marketing-content slides into English Unsplash search queries. " +
       "Return ONLY a JSON object mapping each slide type to a 2-4 word English query. " +
-      "Prefer concrete, photographable subjects (people working, city, screen, meeting) over " +
+      "Prefer concrete, photographable subjects (people working, city, meeting, hands, office) over " +
       "abstract nouns (strategy, growth, insight) — abstract words return generic stock clichés. " +
-      "No text, no explanation, JSON only.",
+      // 사진에 글자가 박혀 있으면 그 위에 한글 타이틀이 얹혀 둘 다 안 읽힌다.
+      "CRITICAL: the photo must contain no readable text. Never use words that return " +
+      "whiteboards, sticky notes, signage, posters, quotes, book pages, diagrams, charts, " +
+      "slides, screens showing text, or handwriting. Prefer people, hands, places, objects, " +
+      "textures, and out-of-focus backgrounds. " +
+      "No prose, no explanation, JSON only.",
     prompt: `Category: ${category}\n\nSlides:\n${listing}`,
     maxTokens: 500,
   })
@@ -56,7 +61,7 @@ export async function resolveReelPhotos(slides: Slide[], category: string): Prom
   await Promise.all(
     slides.map(async s => {
       const q = queries[s.type]?.trim() || category
-      const hit = await searchUnsplash(q, "portrait")
+      const hit = await searchUnsplash(q, "portrait", true)
       if (hit) photos[s.type] = { url: hit.url, credit: hit.credit }
     }),
   )

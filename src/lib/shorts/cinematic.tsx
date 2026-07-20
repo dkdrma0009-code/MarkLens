@@ -142,20 +142,40 @@ function grain(frame: number) {
 /** 텍스트 뒤 스크림 — 사진 위 글자 가독성. 원본 스킬은 여행 사진 기준이라 이게 없는데,
  *  인물·복잡한 배경 위에 한글 본문이 얹히면 그림자만으로는 안 읽힌다.
  *  타이틀이 놓이는 띠에만 어둠을 깔아 사진을 최대한 살린다. */
-function scrim(strength: number, pos: "top" | "center" | "bottom") {
+function scrim(strength: number, pos: "top" | "center" | "bottom", padTop: number) {
   if (strength <= 0.01) return null
-  const band = { top: "0%", center: "26%", bottom: "48%" }[pos]
+  // 텍스트 블록보다 조금 위에서 시작해 화면 끝까지 덮는다. 고정 띠로 두면 본문이
+  // 길어졌을 때 아래쪽 글자가 스크림 밖으로 나가 안 읽힌다.
+  const start = Math.max(0, padTop - H * 0.1)
+  const isTop = pos === "top"
   return (
     <div key="scrim" style={{
-      position: "absolute", left: 0, top: band, width: W, height: H * 0.54, display: "flex",
-      background: `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${strength}) 32%, rgba(8,8,10,${strength}) 68%, rgba(8,8,10,0) 100%)`,
+      position: "absolute", left: 0, top: start, width: W, height: H - start, display: "flex",
+      background: isTop
+        ? `linear-gradient(180deg, rgba(8,8,10,${strength}) 0%, rgba(8,8,10,${strength}) 46%, rgba(8,8,10,0) 78%)`
+        : `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${strength}) 22%, rgba(8,8,10,${strength}) 100%)`,
     }} />
   )
 }
 
+/** 글자 수에 맞춰 타이틀 크기를 줄인다.
+ *  헤드라인 없는 장면은 본문을 타이틀로 올리는데, 본문이 한 문장이면 40자가 넘어간다.
+ *  고정 크기(H*0.075 = 144px)로 두면 프레임 아래로 잘려 나간다. */
+function fitTitleSize(text: string): number {
+  const n = text.length
+  if (n <= 14) return H * 0.075
+  if (n <= 22) return H * 0.062
+  if (n <= 34) return H * 0.05
+  if (n <= 48) return H * 0.041
+  return H * 0.034
+}
+
 /** 스테이지드 타이틀 — 원본은 중앙 상단, 앞 33% 페이드인 / 뒤 25% 페이드아웃.
  *  titlePos 로 사진 구도를 피해 위/가운데/아래로 옮길 수 있다. */
-function title(text: string, sub: string | null, t: number, pos: "top" | "center" | "bottom") {
+function title(
+  kicker: string | null, text: string, sub: string | null,
+  t: number, pos: "top" | "center" | "bottom",
+) {
   const a = t < 0.33 ? t / 0.33 : t > 0.75 ? Math.max(0, (1 - t) / 0.25) : 1
   if (a <= 0.01) return null
   const padTop = { top: H * 0.14, center: H * 0.4, bottom: H * 0.62 }[pos]
@@ -165,8 +185,17 @@ function title(text: string, sub: string | null, t: number, pos: "top" | "center
       alignItems: "center", justifyContent: "flex-start", paddingTop: padTop,
       paddingLeft: 90, paddingRight: 90,
     }}>
+      {kicker && (
+        <div style={{
+          display: "flex", fontSize: H * 0.021, fontWeight: 600, color: "#D8CFBE",
+          letterSpacing: "0.14em", opacity: a * 0.85, marginBottom: H * 0.022,
+          textShadow: "2px 2px 0 rgba(0,0,0,0.5)",
+        }}>
+          {kicker}
+        </div>
+      )}
       <div style={{
-        display: "flex", fontSize: H * 0.075, fontWeight: 700, color: "#F5F0E6",
+        display: "flex", fontSize: fitTitleSize(text), fontWeight: 700, color: "#F5F0E6",
         letterSpacing: "-0.01em", opacity: a, textShadow: "2px 2px 0 rgba(0,0,0,0.5)",
         textAlign: "center", wordBreak: "keep-all", lineHeight: 1.2,
       }}>
@@ -194,15 +223,34 @@ function blackFade(frame: number, duration: number, fps: number, isFirst: boolea
   return <div key="fade" style={{ position: "absolute", inset: 0, display: "flex", background: "#000", opacity: a }} />
 }
 
-function slideTitle(s: Slide, category: string): { title: string; sub: string | null } {
+/** 첫 문장을 잘라 제목으로 쓴다. 헤드라인이 없는 장면(apply·fact)에서 라벨을
+ *  대문짝만하게 띄우면 "당장 해볼 수 있는 것" 같은 안내문이 주인공이 되어버린다.
+ *  내용이 앞에 서고 라벨은 작은 키커로 내려간다. */
+function splitFirstSentence(body: string): [string, string | null] {
+  const m = body.match(/^(.{6,42}?[.!?。])\s+([\s\S]+)$/)
+  if (m) return [m[1].trim(), m[2].trim()]
+  return [body, null]
+}
+
+function slideTitle(s: Slide, category: string): { kicker: string | null; title: string; sub: string | null } {
   switch (s.type) {
-    case "cover":    return { title: s.headline.join(" "), sub: s.sub ?? null }
-    case "why":      return { title: s.headline, sub: s.body }
-    case "apply":    return { title: s.label ?? "당장 해볼 수 있는 것", sub: s.body }
-    case "fact":     return { title: s.label ?? "무슨 일?", sub: s.body }
-    case "keywords": return { title: s.label ?? "흐름", sub: s.keywords.map(k => k.word).join(" · ") }
-    case "cta":      return { title: s.headline, sub: s.body }
-    default:         return { title: category, sub: null }
+    case "cover":    return { kicker: category, title: s.headline.join(" "), sub: s.sub ?? null }
+    case "why":      return { kicker: s.label ?? "왜 중요한가", title: s.headline, sub: s.body }
+    case "cta":      return { kicker: null, title: s.headline, sub: s.body }
+    case "apply": {
+      const [head, rest] = splitFirstSentence(s.body)
+      return { kicker: s.label ?? "당장 해볼 수 있는 것", title: head, sub: rest }
+    }
+    case "fact": {
+      const [head, rest] = splitFirstSentence(s.body)
+      return { kicker: s.label ?? "무슨 일?", title: head, sub: rest }
+    }
+    case "keywords": return {
+      kicker: s.label ?? "이 뉴스 뒤에 깔린 흐름",
+      title: s.keywords.map(k => k.word).join(" · "),
+      sub: null,
+    }
+    default: return { kicker: null, title: category, sub: null }
   }
 }
 
@@ -220,7 +268,7 @@ export function renderCinematicScene(
   const pans: [number, number][] = [[0, 0.4], [0.5, 0], [-0.4, 0.2], [0, -0.3]]
   const pan = shot?.pan ?? pans[index % pans.length]
   const titlePos = shot?.titlePos ?? "center"
-  const { title: tt, sub } = slideTitle(slide, category)
+  const { kicker, title: tt, sub } = slideTitle(slide, category)
   const filterId = `cine-grade-${index}`
 
   return (
@@ -237,9 +285,9 @@ export function renderCinematicScene(
         }} />
       </div>
       <div key="vig" style={{ position: "absolute", inset: 0, display: "flex", background: VIGNETTE }} />
-      {scrim(scrimStrength, titlePos)}
+      {scrim(scrimStrength, titlePos, { top: H * 0.14, center: H * 0.4, bottom: H * 0.62 }[titlePos])}
       {grain(frame)}
-      {title(tt, sub, t, titlePos)}
+      {title(kicker, tt, sub, t, titlePos)}
       {photo && (
         <div key="credit" style={{
           position: "absolute", bottom: 26, right: 60, display: "flex",
