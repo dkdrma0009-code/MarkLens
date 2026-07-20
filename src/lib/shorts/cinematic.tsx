@@ -1,6 +1,7 @@
 import { random } from "remotion"
 import type { Slide } from "@/lib/cardnews/types"
 import type { ReelPhoto } from "@/lib/shorts/reel-photos"
+import type { ShotSettings } from "@/remotion/ReelComposition"
 
 /* ── 시네마틱 릴스 장면 ──
    make-cinematic-photo-reel 스킬(render_reel.py)의 룩을 Remotion으로 이식.
@@ -102,6 +103,8 @@ function kenBurns(t: number, zoomFrom: number, zoomTo: number, pan: [number, num
     height: `${BASE_SCALE * 100}%`,
     marginLeft: `${((1 - BASE_SCALE) / 2) * 100}%`,
     marginTop: `${((1 - BASE_SCALE) / 2) * 100}%`,
+    // 부모가 flex라 기본 flex-shrink:1 이 125% 를 100% 로 되돌린다 → 축소 시 여백 노출
+    flexShrink: 0,
     transform: `scale(${s}) translate(${(-pan[0] * (t - 0.5) * maxX) / s}px, ${(-pan[1] * (t - 0.5) * maxY) / s}px)`,
   }
 }
@@ -136,14 +139,30 @@ function grain(frame: number) {
   )
 }
 
-/** 스테이지드 타이틀 — 원본은 중앙 정렬, y=H*0.40, 앞 33% 페이드인 / 뒤 25% 페이드아웃 */
-function title(text: string, sub: string | null, t: number) {
+/** 텍스트 뒤 스크림 — 사진 위 글자 가독성. 원본 스킬은 여행 사진 기준이라 이게 없는데,
+ *  인물·복잡한 배경 위에 한글 본문이 얹히면 그림자만으로는 안 읽힌다.
+ *  타이틀이 놓이는 띠에만 어둠을 깔아 사진을 최대한 살린다. */
+function scrim(strength: number, pos: "top" | "center" | "bottom") {
+  if (strength <= 0.01) return null
+  const band = { top: "0%", center: "26%", bottom: "48%" }[pos]
+  return (
+    <div key="scrim" style={{
+      position: "absolute", left: 0, top: band, width: W, height: H * 0.54, display: "flex",
+      background: `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${strength}) 32%, rgba(8,8,10,${strength}) 68%, rgba(8,8,10,0) 100%)`,
+    }} />
+  )
+}
+
+/** 스테이지드 타이틀 — 원본은 중앙 상단, 앞 33% 페이드인 / 뒤 25% 페이드아웃.
+ *  titlePos 로 사진 구도를 피해 위/가운데/아래로 옮길 수 있다. */
+function title(text: string, sub: string | null, t: number, pos: "top" | "center" | "bottom") {
   const a = t < 0.33 ? t / 0.33 : t > 0.75 ? Math.max(0, (1 - t) / 0.25) : 1
   if (a <= 0.01) return null
+  const padTop = { top: H * 0.14, center: H * 0.4, bottom: H * 0.62 }[pos]
   return (
     <div key="title" style={{
       position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "flex-start", paddingTop: H * 0.4,
+      alignItems: "center", justifyContent: "flex-start", paddingTop: padTop,
       paddingLeft: 90, paddingRight: 90,
     }}>
       <div style={{
@@ -189,15 +208,18 @@ function slideTitle(s: Slide, category: string): { title: string; sub: string | 
 
 export function renderCinematicScene(
   slide: Slide, category: string, frame: number, duration: number, fps: number,
-  index: number, isFirst: boolean, isLast: boolean, photo?: ReelPhoto,
+  index: number, isFirst: boolean, isLast: boolean,
+  photo?: ReelPhoto, shot?: ShotSettings, scrimStrength = 0.45,
 ): React.ReactElement {
   const t = duration <= 1 ? 0 : frame / (duration - 1)
-  // 원본 지침: 장면마다 줌인/줌아웃을 번갈아 쓰고 팬 방향도 바꿔 숨이 트이게 한다
+  // 원본 지침: 장면마다 줌인/줌아웃을 번갈아 쓰고 팬 방향도 바꿔 숨이 트이게 한다.
+  // 장면별 지정(shot)이 있으면 그것이 우선.
   const zoomIn = index % 2 === 0
-  const zoomFrom = zoomIn ? 1.05 : 1.12
-  const zoomTo = zoomIn ? 1.14 : 1.04
+  const zoomFrom = shot?.zoomFrom ?? (zoomIn ? 1.05 : 1.12)
+  const zoomTo = shot?.zoomTo ?? (zoomIn ? 1.14 : 1.04)
   const pans: [number, number][] = [[0, 0.4], [0.5, 0], [-0.4, 0.2], [0, -0.3]]
-  const pan = pans[index % pans.length]
+  const pan = shot?.pan ?? pans[index % pans.length]
+  const titlePos = shot?.titlePos ?? "center"
   const { title: tt, sub } = slideTitle(slide, category)
   const filterId = `cine-grade-${index}`
 
@@ -215,8 +237,9 @@ export function renderCinematicScene(
         }} />
       </div>
       <div key="vig" style={{ position: "absolute", inset: 0, display: "flex", background: VIGNETTE }} />
+      {scrim(scrimStrength, titlePos)}
       {grain(frame)}
-      {title(tt, sub, t)}
+      {title(tt, sub, t, titlePos)}
       {photo && (
         <div key="credit" style={{
           position: "absolute", bottom: 26, right: 60, display: "flex",
@@ -232,6 +255,24 @@ export function renderCinematicScene(
         MARKLENS
       </div>
       {blackFade(frame, duration, fps, isFirst, isLast)}
+    </div>
+  )
+}
+
+/** 엔딩 크레딧 카드 — 원본 render_reel.py 의 credit 장면.
+ *  검정 배경에 중앙 텍스트, 앞 30% 페이드인 / 뒤 30% 페이드아웃, 그레인만 얹는다. */
+export function renderCreditScene(text: string, frame: number, duration: number): React.ReactElement {
+  const t = duration <= 1 ? 0 : frame / (duration - 1)
+  const a = Math.min(1, t / 0.3) * (t < 0.7 ? 1 : Math.max(0, (1 - t) / 0.3))
+  return (
+    <div style={{ ...CONTAINER, alignItems: "center", justifyContent: "center" }}>
+      <div style={{
+        display: "flex", fontSize: H * 0.04, color: `rgba(230,225,215,${a.toFixed(3)})`,
+        letterSpacing: "0.02em", textAlign: "center",
+      }}>
+        {text}
+      </div>
+      {grain(frame)}
     </div>
   )
 }

@@ -12,7 +12,7 @@ import {
 import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
 import { renderFullbleedScene } from "../lib/shorts/fullbleed"
 import { renderEditorialScene } from "../lib/shorts/editorial"
-import { renderCinematicScene } from "../lib/shorts/cinematic"
+import { renderCinematicScene, renderCreditScene } from "../lib/shorts/cinematic"
 import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
 import type { ReelPhotos } from "../lib/shorts/reel-photos"
@@ -25,11 +25,25 @@ const EXIT = 10          // 퇴장 (0.33s)
 // 어드민에서 조절 가능한 연출값. 기사별로 저장하며, 미지정 항목은 아래 기본값을 쓴다.
 // ⚠️ Player 미리보기와 Lambda 렌더가 **같은 값**을 받아야 한다. 한쪽만 바뀌면
 //    미리보기가 결과와 달라져 미리보기의 존재 의미가 없어진다.
+// 장면 하나에만 적용되는 설정. 미지정 항목은 전역값(slideSeconds 등)을 쓴다.
+// 컷 리듬을 장면마다 다르게 주고, 사진 구도에 맞춰 줌·팬·타이틀 위치를 조절한다.
+export type ShotSettings = {
+  seconds?: number
+  zoomFrom?: number
+  zoomTo?: number
+  pan?: [number, number]
+  titlePos?: "top" | "center" | "bottom"
+}
+
 export type ReelSettings = {
   slideTypes: Slide["type"][]  // 사용할 장면과 순서
   slideSeconds: number         // 일반 장면 길이(초)
   ctaSeconds: number           // CTA 장면 길이(초)
   kenBurns: number             // 켄번즈 드리프트 진폭 (0 = 끔)
+  scrim: number                // 사진 위 텍스트 뒤 어둠 (0 = 끔) — cinematic 전용
+  credit: string | null        // 엔딩 크레딧 카드 문구 (null = 안 붙임)
+  creditSeconds: number
+  shots: Partial<Record<Slide["type"], ShotSettings>>
   // text      — 검정 배경 + 좌측 정렬 (카드뉴스 씬 재사용, 표지만 사진)
   // editorial — DESIGN_PROMPT.md 디자인 시스템: 흰 배경, 흑백만, 사진 없음
   // fullbleed — 장면마다 Unsplash 사진이 화면을 채움
@@ -46,6 +60,10 @@ export const DEFAULT_REEL_SETTINGS: ReelSettings = {
   slideSeconds: 2.2,
   ctaSeconds: 3.0,
   kenBurns: 0.045,
+  scrim: 0.45,
+  credit: null,
+  creditSeconds: 1.4,
+  shots: {},
   layout: "text",
 }
 
@@ -75,7 +93,8 @@ export function pickReelSlides(slides: Slide[], settings?: Partial<ReelSettings>
 }
 
 function slideDuration(s: Slide, cfg: ReelSettings): number {
-  const sec = s.type === "cta" ? cfg.ctaSeconds : cfg.slideSeconds
+  // 장면별 지정이 있으면 그것을, 없으면 전역값을 쓴다
+  const sec = cfg.shots[s.type]?.seconds ?? (s.type === "cta" ? cfg.ctaSeconds : cfg.slideSeconds)
   return Math.max(ENTER + EXIT + 1, Math.round(sec * FPS))
 }
 
@@ -83,10 +102,9 @@ function slideDuration(s: Slide, cfg: ReelSettings): number {
 // 각자 계산하면 조절값에 따라 미리보기와 렌더 길이가 어긋난다.
 export function calcReelDurationInFrames(slides: Slide[], settings?: Partial<ReelSettings>): number {
   const cfg = resolveSettings(settings)
-  return Math.max(
-    pickReelSlides(slides, settings).reduce((a, s) => a + slideDuration(s, cfg), 0),
-    1,
-  )
+  const scenes = pickReelSlides(slides, settings).reduce((a, s) => a + slideDuration(s, cfg), 0)
+  const credit = cfg.credit ? Math.round(cfg.creditSeconds * FPS) : 0
+  return Math.max(scenes + credit, 1)
 }
 
 export const calcReelMetadata: CalculateMetadataFunction<ReelProps> = ({ props }) => ({
@@ -115,11 +133,12 @@ function kenBurnsScale(frame: number, duration: number, index: number, amount: n
 }
 
 // 전환 전략은 Shorts와 동일(검증된 리듬). 차이는 위 켄번즈가 곱해진다는 것뿐.
-function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layout, photo, isFirst, isLast }: {
+function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layout, photo, isFirst, isLast, shot, scrim }: {
   slide: Slide; category: string; coverImage: string | null
   duration: number; index: number; kenBurns: number
   layout: ReelSettings["layout"]; photo?: ReelPhotos[Slide["type"]]
   isFirst: boolean; isLast: boolean
+  shot?: ShotSettings; scrim: number
 }) {
   const frame = useCurrentFrame()
   const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }
@@ -138,7 +157,7 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layo
   if (layout === "cinematic") {
     return (
       <AbsoluteFill>
-        {renderCinematicScene(slide, category, frame, duration, FPS, index, isFirst, isLast, photo)}
+        {renderCinematicScene(slide, category, frame, duration, FPS, index, isFirst, isLast, photo, shot, scrim)}
       </AbsoluteFill>
     )
   }
@@ -181,6 +200,11 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layo
   )
 }
 
+function CreditClip({ text, duration }: { text: string; duration: number }) {
+  const frame = useCurrentFrame()
+  return <AbsoluteFill>{renderCreditScene(text, frame, duration)}</AbsoluteFill>
+}
+
 export function ReelComposition({ slides, category, coverImage, settings, photos }: ReelProps) {
   const [handle] = useState(() => delayRender("load-fonts"))
   useEffect(() => {
@@ -216,10 +240,21 @@ export function ReelComposition({ slides, category, coverImage, settings, photos
             layout={cfg.layout}
             photo={photos?.[slide.type]}
             isFirst={i === 0}
-            isLast={i === reelSlides.length - 1}
+            isLast={i === reelSlides.length - 1 && !cfg.credit}
+            shot={cfg.shots[slide.type]}
+            scrim={cfg.scrim}
           />
         </Sequence>
       ))}
+      {/* 엔딩 크레딧 카드 — 원본 스킬의 마지막 장면. cinematic 에서만 쓴다. */}
+      {cfg.credit && cfg.layout === "cinematic" && (
+        <Sequence
+          from={durations.reduce((a, b) => a + b, 0)}
+          durationInFrames={Math.round(cfg.creditSeconds * FPS)}
+        >
+          <CreditClip text={cfg.credit} duration={Math.round(cfg.creditSeconds * FPS)} />
+        </Sequence>
+      )}
     </AbsoluteFill>
   )
 }

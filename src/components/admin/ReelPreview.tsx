@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Player } from "@remotion/player"
 import {
   ReelComposition, calcReelDurationInFrames, pickReelSlides,
@@ -148,12 +148,153 @@ export default function ReelPreview({
           onChange={v => onChange({ ...settings, kenBurns: v })}
         />
 
+        {settings.layout === "cinematic" && (
+          <>
+            <Slider
+              label="텍스트 뒤 어둠" value={settings.scrim} min={0} max={0.85} step={0.05} unit=""
+              display={v => v.toFixed(2)}
+              onChange={v => onChange({ ...settings, scrim: v })}
+            />
+            <div>
+              <label className="flex items-center gap-2 font-semibold mb-1.5">
+                <input
+                  type="checkbox"
+                  checked={settings.credit !== null}
+                  onChange={e => onChange({ ...settings, credit: e.target.checked ? "marklens.site" : null })}
+                  className="accent-indigo-500"
+                />
+                엔딩 크레딧 카드
+              </label>
+              {settings.credit !== null && (
+                <input
+                  type="text"
+                  value={settings.credit}
+                  onChange={e => onChange({ ...settings, credit: e.target.value })}
+                  className="w-full text-xs px-2.5 py-1.5 rounded-md border border-border bg-transparent"
+                />
+              )}
+            </div>
+
+            {/* 장면별 조절 — 사진 구도에 맞춰 줌·팬·타이틀 위치를 따로 준다 */}
+            <ShotEditor
+              picked={picked}
+              settings={settings}
+              onChange={onChange}
+            />
+          </>
+        )}
+
         <button
           onClick={() => onChange({ ...DEFAULT_REEL_SETTINGS })}
           className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted/50 font-medium"
         >
           기본값으로
         </button>
+      </div>
+    </div>
+  )
+}
+
+/** 장면별 줌·팬·타이틀 위치 조절.
+ *  한 화면에 전 장면을 늘어놓으면 슬라이더가 수십 개가 되므로, 장면 하나를 골라
+ *  그 장면만 조절한다. 미지정 장면은 전역 기본값(인덱스 홀짝 교차)을 그대로 쓴다. */
+function ShotEditor({ picked, settings, onChange }: {
+  picked: Slide[]
+  settings: ReelSettings
+  onChange: (next: ReelSettings) => void
+}) {
+  const [sel, setSel] = useState<Slide["type"] | null>(null)
+  const target: Slide["type"] | undefined =
+    sel !== null && picked.some(s => s.type === sel) ? sel : picked[0]?.type
+  if (target === undefined) return null
+
+  const shot = settings.shots[target] ?? {}
+  const idx = picked.findIndex(s => s.type === target)
+  const zoomIn = idx % 2 === 0
+  const defZoomFrom = zoomIn ? 1.05 : 1.12
+  const defZoomTo = zoomIn ? 1.14 : 1.04
+  const defPan: [number, number] = [[0, 0.4], [0.5, 0], [-0.4, 0.2], [0, -0.3]][idx % 4] as [number, number]
+
+  function patch(p: Partial<typeof shot>) {
+    onChange({ ...settings, shots: { ...settings.shots, [target as Slide["type"]]: { ...shot, ...p } } })
+  }
+
+  return (
+    <div className="border-t border-border pt-3">
+      <p className="font-semibold mb-1.5">장면별 조절</p>
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {picked.map(s => (
+          <button
+            key={s.type}
+            onClick={() => setSel(s.type)}
+            className={`px-2.5 py-1 rounded-md border font-medium ${
+              s.type === target
+                ? "border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
+                : "border-border text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            {SLIDE_LABELS[s.type]}
+            {settings.shots[s.type] && <span className="ml-1 text-[10px]">•</span>}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <Slider
+          label="이 장면 길이" value={shot.seconds ?? (target === "cta" ? settings.ctaSeconds : settings.slideSeconds)}
+          min={1.2} max={5} step={0.1} unit="초"
+          onChange={v => patch({ seconds: v })}
+        />
+        <Slider
+          label="줌 시작" value={shot.zoomFrom ?? defZoomFrom} min={1} max={1.3} step={0.01} unit="배"
+          display={v => v.toFixed(2)}
+          onChange={v => patch({ zoomFrom: v })}
+        />
+        <Slider
+          label="줌 끝" value={shot.zoomTo ?? defZoomTo} min={1} max={1.3} step={0.01} unit="배"
+          display={v => v.toFixed(2)}
+          onChange={v => patch({ zoomTo: v })}
+        />
+        <Slider
+          label="팬 가로" value={(shot.pan ?? defPan)[0]} min={-1} max={1} step={0.1} unit=""
+          display={v => v.toFixed(1)}
+          onChange={v => patch({ pan: [v, (shot.pan ?? defPan)[1]] })}
+        />
+        <Slider
+          label="팬 세로" value={(shot.pan ?? defPan)[1]} min={-1} max={1} step={0.1} unit=""
+          display={v => v.toFixed(1)}
+          onChange={v => patch({ pan: [(shot.pan ?? defPan)[0], v] })}
+        />
+        <div>
+          <p className="font-semibold mb-1">타이틀 위치</p>
+          <div className="flex gap-1.5">
+            {([["top", "위"], ["center", "가운데"], ["bottom", "아래"]] as const).map(([v, lbl]) => (
+              <button
+                key={v}
+                onClick={() => patch({ titlePos: v })}
+                className={`px-2.5 py-1 rounded-md border font-medium ${
+                  (shot.titlePos ?? "center") === v
+                    ? "border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
+                    : "border-border text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+        {settings.shots[target] && (
+          <button
+            onClick={() => {
+              const next = { ...settings.shots }
+              delete next[target]
+              onChange({ ...settings, shots: next })
+            }}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline"
+          >
+            이 장면 설정 초기화
+          </button>
+        )}
       </div>
     </div>
   )
