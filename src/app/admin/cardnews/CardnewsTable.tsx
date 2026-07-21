@@ -65,6 +65,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
   const [reelPreview, setReelPreview] = useState<{
     row: CardnewsRow; slides: Slide[]; category: string; coverImage: string | null
     photos: ReelPhotos
+    fromSaved: boolean   // 저장된 설정을 불러온 것인지 (비전 재판단 생략됨)
     settings: ReelSettings
   } | null>(null)
   const router = useRouter()
@@ -224,16 +225,64 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       const res = await fetch(`/api/admin/cardnews/slides?articleId=${r.articleId}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "불러오기 실패")
+      // 저장된 설정이 있으면 그대로, 없으면 비전이 정한 자막 위치·줌을 초기값으로 채운다
+      let settings: ReelSettings
+      if (data.fromSaved && data.savedSettings) {
+        settings = { ...DEFAULT_REEL_SETTINGS, ...data.savedSettings }
+      } else {
+        const hints = (data.hints ?? {}) as Record<string, { titlePos?: "top" | "center" | "bottom"; zoomFrom?: number; zoomTo?: number }>
+        const shots: ReelSettings["shots"] = {}
+        for (const [type, h] of Object.entries(hints)) {
+          if (h) shots[type as keyof ReelSettings["shots"]] = { titlePos: h.titlePos, zoomFrom: h.zoomFrom, zoomTo: h.zoomTo }
+        }
+        settings = { ...DEFAULT_REEL_SETTINGS, layout: "cinematic", shots }
+      }
       setReelPreview({
         row: r, slides: data.slides, category: data.category, coverImage: data.coverImage,
-        photos: data.photos ?? {},
-        settings: { ...DEFAULT_REEL_SETTINGS },
+        photos: data.photos ?? {}, fromSaved: !!data.fromSaved, settings,
       })
       toast.dismiss(toastId)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "불러오기 실패", { id: toastId })
     } finally {
       setRowBusy(r.articleId, false)
+    }
+  }
+
+  // 사진과 연출을 이 기사에 고정한다. 사진을 같이 저장하는 게 핵심 — 설정만 저장하면
+  // 다음에 열 때 사진이 바뀌어, 그 사진 구도를 전제로 정한 자막 위치·줌이 어긋난다.
+  async function saveReelSettings() {
+    if (!reelPreview) return
+    const toastId = toast.loading("설정 저장 중...")
+    try {
+      const res = await fetch("/api/admin/cardnews/reel-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          articleId: reelPreview.row.articleId,
+          settings: reelPreview.settings,
+          photos: reelPreview.photos,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "저장 실패")
+      setReelPreview(p => (p ? { ...p, fromSaved: true } : p))
+      toast.success("저장 완료 — 다음에 열면 이 설정 그대로 뜹니다", { id: toastId })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "저장 실패", { id: toastId })
+    }
+  }
+
+  // 저장을 지우고 AI가 다시 사진·연출을 정하게 한다
+  async function resetReelSettings(articleId: string) {
+    const toastId = toast.loading("초기화 중...")
+    try {
+      const res = await fetch(`/api/admin/cardnews/reel-settings?articleId=${articleId}`, { method: "DELETE" })
+      if (!res.ok) throw new Error((await res.json()).error ?? "초기화 실패")
+      setReelPreview(null)
+      toast.success("초기화 완료 — 릴스컷을 다시 눌러주세요", { id: toastId })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "초기화 실패", { id: toastId })
     }
   }
 
@@ -477,6 +526,9 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
             <h3 className="text-sm font-semibold mb-1">릴스컷 미리보기</h3>
             <p className="text-xs text-muted-foreground mb-4">
               재생해 보고 연출을 조절하세요. 여기 보이는 그대로 렌더됩니다.
+              {reelPreview.fromSaved
+                ? " · 저장된 설정을 불러왔습니다."
+                : " · 사진과 자막 위치는 AI가 사진을 보고 정했습니다."}
             </p>
             <ReelPreview
               slides={reelPreview.slides}
@@ -487,6 +539,22 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
               onChange={next => setReelPreview(p => (p ? { ...p, settings: next } : p))}
             />
             <div className="flex justify-end gap-2 mt-5">
+              {reelPreview.fromSaved && (
+                <button
+                  onClick={() => resetReelSettings(reelPreview.row.articleId)}
+                  className="text-xs px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-muted/50 mr-auto"
+                  title="저장을 지우고 AI가 다시 사진·연출을 정하게 합니다"
+                >
+                  AI로 다시 뽑기
+                </button>
+              )}
+              <button
+                onClick={() => saveReelSettings()}
+                className="text-xs px-3 py-2 rounded-md border border-border hover:bg-muted/50"
+                title="사진과 연출을 이 기사에 고정합니다"
+              >
+                설정 저장
+              </button>
               <button
                 onClick={() => setReelPreview(null)}
                 className="text-xs px-3 py-2 rounded-md border border-border hover:bg-muted/50"

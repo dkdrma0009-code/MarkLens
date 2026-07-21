@@ -8,8 +8,16 @@ interface UnsplashResult {
   creditLink: string  // user.links.html
 }
 
+// 후보 여러 장을 돌려주는 형태. 비전이 실제로 보고 고르려면 목록이 필요하다.
+export interface UnsplashCandidate {
+  url: string        // urls.regular — 렌더에 쓸 고해상도
+  thumb: string      // urls.small  — 비전 판별용 (페이로드 절감)
+  credit: string
+  alt: string
+}
+
 interface UnsplashPhoto {
-  urls?: { regular?: string }
+  urls?: { regular?: string; small?: string }
   user?: { name?: string; links?: { html?: string } }
   links?: { download_location?: string }
   alt_description?: string | null
@@ -72,4 +80,54 @@ export async function searchUnsplash(
   } catch {
     return null
   }
+}
+
+/** 후보 목록 반환 — 비전이 직접 보고 고르는 용도.
+ *  키워드 필터(isTextFree)로 명백한 글자 사진만 1차로 쳐내고, 최종 판단은 비전에 맡긴다.
+ *  alt_description 이 부실한 사진은 키워드로 못 걸러지기 때문이다. */
+export async function searchUnsplashCandidates(
+  query: string,
+  limit = 5,
+): Promise<UnsplashCandidate[]> {
+  const key = process.env.UNSPLASH_ACCESS_KEY
+  if (!key || !query.trim()) return []
+  try {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&orientation=portrait`,
+      { headers: { Authorization: `Client-ID ${key}` } },
+    )
+    if (!res.ok) return []
+    const results: UnsplashPhoto[] = (await res.json())?.results ?? []
+    const ranked = [...results.filter(isTextFree), ...results.filter(p => !isTextFree(p))]
+    return ranked
+      .filter(p => p.urls?.regular && p.urls?.small)
+      .slice(0, limit)
+      .map(p => ({
+        url: p.urls!.regular!,
+        thumb: p.urls!.small!,
+        credit: p.user?.name ?? "Unsplash",
+        alt: p.alt_description ?? "",
+      }))
+  } catch {
+    return []
+  }
+}
+
+/** Unsplash 이용약관: 사진을 실제로 "사용"할 때 download_location 트리거 필수.
+ *  후보를 여러 장 받아 하나만 쓰는 구조라, 선택된 뒤에 따로 호출해야 한다. */
+export async function trackUnsplashUse(query: string, chosenUrl: string): Promise<void> {
+  const key = process.env.UNSPLASH_ACCESS_KEY
+  if (!key) return
+  try {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&orientation=portrait`,
+      { headers: { Authorization: `Client-ID ${key}` } },
+    )
+    if (!res.ok) return
+    const results: UnsplashPhoto[] = (await res.json())?.results ?? []
+    const hit = results.find(p => p.urls?.regular === chosenUrl)
+    if (hit?.links?.download_location) {
+      await fetch(hit.links.download_location, { headers: { Authorization: `Client-ID ${key}` } })
+    }
+  } catch { /* 통계 집계 실패는 무시 */ }
 }
