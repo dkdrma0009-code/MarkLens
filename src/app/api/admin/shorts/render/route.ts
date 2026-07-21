@@ -70,7 +70,10 @@ export async function POST(req: Request) {
         // private → outputFile이 presigned URL(서명 포함). 다운로드·릴스(IG fetch) 모두 이걸로 동작.
         // public(공개 ACL)을 쓰면 역할에 s3:PutObjectAcl 권한이 필요해 실패 → private은 그 호출 자체가 없음.
         privacy: "private",
-        framesPerLambda: 150, // 동시 Lambda 수 최소화 (신규 계정 한도 대응)
+        // 동시 Lambda 수는 적게 유지하되(신규 계정 한도), 청크 하나가 120초 제한에
+        // 걸리지 않을 만큼은 쪼갠다. cinematic 은 그레인·그레이딩 필터가 붙어
+        // 프레임당 비용이 Shorts보다 크다.
+        framesPerLambda: compositionId === "Reel" ? 80 : 150,
         maxRetries: 1,
       })
       renderId = result.renderId

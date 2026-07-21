@@ -113,29 +113,44 @@ function kenBurns(t: number, zoomFrom: number, zoomTo: number, pan: [number, num
  *  ⚠️ 원본은 가우시안 노이즈(σ=8)를 픽셀값에 더한다. feTurbulence 는 정규분포가
  *  아니라 프랙탈 노이즈라 분포가 다르다. 진폭만 σ/255 에 맞춰 근사한 것이고,
  *  seed 를 프레임마다 바꿔 정지 패턴이 아닌 실제 필름처럼 지글거리게 한다. */
-function grain(frame: number) {
-  const seed = Math.floor(random(`grain-${frame}`) * 100000)
-  const id = `grain-${frame}`
+const GRAIN_TILE = 320   // 타일 한 변(px). 화면보다 작을수록 래스터화가 싸다
+
+/** 노이즈 타일 1장을 data URI 로 굽는다.
+ *  모듈 상수라 URI 가 매 프레임 동일 → 브라우저가 한 번만 래스터화하고 재사용한다.
+ *  이전 구현은 프레임마다 seed 를 바꿔 1080x1920 전체에 feTurbulence 를 다시
+ *  돌렸다. 200만 픽셀 펄린 노이즈 × 288프레임이라 Lambda 120초 제한을 넘겼다. */
+const GRAIN_URI = (() => {
   const amp = GRAIN_SIGMA / 255
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${GRAIN_TILE}" height="${GRAIN_TILE}">` +
+    `<filter id="n" color-interpolation-filters="sRGB">` +
+    `<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="1" seed="7"/>` +
+    `<feColorMatrix type="saturate" values="0"/>` +
+    `<feComponentTransfer>` +
+    `<feFuncR type="linear" slope="${amp * 4}" intercept="${0.5 - amp * 2}"/>` +
+    `<feFuncG type="linear" slope="${amp * 4}" intercept="${0.5 - amp * 2}"/>` +
+    `<feFuncB type="linear" slope="${amp * 4}" intercept="${0.5 - amp * 2}"/>` +
+    `</feComponentTransfer></filter>` +
+    `<rect width="100%" height="100%" filter="url(#n)"/></svg>`
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
+})()
+
+/** 필름 그레인.
+ *  타일을 반복해 깔고 프레임마다 **위치만** 흔든다. 노이즈를 새로 만들지 않으므로
+ *  비용이 거의 없고, 화면상으로는 여전히 지글거린다.
+ *  ⚠️ 원본은 가우시안 노이즈(σ=8)를 픽셀값에 더한다. feTurbulence 는 정규분포가
+ *  아니라 프랙탈 노이즈라 분포가 다르다 — 진폭만 σ/255 에 맞춘 근사다. */
+function grain(frame: number) {
+  const x = Math.floor(random(`gx-${frame}`) * GRAIN_TILE)
+  const y = Math.floor(random(`gy-${frame}`) * GRAIN_TILE)
   return (
     <div key="grain" style={{
       position: "absolute", inset: 0, display: "flex",
       mixBlendMode: "overlay", opacity: 0.42,
-    }}>
-      <svg width={W} height={H} style={{ display: "flex" }} aria-hidden>
-        <filter id={id} colorInterpolationFilters="sRGB">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves={1} seed={seed} />
-          <feColorMatrix type="saturate" values="0" />
-          {/* 0~1 노이즈를 0.5 중심 ±amp 로 눌러 원본 σ 진폭에 맞춘다 */}
-          <feComponentTransfer>
-            <feFuncR type="linear" slope={amp * 4} intercept={0.5 - amp * 2} />
-            <feFuncG type="linear" slope={amp * 4} intercept={0.5 - amp * 2} />
-            <feFuncB type="linear" slope={amp * 4} intercept={0.5 - amp * 2} />
-          </feComponentTransfer>
-        </filter>
-        <rect width={W} height={H} filter={`url(#${id})`} />
-      </svg>
-    </div>
+      backgroundImage: GRAIN_URI,
+      backgroundRepeat: "repeat",
+      backgroundPosition: `${x}px ${y}px`,
+    }} />
   )
 }
 
