@@ -142,21 +142,18 @@ function grain(frame: number) {
 /** 텍스트 뒤 스크림 — 사진 위 글자 가독성. 원본 스킬은 여행 사진 기준이라 이게 없는데,
  *  인물·복잡한 배경 위에 한글 본문이 얹히면 그림자만으로는 안 읽힌다.
  *  타이틀이 놓이는 띠에만 어둠을 깔아 사진을 최대한 살린다. */
-function scrim(strength: number, pos: "top" | "center" | "bottom", padTop: number) {
+function scrim(strength: number, pos: "top" | "center" | "bottom") {
   if (strength <= 0.01) return null
-  // 텍스트 블록보다 조금 위에서 시작해 화면 끝까지 덮는다. 고정 띠로 두면 본문이
-  // 길어졌을 때 아래쪽 글자가 스크림 밖으로 나가 안 읽힌다.
   // 텍스트 블록 주변에만 몰아준다. 화면 절반을 균일하게 덮으면 사진이 죽고
   // 전체가 어두워 보인다 — 가독성은 글자 바로 뒤에서만 필요하다.
-  const start = Math.max(0, padTop - H * 0.08)
   // 타이틀 + 본문이 함께 놓이므로 띠가 짧으면 본문 아래쪽이 밖으로 나가 안 읽힌다.
   // 대신 위아래 끝을 길게 페이드시켜 "화면 절반이 어둡다"는 인상은 피한다.
   const band = H * 0.62
+  const start = { top: 0, center: (H - band) / 2, bottom: H - band }[pos]
   const soft = (strength * 0.3).toFixed(3)
   return (
     <div key="scrim" style={{
-      position: "absolute", left: 0, top: start, width: W, height: Math.min(band, H - start),
-      display: "flex",
+      position: "absolute", left: 0, top: start, width: W, height: band, display: "flex",
       background:
         `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${soft}) 10%, ` +
         `rgba(8,8,10,${strength}) 24%, rgba(8,8,10,${strength}) 76%, ` +
@@ -185,11 +182,15 @@ function title(
 ) {
   const a = t < 0.33 ? t / 0.33 : t > 0.75 ? Math.max(0, (1 - t) / 0.25) : 1
   if (a <= 0.01) return null
-  const padTop = { top: H * 0.14, center: H * 0.4, bottom: H * 0.62 }[pos]
+  // 위치별로 정렬 기준을 바꾼다. 전부 paddingTop 으로 밀면 "아래"에서 본문이 길 때
+  // 프레임 밖으로 잘려 나간다 — 아래 정렬이어야 내용이 위로 자란다.
+  const justify = { top: "flex-start", center: "center", bottom: "flex-end" }[pos] as
+    "flex-start" | "center" | "flex-end"
   return (
     <div key="title" style={{
       position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "flex-start", paddingTop: padTop,
+      alignItems: "center", justifyContent: justify,
+      paddingTop: H * 0.12, paddingBottom: H * 0.13,
       paddingLeft: 90, paddingRight: 90,
     }}>
       {kicker && (
@@ -292,7 +293,7 @@ export function renderCinematicScene(
         }} />
       </div>
       <div key="vig" style={{ position: "absolute", inset: 0, display: "flex", background: VIGNETTE }} />
-      {scrim(scrimStrength, titlePos, { top: H * 0.14, center: H * 0.4, bottom: H * 0.62 }[titlePos])}
+      {scrim(scrimStrength, titlePos)}
       {grain(frame)}
       {title(kicker, tt, sub, t, titlePos)}
       {photo?.credit && (
