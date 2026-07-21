@@ -148,18 +148,17 @@ function scrim(strength: number, pos: "top" | "center" | "bottom") {
   // 전체가 어두워 보인다 — 가독성은 글자 바로 뒤에서만 필요하다.
   // 타이틀 + 본문이 함께 놓이므로 띠가 짧으면 본문 아래쪽이 밖으로 나가 안 읽힌다.
   // 대신 위아래 끝을 길게 페이드시켜 "화면 절반이 어둡다"는 인상은 피한다.
-  const band = H * 0.62
-  const start = { top: 0, center: (H - band) / 2, bottom: H - band }[pos]
-  const soft = (strength * 0.3).toFixed(3)
-  return (
-    <div key="scrim" style={{
-      position: "absolute", left: 0, top: start, width: W, height: band, display: "flex",
-      background:
-        `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${soft}) 10%, ` +
-        `rgba(8,8,10,${strength}) 24%, rgba(8,8,10,${strength}) 76%, ` +
-        `rgba(8,8,10,${soft}) 92%, rgba(8,8,10,0) 100%)`,
-    }} />
-  )
+  // 화면 가운데 떠 있는 띠는 "오버레이를 얹었다"는 티가 난다. 영화 포스터처럼
+  // 프레임 가장자리에서 시작해 한 방향으로 짙어지게 하면 구조로 읽힌다.
+  const s = strength.toFixed(3)
+  const mid = (strength * 0.62).toFixed(3)
+  const faint = (strength * 0.16).toFixed(3)
+  const g = {
+    bottom: `linear-gradient(180deg, rgba(8,8,10,0) 34%, rgba(8,8,10,${faint}) 50%, rgba(8,8,10,${mid}) 70%, rgba(8,8,10,${s}) 100%)`,
+    top: `linear-gradient(0deg, rgba(8,8,10,0) 40%, rgba(8,8,10,${faint}) 56%, rgba(8,8,10,${mid}) 76%, rgba(8,8,10,${s}) 100%)`,
+    center: `linear-gradient(180deg, rgba(8,8,10,${faint}) 0%, rgba(8,8,10,${mid}) 28%, rgba(8,8,10,${s}) 50%, rgba(8,8,10,${mid}) 72%, rgba(8,8,10,${faint}) 100%)`,
+  }[pos]
+  return <div key="scrim" style={{ position: "absolute", inset: 0, display: "flex", background: g }} />
 }
 
 /** 글자 수에 맞춰 타이틀 크기를 줄인다.
@@ -174,8 +173,14 @@ function fitTitleSize(text: string): number {
   return H * 0.034
 }
 
-/** 스테이지드 타이틀 — 원본은 중앙 상단, 앞 33% 페이드인 / 뒤 25% 페이드아웃.
- *  titlePos 로 사진 구도를 피해 위/가운데/아래로 옮길 수 있다. */
+/* 자막 블록 — 좌측 정렬, 하단 고정, 구조선.
+
+   가운데 정렬 + 소프트 그라디언트 + 드롭섀도우 조합은 자동 생성물처럼 읽힌다.
+   편집 디자인의 문법은 그 반대다: 왼쪽 정렬로 시선 시작점을 고정하고, 블록을
+   화면 폭의 일부만 쓰게 해 비대칭을 만들고, 얇은 선으로 계층을 표시한다.
+   가독성은 스크림이 책임지므로 글자 그림자는 최소로 남긴다. */
+const ACCENT = "#818CF8"   // 사이트 indigo-400 과 동일
+
 function title(
   kicker: string | null, text: string, sub: string | null,
   t: number, pos: "top" | "center" | "bottom",
@@ -186,38 +191,55 @@ function title(
   // 프레임 밖으로 잘려 나간다 — 아래 정렬이어야 내용이 위로 자란다.
   const justify = { top: "flex-start", center: "center", bottom: "flex-end" }[pos] as
     "flex-start" | "center" | "flex-end"
+  // 진입 모션도 좌측 기준으로 — 아래에서 올라오며 자리를 잡는다
+  const rise = (1 - Math.min(1, t / 0.33)) * 26
   return (
     <div key="title" style={{
       position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: justify,
-      paddingTop: H * 0.12, paddingBottom: H * 0.13,
-      paddingLeft: 90, paddingRight: 90,
+      alignItems: "flex-start", justifyContent: justify,
+      paddingTop: H * 0.11, paddingBottom: H * 0.12,
+      paddingLeft: 84, paddingRight: 84,
     }}>
-      {kicker && (
-        <div style={{
-          display: "flex", fontSize: H * 0.021, fontWeight: 600, color: "#D8CFBE",
-          letterSpacing: "0.14em", opacity: a * 0.85, marginBottom: H * 0.022,
-          textShadow: "2px 2px 0 rgba(0,0,0,0.5)",
-        }}>
-          {kicker}
-        </div>
-      )}
       <div style={{
-        display: "flex", fontSize: fitTitleSize(text), fontWeight: 700, color: "#F5F0E6",
-        letterSpacing: "-0.01em", opacity: a, textShadow: "0 3px 14px rgba(0,0,0,0.7), 2px 2px 0 rgba(0,0,0,0.55)",
-        textAlign: "center", wordBreak: "keep-all", lineHeight: 1.2,
+        display: "flex", flexDirection: "column", alignItems: "flex-start",
+        width: W * 0.8, transform: `translateY(${rise.toFixed(1)}px)`,
       }}>
-        {text}
-      </div>
-      {sub && (
+        {kicker && (
+          <div style={{ display: "flex", alignItems: "center", marginBottom: H * 0.018, opacity: a * 0.95 }}>
+            {/* 짧은 액센트 바 — 계층을 색이 아니라 구조로 표시한다 */}
+            <div style={{ display: "flex", width: 44, height: 3, background: ACCENT, marginRight: 18 }} />
+            <div style={{
+              display: "flex", fontSize: H * 0.019, fontWeight: 600, color: "#E8E3D8",
+              letterSpacing: "0.16em",
+            }}>
+              {kicker}
+            </div>
+          </div>
+        )}
         <div style={{
-          display: "flex", fontSize: H * 0.032, color: "#E6E1D7", marginTop: H * 0.06,
-          opacity: a * 0.9, textAlign: "center", wordBreak: "keep-all", lineHeight: 1.5,
-          textShadow: "0 2px 10px rgba(0,0,0,0.75), 2px 2px 0 rgba(0,0,0,0.5)",
+          display: "flex", fontSize: fitTitleSize(text), fontWeight: 700, color: "#FFFFFF",
+          letterSpacing: "-0.035em", opacity: a, textShadow: "0 2px 12px rgba(0,0,0,0.45)",
+          textAlign: "left", wordBreak: "keep-all", lineHeight: 1.16,
         }}>
-          {sub}
+          {text}
         </div>
-      )}
+        {sub && (
+          <>
+            <div style={{
+              display: "flex", width: 92, height: 1, background: "rgba(255,255,255,0.32)",
+              marginTop: H * 0.026, marginBottom: H * 0.026, opacity: a,
+            }} />
+            <div style={{
+              display: "flex", fontSize: H * 0.029, color: "rgba(255,255,255,0.82)",
+              opacity: a, textAlign: "left", wordBreak: "keep-all", lineHeight: 1.62,
+              letterSpacing: "-0.01em", textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+              maxWidth: W * 0.74,
+            }}>
+              {sub}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
