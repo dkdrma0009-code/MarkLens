@@ -146,14 +146,21 @@ function scrim(strength: number, pos: "top" | "center" | "bottom", padTop: numbe
   if (strength <= 0.01) return null
   // 텍스트 블록보다 조금 위에서 시작해 화면 끝까지 덮는다. 고정 띠로 두면 본문이
   // 길어졌을 때 아래쪽 글자가 스크림 밖으로 나가 안 읽힌다.
-  const start = Math.max(0, padTop - H * 0.1)
-  const isTop = pos === "top"
+  // 텍스트 블록 주변에만 몰아준다. 화면 절반을 균일하게 덮으면 사진이 죽고
+  // 전체가 어두워 보인다 — 가독성은 글자 바로 뒤에서만 필요하다.
+  const start = Math.max(0, padTop - H * 0.08)
+  // 타이틀 + 본문이 함께 놓이므로 띠가 짧으면 본문 아래쪽이 밖으로 나가 안 읽힌다.
+  // 대신 위아래 끝을 길게 페이드시켜 "화면 절반이 어둡다"는 인상은 피한다.
+  const band = H * 0.62
+  const soft = (strength * 0.3).toFixed(3)
   return (
     <div key="scrim" style={{
-      position: "absolute", left: 0, top: start, width: W, height: H - start, display: "flex",
-      background: isTop
-        ? `linear-gradient(180deg, rgba(8,8,10,${strength}) 0%, rgba(8,8,10,${strength}) 46%, rgba(8,8,10,0) 78%)`
-        : `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${strength}) 22%, rgba(8,8,10,${strength}) 100%)`,
+      position: "absolute", left: 0, top: start, width: W, height: Math.min(band, H - start),
+      display: "flex",
+      background:
+        `linear-gradient(180deg, rgba(8,8,10,0) 0%, rgba(8,8,10,${soft}) 10%, ` +
+        `rgba(8,8,10,${strength}) 24%, rgba(8,8,10,${strength}) 76%, ` +
+        `rgba(8,8,10,${soft}) 92%, rgba(8,8,10,0) 100%)`,
     }} />
   )
 }
@@ -196,7 +203,7 @@ function title(
       )}
       <div style={{
         display: "flex", fontSize: fitTitleSize(text), fontWeight: 700, color: "#F5F0E6",
-        letterSpacing: "-0.01em", opacity: a, textShadow: "2px 2px 0 rgba(0,0,0,0.5)",
+        letterSpacing: "-0.01em", opacity: a, textShadow: "0 3px 14px rgba(0,0,0,0.7), 2px 2px 0 rgba(0,0,0,0.55)",
         textAlign: "center", wordBreak: "keep-all", lineHeight: 1.2,
       }}>
         {text}
@@ -205,7 +212,7 @@ function title(
         <div style={{
           display: "flex", fontSize: H * 0.032, color: "#E6E1D7", marginTop: H * 0.06,
           opacity: a * 0.9, textAlign: "center", wordBreak: "keep-all", lineHeight: 1.5,
-          textShadow: "2px 2px 0 rgba(0,0,0,0.45)",
+          textShadow: "0 2px 10px rgba(0,0,0,0.75), 2px 2px 0 rgba(0,0,0,0.5)",
         }}>
           {sub}
         </div>
@@ -288,7 +295,7 @@ export function renderCinematicScene(
       {scrim(scrimStrength, titlePos, { top: H * 0.14, center: H * 0.4, bottom: H * 0.62 }[titlePos])}
       {grain(frame)}
       {title(kicker, tt, sub, t, titlePos)}
-      {photo && (
+      {photo?.credit && (
         <div key="credit" style={{
           position: "absolute", bottom: 26, right: 60, display: "flex",
           fontSize: 22, color: "rgba(245,240,230,0.4)",

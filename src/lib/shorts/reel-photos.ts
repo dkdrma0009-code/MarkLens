@@ -47,6 +47,12 @@ async function buildQueries(slides: Slide[], category: string): Promise<Record<s
       "whiteboards, sticky notes, signage, posters, quotes, book pages, diagrams, charts, " +
       "slides, screens showing text, or handwriting. Prefer people, hands, places, objects, " +
       "textures, and out-of-focus backgrounds. " +
+      // 뻔한 비유 사진은 \"그냥 스톡이네\" 하고 스크롤을 부른다
+      "AVOID stock cliches: chess pieces, handshakes, lightbulbs, puzzle pieces, " +
+      "dartboards, ladders, sunrises over mountains, rocket launches, gears, compasses, " +
+      "and people pointing at charts. " +
+      "Tie the query to the concrete situation the slide describes, not to an abstract " +
+      "metaphor for it. " +
       "No prose, no explanation, JSON only.",
     prompt: `Category: ${category}\n\nSlides:\n${listing}`,
     maxTokens: 500,
@@ -66,11 +72,14 @@ async function buildQueries(slides: Slide[], category: string): Promise<Record<s
  * ⚠️ 결과를 미리보기와 렌더가 **공유**해야 한다. 각자 호출하면 다른 사진이 나온다.
  */
 export async function resolveReelPhotos(
-  slides: Slide[], category: string,
+  slides: Slide[], category: string, articleImage?: string | null,
 ): Promise<{ photos: ReelPhotos; hints: ReelShotHints }> {
+  // 표지는 기사 본문 이미지를 쓴다 — 그 기사의 실제 사진이라 스톡보다 관련성이 높다.
+  // 나머지 장면만 스톡에서 찾는다.
+  const stockSlides = articleImage ? slides.filter(s => s.type !== "cover") : slides
   let queries: Record<string, string> = {}
   try {
-    queries = await buildQueries(slides, category)
+    queries = await buildQueries(stockSlides, category)
   } catch (e) {
     console.warn("[reel-photos] 검색어 생성 실패 — 카테고리로 폴백:", e instanceof Error ? e.message : e)
   }
@@ -80,7 +89,7 @@ export async function resolveReelPhotos(
 
   try {
     const plans = await planReelShots(
-      slides, queries, s => SLIDE_LABEL[s.type], s => slideText(s), category,
+      stockSlides, queries, s => SLIDE_LABEL[s.type], s => slideText(s), category,
     )
     for (const [type, p] of Object.entries(plans)) {
       if (!p) continue
@@ -97,9 +106,11 @@ export async function resolveReelPhotos(
     console.warn("[reel-photos] 비전 판단 실패 — 키워드 필터로 폴백:", e instanceof Error ? e.message : e)
   }
 
+  if (articleImage) photos.cover = { url: articleImage, credit: "" }
+
   // 비전이 못 채운 장면만 기존 경로로 메운다
   await Promise.all(
-    slides.filter(s => !photos[s.type]).map(async s => {
+    stockSlides.filter(s => !photos[s.type]).map(async s => {
       const q = queries[s.type]?.trim() || category
       const hit = await searchUnsplash(q, "portrait", true)
       if (hit) photos[s.type] = { url: hit.url, credit: hit.credit }

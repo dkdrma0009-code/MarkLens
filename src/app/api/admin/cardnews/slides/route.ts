@@ -52,7 +52,7 @@ export async function GET(req: Request) {
   let photos: ReelPhotos = {}
   let hints: ReelShotHints = {}
   try {
-    ({ photos, hints } = await resolveReelPhotos(slides, category))
+    ({ photos, hints } = await resolveReelPhotos(slides, category, coverImage))
   } catch (e) {
     console.warn("[cardnews/slides] 사진 해석 실패:", e instanceof Error ? e.message : e)
   }

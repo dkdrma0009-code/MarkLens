@@ -60,7 +60,7 @@ export const DEFAULT_REEL_SETTINGS: ReelSettings = {
   slideSeconds: 2.2,
   ctaSeconds: 3.0,
   kenBurns: 0.045,
-  scrim: 0.6,
+  scrim: 0.45,
   credit: null,
   creditSeconds: 1.4,
   shots: {},
