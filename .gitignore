@@ -6,6 +6,11 @@
 !/scripts/ad2-config.json
 !/scripts/ad3-config.json
 !/scripts/build-n8n-workflows.mjs
+!/scripts/scrape-benchmark-reels.mjs
+!/scripts/benchmark-accounts.json
+!/scripts/deploy-shorts-site.mjs
+# 긁은 릴스 원본은 커밋 안 함 (용량·재생성 가능)
+/scripts/output/
 
 # ad video working files (clips, mp3, output)
 /ad-work/

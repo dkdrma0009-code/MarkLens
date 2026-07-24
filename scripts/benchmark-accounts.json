@@ -1,0 +1,21 @@
+{
+  "_comment": "벤치마킹 인스타 계정. Apify로 릴스를 긁어 성과순 분석. 핸들은 1릴스 스크랩으로 존재 검증됨(2026-07-24). 무관·저활동 계정은 제외.",
+  "reelsPerAccount": 12,
+  "accounts": [
+    "newneek.official",
+    "univ20",
+    "prettylittlemarketer",
+    "marketingmillennials",
+    "adweek",
+    "adage",
+    "ogilvy",
+    "hubspot",
+    "garyvee",
+    "publy.co"
+  ],
+  "_dropped": {
+    "later, creativexculture, thanksforcaring, mktghackers": "핸들 오류 또는 릴스 0건",
+    "brunchstory": "음식 콘텐츠, 우리 니치와 무관",
+    "longblack.co": "이벤트성 짧은 릴스 위주, 벤치마킹 가치 낮음"
+  }
+}
