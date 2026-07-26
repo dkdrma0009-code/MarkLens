@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { data: insight } = await supabase
     .from("insights")
     .select("hook, summary, category, article:articles(title, image_url, source_name)")
-    .eq("slug", slug)
+    .eq("slug", decodeURIComponent(slug))
     .single()
 
   if (!insight) return {}
@@ -80,10 +80,12 @@ export default async function InsightDetailPage({ params }: Props) {
   const { slug } = await params
   const supabase = createPublicClient()
 
+  // Next 16(Turbopack)이 라우트 파라미터를 디코딩하지 않고 넘기는 경우가 있어(한글 슬러그가 %EB..로 옴)
+  // DB의 원문 슬러그와 매칭되도록 명시적으로 디코딩한다.
   const { data: insight } = await supabase
     .from("insights")
     .select("*, article:articles(*)")
-    .eq("slug", slug)
+    .eq("slug", decodeURIComponent(slug))
     .single()
 
   if (!insight) notFound()
