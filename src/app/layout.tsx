@@ -1,13 +1,33 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/sonner";
 import ThemeProvider from "@/components/ThemeProvider";
 import Script from "next/script";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// 한글 본문 — Pretendard (self-host woff2)
+const pretendard = localFont({
+  src: [
+    { path: "../../public/fonts/Pretendard-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/Pretendard-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/Pretendard-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/Pretendard-Bold.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-sans",
+  display: "swap",
+  fallback: ["Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
+});
+
+// 제목 — Gmarket Sans (self-host woff2), 본문과 대비되는 지오메트릭 디스플레이
+const gmarketSans = localFont({
+  src: [
+    { path: "../../public/fonts/GmarketSansMedium.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/GmarketSansBold.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-heading",
+  display: "swap",
+  fallback: ["Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
 });
 
 const geistMono = Geist_Mono({
@@ -56,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${pretendard.variable} ${gmarketSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
         {GA_ID && <>
