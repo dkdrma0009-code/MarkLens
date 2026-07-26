@@ -12,7 +12,7 @@ export async function POST(
   if (limited) return NextResponse.json({ ok: true }) // 막혀도 429 아닌 200 — 클라이언트 오류 방지
   // admin client: RLS 우회 — anon UPDATE 권한 없이도 view_count 집계 가능
   const supabase = createAdminClient()
-  const { data } = await supabase.from("insights").select("id, view_count").eq("slug", slug).single()
+  const { data } = await supabase.from("insights").select("id, view_count").eq("slug", decodeURIComponent(slug)).single()
   if (data) {
     await supabase.from("insights").update({ view_count: (data.view_count || 0) + 1 }).eq("id", data.id)
   }

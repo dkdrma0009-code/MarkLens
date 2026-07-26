@@ -24,7 +24,7 @@ export async function GET(
   const { data } = await supabase
     .from("insights")
     .select("hook, category, article:articles(source_name)")
-    .eq("slug", slug)
+    .eq("slug", decodeURIComponent(slug))
     .single()
 
   const hook = data?.hook ?? "MarkLens 인사이트"

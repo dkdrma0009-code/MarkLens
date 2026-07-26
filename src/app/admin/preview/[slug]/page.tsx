@@ -52,7 +52,7 @@ export default async function AdminPreviewPage({ params }: Props) {
   const { data: insight } = await supabase
     .from("insights")
     .select("*, article:articles(*)")
-    .eq("slug", slug)
+    .eq("slug", decodeURIComponent(slug))
     .single()
 
   if (!insight) notFound()
