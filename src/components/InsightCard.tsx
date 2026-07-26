@@ -29,7 +29,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
   if (isLarge) {
     return (
       <Link
-        href={`/insights/${insight.slug}`}
+        href={`/insights/${encodeURIComponent(insight.slug)}`}
         className="group relative flex flex-col bg-card border border-border rounded-2xl overflow-hidden hover:border-ring hover:shadow-xl transition-all duration-200"
       >
         {/* Thumbnail */}
