@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import { Sun, Moon } from "lucide-react"
+import { useState, useEffect } from "react"
 
 const navItems = [
   { href: "/insights",   label: "인사이트" },
@@ -26,7 +27,10 @@ function Logo() {
 
 function ThemeToggle() {
   const { setTheme, resolvedTheme } = useTheme()
-  if (resolvedTheme === undefined) return <div className="w-8 h-8" />
+  // 마운트 전에는 서버와 동일한 placeholder를 그려 하이드레이션 불일치 방지
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return <div className="w-8 h-8" />
   return (
     <button
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
