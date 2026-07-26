@@ -67,19 +67,19 @@ export default function InsightsClient({ allInsights }: Props) {
       <div className="mb-10 space-y-4">
         {/* Search */}
         <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={query}
             onChange={e => handleSearch(e.target.value)}
             placeholder="인사이트 검색..."
-            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-full bg-background text-foreground focus:outline-none focus:border-ring transition-colors"
           />
           {query && (
             <button
               onClick={() => handleSearch("")}
               aria-label="검색어 지우기"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -96,8 +96,8 @@ export default function InsightsClient({ allInsights }: Props) {
                 href={cat.slug ? `/insights?category=${cat.slug}` : "/insights"}
                 className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-all whitespace-nowrap ${
                   category === cat.slug || (!category && !cat.slug)
-                    ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
-                    : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:border-ring hover:text-foreground"
                 }`}
               >
                 {cat.label}
@@ -108,7 +108,7 @@ export default function InsightsClient({ allInsights }: Props) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-20 text-gray-400 dark:text-gray-600">
+        <div className="text-center py-20 text-muted-foreground">
           {query ? `"${query}"에 대한 결과가 없습니다.` : "아직 발행된 인사이트가 없습니다."}
         </div>
       ) : (
@@ -129,7 +129,7 @@ export default function InsightsClient({ allInsights }: Props) {
             <div className="mt-10 text-center">
               <button
                 onClick={() => startTransition(() => setPage(p => p + 1))}
-                className="px-8 py-3 text-sm font-semibold border border-gray-200 dark:border-gray-700 rounded-full text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                className="px-8 py-3 text-sm font-semibold border border-border rounded-full text-foreground hover:border-ring hover:bg-accent transition-all"
               >
                 더 보기 ({filtered.length - shown.length}개 남음)
               </button>

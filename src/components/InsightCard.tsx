@@ -30,7 +30,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
     return (
       <Link
         href={`/insights/${insight.slug}`}
-        className="group relative flex flex-col bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-xl transition-all duration-200"
+        className="group relative flex flex-col bg-card border border-border rounded-2xl overflow-hidden hover:border-ring hover:shadow-xl transition-all duration-200"
       >
         {/* Thumbnail */}
         <div className="relative h-56 md:h-72 w-full overflow-hidden flex-shrink-0">
@@ -53,15 +53,15 @@ export default function InsightCard({ insight, size = "default" }: Props) {
 
         {/* Content */}
         <div className="p-6 space-y-2">
-          <p className="text-xl font-bold leading-snug text-gray-900 dark:text-gray-100 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">
+          <p className="text-xl font-bold leading-snug text-foreground group-hover:text-primary transition-colors">
             {headline}
           </p>
           {insight.summary && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">
+            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
               {insight.summary}
             </p>
           )}
-          <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 pt-3 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border">
             <span className="font-medium">{article?.source_name}</span>
             <span>{formatDate(insight.created_at)}</span>
           </div>
@@ -73,7 +73,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
   return (
     <Link
       href={`/insights/${insight.slug}`}
-      className="group flex flex-col bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-200"
+      className="group flex flex-col bg-card border border-border rounded-2xl overflow-hidden hover:border-ring hover:shadow-lg transition-all duration-200"
     >
       {/* Thumbnail */}
       <div className="relative h-44 w-full overflow-hidden flex-shrink-0">
@@ -94,11 +94,11 @@ export default function InsightCard({ insight, size = "default" }: Props) {
           {insight.category}
         </span>
 
-        <p className="font-bold text-sm leading-snug text-gray-900 dark:text-gray-100 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors line-clamp-3">
+        <p className="font-bold text-sm leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-3">
           {headline}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-100 dark:border-gray-800 mt-auto">
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border mt-auto">
           <span className="font-medium">{article?.source_name}</span>
           <span>{formatDate(insight.created_at)}</span>
         </div>
