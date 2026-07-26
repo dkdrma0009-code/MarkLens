@@ -77,6 +77,7 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
+      data-scroll-behavior="smooth"
       className={`${pretendard.variable} ${gmarketSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
