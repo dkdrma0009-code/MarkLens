@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 // cache-bust: 2026-06-08
 const nextConfig: NextConfig = {
+  // 워크스페이스 루트를 이 프로젝트로 고정 — 홈 디렉토리의 떠돌이 lockfile이
+  // 루트로 오인돼 next/font 모듈 해시가 서버/클라 불일치(하이드레이션 에러)나는 것 방지
+  turbopack: {
+    root: __dirname,
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
