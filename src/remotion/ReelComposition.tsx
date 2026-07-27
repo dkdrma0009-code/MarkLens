@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import {
   AbsoluteFill,
   Sequence,
+  OffthreadVideo,
   interpolate,
   useCurrentFrame,
   staticFile,
@@ -13,9 +14,11 @@ import { renderShortScene, VTOKENS } from "../lib/shorts/templates"
 import { renderFullbleedScene } from "../lib/shorts/fullbleed"
 import { renderEditorialScene } from "../lib/shorts/editorial"
 import { renderCinematicScene, renderCreditScene } from "../lib/shorts/cinematic"
+import { renderKineticScene, renderProgress } from "../lib/shorts/kinetic"
 import { Bgm } from "./bgm"
 import type { Slide } from "../lib/cardnews/types"
 import type { ReelPhotos } from "../lib/shorts/reel-photos"
+import type { ReelBeat } from "../lib/shorts/reel-script"
 
 export const FPS = 30
 
@@ -203,6 +206,196 @@ function ReelClip({ slide, category, coverImage, duration, index, kenBurns, layo
 function CreditClip({ text, duration }: { text: string; duration: number }) {
   const frame = useCurrentFrame()
   return <AbsoluteFill>{renderCreditScene(text, frame, duration)}</AbsoluteFill>
+}
+
+/* ── 키네틱 타이포 릴스 (사진 없음) ──────────────────────────────────────
+   대본 비트(reel-script.ts)를 화면 가득 움직이는 글자로 전개한다. 슬라이드
+   기반 레이아웃(text/editorial/fullbleed/cinematic)과 완전히 별개 파이프라인 —
+   재료가 Slide 가 아니라 ReelBeat 다. 길이는 비트 seconds 합으로 정해진다. */
+
+const KINETIC_MIN = 30 // 비트 최소 프레임 (1초) — kinetic EXIT(8) 보다 커야 페이드가 성립
+
+export type ReelKineticProps = {
+  beats: ReelBeat[]
+  category: string
+}
+
+export const defaultKineticProps: ReelKineticProps = {
+  category: "마케팅",
+  beats: [
+    { role: "hook", text: "나 주니어 때 이거 몰라서 개털렸다", seconds: 3.2, emphasis: "개털렸다" },
+    { role: "tension", text: "리포트는 예쁜데 아무도 안 움직였다", seconds: 3.0, emphasis: "안 움직였다" },
+    { role: "insight", text: "숫자를 보여주는 게 아니라 결정을 대신 내려줘야 한다", seconds: 4.2, emphasis: "결정" },
+    { role: "insight", text: "\"그래서 뭘 하면 되는데\"에 한 문장으로 답할 것", seconds: 4.0, emphasis: "한 문장" },
+    { role: "insight", text: "데이터는 근거지 결론이 아니다", seconds: 3.4, emphasis: "결론" },
+    { role: "payoff", text: "일 잘한다는 소린 여기서 갈린다", seconds: 3.2, emphasis: "여기서" },
+    { role: "outro", text: "너의 다음 리포트는 달라야 한다", seconds: 3.0 },
+  ],
+}
+
+function kineticBeatFrames(b: ReelBeat): number {
+  return Math.max(KINETIC_MIN, Math.round((b.seconds || 2.2) * FPS))
+}
+
+export function calcKineticDurationInFrames(beats: ReelBeat[]): number {
+  return Math.max(beats.reduce((a, b) => a + kineticBeatFrames(b), 0), 1)
+}
+
+export const calcKineticMetadata: CalculateMetadataFunction<ReelKineticProps> = ({ props }) => ({
+  durationInFrames: calcKineticDurationInFrames(props.beats),
+})
+
+function KineticClip({ beat, duration, index, transparent }: { beat: ReelBeat; duration: number; index: number; transparent?: boolean }) {
+  const frame = useCurrentFrame()
+  return <AbsoluteFill>{renderKineticScene(beat, frame, duration, index, { transparent })}</AbsoluteFill>
+}
+
+// 진행 바는 시퀀스 밖 전역 오버레이 — 비트마다 페이드하면 깜빡인다. 현재 프레임으로
+// 활성 비트를 직접 계산해 이어지게 그린다.
+function KineticProgress({ starts, durations }: { starts: number[]; durations: number[] }) {
+  const frame = useCurrentFrame()
+  let idx = 0
+  for (let i = 0; i < starts.length; i++) if (frame >= starts[i]) idx = i
+  return <AbsoluteFill>{renderProgress(idx, durations.length)}</AbsoluteFill>
+}
+
+export function ReelKineticComposition({ beats }: ReelKineticProps) {
+  const [handle] = useState(() => delayRender("load-fonts-kinetic"))
+  useEffect(() => {
+    Promise.all([
+      document.fonts.load("600 100px Pretendard"),
+      document.fonts.load("700 100px Pretendard"),
+      document.fonts.load("800 100px Pretendard"),
+    ])
+      .then(() => document.fonts.ready)
+      .then(() => continueRender(handle))
+      .catch(() => continueRender(handle))
+  }, [handle])
+
+  const durations = beats.map(kineticBeatFrames)
+  const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0))
+  return (
+    <AbsoluteFill style={{ backgroundColor: VTOKENS.BG }}>
+      <style>{FONT_CSS}</style>
+      <Bgm />
+      {beats.map((beat, i) => (
+        <Sequence key={i} from={starts[i]} durationInFrames={durations[i]}>
+          <KineticClip beat={beat} duration={durations[i]} index={i} />
+        </Sequence>
+      ))}
+      <KineticProgress starts={starts} durations={durations} />
+    </AbsoluteFill>
+  )
+}
+
+/* ── 키네틱 타이포 + Veo 인물 b-roll 컷 (사진 아님, 영상) ────────────────────
+   하단: Veo 인물 클립을 2초마다 하드컷(다른 구간 + 줌 변화)으로 깐다.
+   상단: 위 키네틱 타이포를 투명 배경으로 얹는다. 두 레이어는 독립 타이밍 —
+   실제 편집된 릴스처럼 b-roll 컷 리듬과 자막 타이밍이 따로 논다.
+
+   비용 현실: Veo 클립은 8초 최소($0.15/초). 55초를 전부 새 클립으로 채우면 비싸서,
+   소수 클립을 2초 창으로 잘라 재사용한다(clips[] 를 컷마다 순환). */
+
+const CUT = 60 // 컷 하나 = 2초(30fps)
+// 규격화된 6초(0~180프레임) 클립 안에서 겹치지 않는 2초 창 시작점들
+const CUT_WINDOWS = [0, 60, 120]
+// 컷마다 배율을 바꿔 같은 창이라도 다른 샷처럼 보이게 (점프컷 느낌)
+const CUT_SCALES = [1.04, 1.12, 1.0, 1.08, 1.14, 1.02]
+
+function VideoCut({ clip, window, scale }: { clip: string; window: number; scale: number }) {
+  const frame = useCurrentFrame()
+  // 컷 안 느린 줌 — 2초가 정지처럼 안 보이게
+  const z = interpolate(frame, [0, CUT], [scale, scale * 1.05], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+  return (
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#000" }}>
+      <OffthreadVideo
+        src={staticFile(clip)}
+        startFrom={window}
+        muted
+        style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${z})` }}
+      />
+    </AbsoluteFill>
+  )
+}
+
+function VideoCutLayer({ clips, total }: { clips: string[]; total: number }) {
+  const cuts = Math.ceil(total / CUT)
+  return (
+    <>
+      {Array.from({ length: cuts }).map((_, i) => (
+        <Sequence key={i} from={i * CUT} durationInFrames={CUT}>
+          <VideoCut
+            clip={clips[i % clips.length]}
+            // 첫 한 바퀴는 전부 다른 클립을 창 0 으로 → 반복 없음. 클립이 컷보다 적어
+            // 두 바퀴째부터 도는 경우에만 창을 옮겨 같은 클립이라도 다른 구간이 보이게.
+            window={CUT_WINDOWS[Math.floor(i / clips.length) % CUT_WINDOWS.length]}
+            scale={CUT_SCALES[i % CUT_SCALES.length]}
+          />
+        </Sequence>
+      ))}
+    </>
+  )
+}
+
+// 영상 위 글자 가독성용 스크림 — 상·하단을 어둡게 눌러 kicker·자막·워드마크를 살린다.
+function Scrim() {
+  return (
+    <AbsoluteFill style={{
+      background:
+        "linear-gradient(180deg, rgba(8,8,10,0.60) 0%, rgba(8,8,10,0.18) 20%, rgba(8,8,10,0.20) 58%, rgba(8,8,10,0.78) 100%)",
+    }} />
+  )
+}
+
+export type ReelKineticVideoProps = {
+  beats: ReelBeat[]
+  clips: string[] // staticFile 상대경로 (예: "video/clip1.mp4")
+  category: string
+}
+
+// 실사 스톡(Pexels) 세로 클립 — AI 인물을 대체. 컷마다 다른 클립이 나와 반복이 없다.
+const STOCK_CLIPS = Array.from({ length: 30 }, (_, i) => `video/stock/s${String(i + 1).padStart(2, "0")}.mp4`)
+
+export const defaultKineticVideoProps: ReelKineticVideoProps = {
+  category: "마케팅",
+  beats: defaultKineticProps.beats,
+  clips: STOCK_CLIPS,
+}
+
+export const calcKineticVideoMetadata: CalculateMetadataFunction<ReelKineticVideoProps> = ({ props }) => ({
+  durationInFrames: calcKineticDurationInFrames(props.beats),
+})
+
+export function ReelKineticVideoComposition({ beats, clips }: ReelKineticVideoProps) {
+  const [handle] = useState(() => delayRender("load-fonts-kv"))
+  useEffect(() => {
+    Promise.all([
+      document.fonts.load("600 100px Pretendard"),
+      document.fonts.load("700 100px Pretendard"),
+      document.fonts.load("800 100px Pretendard"),
+    ])
+      .then(() => document.fonts.ready)
+      .then(() => continueRender(handle))
+      .catch(() => continueRender(handle))
+  }, [handle])
+
+  const durations = beats.map(kineticBeatFrames)
+  const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0))
+  const total = calcKineticDurationInFrames(beats)
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      <style>{FONT_CSS}</style>
+      <Bgm />
+      <VideoCutLayer clips={clips} total={total} />
+      <Scrim />
+      {beats.map((beat, i) => (
+        <Sequence key={i} from={starts[i]} durationInFrames={durations[i]}>
+          <KineticClip beat={beat} duration={durations[i]} index={i} transparent />
+        </Sequence>
+      ))}
+      <KineticProgress starts={starts} durations={durations} />
+    </AbsoluteFill>
+  )
 }
 
 export function ReelComposition({ slides, category, coverImage, settings, photos }: ReelProps) {

@@ -53,7 +53,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
   const bulkStop = useRef(false)
   const [shortsModal, setShortsModal] = useState<{
     articleId: string; outputFile: string; slug: string; caption: string
-    kind: "숏츠" | "릴스컷"   // 모달 문구·다운로드 파일명이 렌더한 컷과 어긋나지 않도록
+    kind: "숏츠" | "릴스컷" | "릴스"   // 모달 문구·다운로드 파일명이 렌더한 컷과 어긋나지 않도록
   } | null>(null)
   const [diagnoseModal, setDiagnoseModal] = useState<{
     articleId: string; loading: boolean; error?: string
@@ -288,9 +288,9 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
 
   // composition="Reel"은 릴스컷 — 정보 나열 장면을 빼고 켄번즈 모션을 넣은 짧은 버전.
   // settings는 미리보기에서 조절한 값. 미지정이면 컴포지션 기본값이 쓰인다.
-  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" = "Shorts", settings?: ReelSettings, photos?: ReelPhotos) {
-    const kind = composition === "Reel" ? "릴스컷" : "숏츠"
-    const prefix = composition.toLowerCase()
+  async function generateShorts(r: CardnewsRow, composition: "Shorts" | "Reel" | "ReelKineticVideo" = "Shorts", settings?: ReelSettings, photos?: ReelPhotos) {
+    const kind = composition === "Reel" ? "릴스컷" : composition === "ReelKineticVideo" ? "릴스" : "숏츠"
+    const prefix = composition === "Shorts" ? "shorts" : "reel"
     setRowBusy(r.articleId, true)
     const toastId = toast.loading(`${kind} 렌더 시작 중...`)
     try {
@@ -364,7 +364,7 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${kind === "릴스컷" ? "reel" : "shorts"}-${slug}.mp4`
+      a.download = `${kind === "숏츠" ? "shorts" : "reel"}-${slug}.mp4`
       a.click()
       URL.revokeObjectURL(url)
       toast.success(`${kind} 다운로드 완료! 🎬`, { id: toastId })
@@ -786,6 +786,14 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
                           title="릴스컷 미리보기 — 연출을 조절해 보고 렌더"
                         >
                           🎞 릴스컷
+                        </button>
+                        <button
+                          onClick={() => generateShorts(r, "ReelKineticVideo")}
+                          disabled={isBusy}
+                          className="text-xs px-2.5 py-1.5 rounded-md font-medium border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+                          title="릴스(실사) — 인사이트로 대본을 짜고 실사 b-roll 컷 + 키네틱 타이포로 45~65초 렌더"
+                        >
+                          🎥 릴스(실사)
                         </button>
                         {r.postedAt && (
                           <button

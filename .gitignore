@@ -10,11 +10,16 @@
 !/scripts/analyze-benchmark-reels.mjs
 !/scripts/benchmark-accounts.json
 !/scripts/deploy-shorts-site.mjs
+!/scripts/fetch-stock-clips.mjs
 # 긁은 릴스 원본은 커밋 안 함 (용량·재생성 가능)
 /scripts/output/
 
 # ad video working files (clips, mp3, output)
 /ad-work/
+
+# 릴스 b-roll 스톡 영상 — 재생성 가능(scripts/fetch-stock-clips.mjs), 배포는 로컬 assets→S3.
+# git 에 넣지 않아 저장소를 가볍게 유지. 새 클론은 배포 전 fetch 스크립트 1회 실행.
+/assets/video/
 
 # dependencies
 /node_modules
