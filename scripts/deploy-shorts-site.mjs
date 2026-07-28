@@ -26,10 +26,13 @@ if (!siteName) { console.error("✗ REMOTION_SERVE_URL 에서 사이트명을 �
 const { deploySite, getOrCreateBucket } = await import("@remotion/lambda")
 const { bucketName } = await getOrCreateBucket({ region })
 console.log(`배포: site=${siteName} region=${region} bucket=${bucketName} (publicDir=assets)`)
-const { serveUrl } = await deploySite({
+const { serveUrl, stats } = await deploySite({
   entryPoint: path.join(process.cwd(), "src", "remotion", "index.ts"),
   bucketName, region, siteName,
-  publicDir: path.join(process.cwd(), "assets"),
+  // ⚠️ enableCaching:false 필수 — true(기본)면 번들 캐시를 재사용해 assets(폰트·b-roll 영상)
+  //    변경이 S3 에 반영되지 않는다. 클립을 추가해도 옛 번들이 올라가 Lambda 가 404/403 난다.
+  options: { publicDir: path.join(process.cwd(), "assets"), enableCaching: false },
 })
+console.log(`업로드 ${stats.uploadedFiles} · 삭제 ${stats.deletedFiles} · 유지 ${stats.untouchedFiles}`)
 if (serveUrl === env.REMOTION_SERVE_URL) console.log("✅ 완료 — URL 동일, env 변경 불필요:\n  " + serveUrl)
 else console.warn("⚠️ serveUrl 변경됨 — Vercel REMOTION_SERVE_URL env 업데이트 필요:\n  " + serveUrl)

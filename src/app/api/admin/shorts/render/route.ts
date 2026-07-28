@@ -72,10 +72,11 @@ export async function POST(req: Request) {
     }
     baseProps = { beats: script.beats, category, clips: STOCK_CLIPS }
     caption = script.caption || caption
-    // 45~65초라 프레임이 1350~1950개. 신규 AWS 계정 동시성 한도를 넘기지 않게 청크를
-    // 크게 잡아 Lambda 수를 줄인다(150 → 45초 9청크). b-roll 디코딩이 붙어도 타이포라
-    // 그레인 필터가 없어 청크당 120초 안에 든다.
-    framesPerLambda = 150
+    // 45~65초라 프레임이 1350~1950개. 이 AWS 계정의 동시 실행 한도가 10이라(기본값),
+    // 워커+메인이 10을 넘지 않게 청크를 크게 잡는다: 250 → 45초 6워커, 65초 8워커.
+    // 청크당 250프레임(약 8초)은 b-roll 디코딩을 포함해도 120초 함수 제한 안에 든다.
+    // (한도를 100+로 올리면 이 값을 줄여 렌더가 빨라진다 — Service Quotas: Lambda 동시 실행)
+    framesPerLambda = 250
   } else {
     if (!card?.slides) return NextResponse.json({ error: "카드뉴스가 없습니다 (먼저 생성하세요)" }, { status: 404 })
     const slides = card.slides as Slide[]
