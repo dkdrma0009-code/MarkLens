@@ -1,0 +1,92 @@
+{
+  "branding": [
+    "video/stock/branding/s01.mp4",
+    "video/stock/branding/s02.mp4",
+    "video/stock/branding/s03.mp4",
+    "video/stock/branding/s04.mp4",
+    "video/stock/branding/s05.mp4",
+    "video/stock/branding/s06.mp4",
+    "video/stock/branding/s07.mp4",
+    "video/stock/branding/s08.mp4"
+  ],
+  "performance": [
+    "video/stock/performance/s01.mp4",
+    "video/stock/performance/s02.mp4",
+    "video/stock/performance/s03.mp4",
+    "video/stock/performance/s04.mp4",
+    "video/stock/performance/s05.mp4",
+    "video/stock/performance/s06.mp4",
+    "video/stock/performance/s07.mp4",
+    "video/stock/performance/s08.mp4"
+  ],
+  "crm": [
+    "video/stock/crm/s01.mp4",
+    "video/stock/crm/s02.mp4",
+    "video/stock/crm/s03.mp4",
+    "video/stock/crm/s04.mp4",
+    "video/stock/crm/s05.mp4",
+    "video/stock/crm/s06.mp4",
+    "video/stock/crm/s07.mp4",
+    "video/stock/crm/s08.mp4"
+  ],
+  "content": [
+    "video/stock/content/s01.mp4",
+    "video/stock/content/s02.mp4",
+    "video/stock/content/s03.mp4",
+    "video/stock/content/s04.mp4",
+    "video/stock/content/s05.mp4",
+    "video/stock/content/s06.mp4",
+    "video/stock/content/s07.mp4",
+    "video/stock/content/s08.mp4"
+  ],
+  "seo": [
+    "video/stock/seo/s01.mp4",
+    "video/stock/seo/s02.mp4",
+    "video/stock/seo/s03.mp4",
+    "video/stock/seo/s04.mp4",
+    "video/stock/seo/s05.mp4",
+    "video/stock/seo/s06.mp4",
+    "video/stock/seo/s07.mp4",
+    "video/stock/seo/s08.mp4"
+  ],
+  "social": [
+    "video/stock/social/s01.mp4",
+    "video/stock/social/s02.mp4",
+    "video/stock/social/s03.mp4",
+    "video/stock/social/s04.mp4",
+    "video/stock/social/s05.mp4",
+    "video/stock/social/s06.mp4",
+    "video/stock/social/s07.mp4",
+    "video/stock/social/s08.mp4"
+  ],
+  "ai": [
+    "video/stock/ai/s01.mp4",
+    "video/stock/ai/s02.mp4",
+    "video/stock/ai/s03.mp4",
+    "video/stock/ai/s04.mp4",
+    "video/stock/ai/s05.mp4",
+    "video/stock/ai/s06.mp4",
+    "video/stock/ai/s07.mp4",
+    "video/stock/ai/s08.mp4"
+  ],
+  "psychology": [
+    "video/stock/psychology/s01.mp4",
+    "video/stock/psychology/s02.mp4",
+    "video/stock/psychology/s03.mp4",
+    "video/stock/psychology/s04.mp4",
+    "video/stock/psychology/s05.mp4",
+    "video/stock/psychology/s06.mp4",
+    "video/stock/psychology/s07.mp4",
+    "video/stock/psychology/s08.mp4"
+  ],
+  "default": [
+    "video/stock/default/s01.mp4",
+    "video/stock/default/s02.mp4",
+    "video/stock/default/s03.mp4",
+    "video/stock/default/s04.mp4",
+    "video/stock/default/s05.mp4",
+    "video/stock/default/s06.mp4",
+    "video/stock/default/s07.mp4",
+    "video/stock/default/s08.mp4"
+  ]
+}

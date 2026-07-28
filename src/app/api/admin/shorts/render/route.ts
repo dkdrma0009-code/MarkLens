@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { readFileSync } from "node:fs"
+import nodePath from "node:path"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 import { isAdmin } from "@/lib/api-auth"
@@ -7,9 +9,48 @@ import type { Slide } from "@/lib/cardnews/types"
 
 export const maxDuration = 300
 
-// 키네틱 릴스가 쓰는 실사 스톡 b-roll 목록(assets/video/stock/). 컴포지션의 STOCK_CLIPS 와
-// 같은 규칙 — 여기서 다시 만드는 이유는 라우트에 remotion 모듈을 끌어오지 않기 위해서다.
-const STOCK_CLIPS = Array.from({ length: 30 }, (_, i) => `video/stock/s${String(i + 1).padStart(2, "0")}.mp4`)
+// 인사이트 카테고리(category.ts 의 8개) → 스톡 폴더 슬러그. 여기 없는 값(용어/꿀팁·null 등)은
+// _default 풀로 폴백한다. fetch-stock-clips.mjs 의 CATEGORIES 슬러그와 반드시 일치해야 한다.
+const CATEGORY_SLUG: Record<string, string> = {
+  "브랜딩": "branding",
+  "퍼포먼스 마케팅": "performance",
+  "CRM": "crm",
+  "콘텐츠 마케팅": "content",
+  "SEO": "seo",
+  "소셜 미디어": "social",
+  "AI 마케팅": "ai",
+  "소비자 심리": "psychology",
+}
+
+// 카테고리 fetch 이전(기존 flat s01..s30)에도 렌더가 안 깨지게 하는 레거시 폴백.
+const LEGACY_FLAT = Array.from({ length: 30 }, (_, i) => `video/stock/s${String(i + 1).padStart(2, "0")}.mp4`)
+
+// assets/video/stock/manifest.json (fetch 스크립트가 생성: slug → 클립 상대경로[]).
+// Vercel 서버리스에는 next.config outputFileTracingIncludes 로 이 파일이 번들에 포함된다.
+function loadStockManifest(): Record<string, string[]> | null {
+  try {
+    const p = nodePath.join(process.cwd(), "assets", "video", "stock", "manifest.json")
+    const m = JSON.parse(readFileSync(p, "utf8"))
+    return m && typeof m === "object" ? m : null
+  } catch {
+    return null
+  }
+}
+
+// 릴스 카테고리에 맞는 b-roll 클립 목록을 고른다. 풀이 없거나(미분류) 너무 적으면 _default 로,
+// 그마저 없으면 레거시 flat 으로 폴백해 렌더가 절대 빈 목록으로 깨지지 않게 한다.
+const MIN_POOL = 4
+function selectStockClips(category: string): string[] {
+  const manifest = loadStockManifest()
+  if (!manifest) return LEGACY_FLAT // 아직 카테고리 fetch 전
+  const slug = CATEGORY_SLUG[category] ?? "default"
+  const pool = manifest[slug]
+  if (Array.isArray(pool) && pool.length >= MIN_POOL) return pool
+  const def = manifest["default"]
+  if (Array.isArray(def) && def.length) return def
+  const anyPool = Object.values(manifest).find(a => Array.isArray(a) && a.length)
+  return anyPool ?? LEGACY_FLAT
+}
 
 // 비동기 패턴: 렌더를 트리거하고 { renderId, bucketName, functionName } 즉시 반환
 // 프론트엔드가 /status 폴링 → /download 에서 파일 수령
@@ -70,7 +111,7 @@ export async function POST(req: Request) {
       const msg = e instanceof Error ? e.message : String(e)
       return NextResponse.json({ error: `대본 생성 실패: ${msg}` }, { status: 500 })
     }
-    baseProps = { beats: script.beats, category, clips: STOCK_CLIPS }
+    baseProps = { beats: script.beats, category, clips: selectStockClips(category) }
     caption = script.caption || caption
     // 45~65초라 프레임이 1350~1950개. 이 AWS 계정의 동시 실행 한도가 10이라(기본값),
     // 워커+메인이 10을 넘지 않게 청크를 크게 잡는다: 250 → 45초 6워커, 65초 8워커.

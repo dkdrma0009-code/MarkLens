@@ -1,10 +1,18 @@
-// Pexels 실사 세로 영상을 다양한 검색어로 받아 1080x1920·6초·30fps·무음으로
-// 규격화해 assets/video/stock/ 에 저장한다. 키는 .env.local 의 PEXELS_API_KEY.
+// Pexels 실사 세로 영상을 인사이트 '카테고리별'로 받아 1080x1920·6초·30fps·무음으로
+// 규격화해 assets/video/stock/<slug>/ 에 저장한다. 키는 .env.local 의 PEXELS_API_KEY.
 //
 // 사용: node scripts/fetch-stock-clips.mjs
-// 결과: assets/video/stock/s01.mp4 ...  (컷 엔진이 컷마다 다른 클립을 써 반복을 없앤다)
+// 결과: assets/video/stock/<slug>/s01.mp4 ... + assets/video/stock/manifest.json
+//   (컷 엔진/route 가 릴스의 카테고리에 맞는 폴더를 골라 쓰도록 — 주제 연결)
+//
+// 카테고리는 src/lib/category.ts 의 8개에 맞춘다. 폴더는 한글 대신 ASCII 슬러그로 저장한다
+// (S3 키·staticFile URL 인코딩에서 한글이 403/디코딩 문제를 일으켜서). _default 는 미분류
+// (용어/꿀팁·null 등) 폴백 풀.
+//
+// 검색어 원칙: 스톡 클리셰(handshake, high five, whiteboard, presentation meeting,
+// "business~" 계열) 금지. 손·화면·거리·실제 작업 순간 같은 '날것·구체적 장면'만.
 
-import { readFileSync, mkdirSync, rmSync, existsSync } from "node:fs"
+import { readFileSync, mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -22,26 +30,55 @@ function env(k) {
 const KEY = env("PEXELS_API_KEY")
 if (!KEY) { console.error("✗ PEXELS_API_KEY 없음"); process.exit(1) }
 
-// 마케팅·업무·사고(思考) 결의 세로 실사. 서로 다른 인물·장면이 나오게 검색어를 분산.
-const QUERIES = [
-  "marketing team meeting", "person working laptop office", "business woman thinking",
-  "creative professional working", "typing computer closeup", "office coworkers discussion",
-  "young professional city", "writing notes desk", "man thinking office window",
-  "designer working studio", "woman phone scrolling", "coffee shop laptop work",
-  "brainstorming whiteboard", "startup team office", "presentation meeting room",
-  "reading document serious", "walking office corridor", "phone call business",
-  "handshake business deal", "graphic designer screen", "video call remote work",
-  "notebook planning coffee", "focused work night", "creative agency team",
-  "social media manager", "analyzing charts laptop", "woman writing planner",
-  "man suit thinking", "team high five office", "smartphone typing hands",
-]
-const TARGET = 30 // 받을 고유 클립 수 — 55초(약 27컷)도 겹침 없이 채운다
+// 카테고리(한글, category.ts 와 일치) → { slug, queries }.
+// queries 는 구체적 장면 위주. 각 카테고리에서 PER_CATEGORY 개를 채운다.
+const CATEGORIES = {
+  "브랜딩": { slug: "branding", queries: [
+    "hands arranging color swatches", "designer sketching logo tablet", "print samples close up",
+    "neon shop sign street night", "product photography studio lighting", "flipping brand guide pages",
+    "packaging box on table", "typography letters print",
+  ] },
+  "퍼포먼스 마케팅": { slug: "performance", queries: [
+    "analytics dashboard screen closeup", "scrolling data charts laptop", "hand clicking mouse monitor",
+    "stock chart rising screen", "typing numbers spreadsheet", "online payment phone screen",
+    "graphs on computer dark office", "finger tapping metrics tablet",
+  ] },
+  "CRM": { slug: "crm", queries: [
+    "typing email on screen closeup", "phone chat messages closeup", "calendar scheduling laptop",
+    "scrolling contact list phone", "customer support headset desk", "writing client notes hand",
+  ] },
+  "콘텐츠 마케팅": { slug: "content", queries: [
+    "typing article on laptop closeup", "video editing timeline screen", "podcast microphone closeup",
+    "filming with phone on tripod", "handwriting notes notebook", "camera recording indoor creator",
+  ] },
+  "SEO": { slug: "seo", queries: [
+    "typing in search bar closeup", "website code on screen", "scrolling search results screen",
+    "keyword list on monitor", "web page loading laptop", "hands typing keyboard screen glow",
+  ] },
+  "소셜 미디어": { slug: "social", queries: [
+    "thumb scrolling social feed phone", "filming reel with ring light", "phone notifications closeup",
+    "recording selfie video creator", "social app on phone screen", "editing photo on phone",
+  ] },
+  "AI 마케팅": { slug: "ai", queries: [
+    "typing prompt on chat screen", "code generating on monitor", "data visualization screen glow",
+    "server room blue lights", "hands typing keyboard dark glow", "abstract digital network screen",
+  ] },
+  "소비자 심리": { slug: "psychology", queries: [
+    "hand choosing product on shelf", "person browsing store shelf", "close up eyes looking",
+    "people walking city street", "window shopping at night", "customer deciding at counter",
+  ] },
+  "_default": { slug: "default", queries: [
+    "hands typing laptop closeup", "city street people walking", "desk work late night",
+    "scrolling phone closeup", "writing in notebook hand", "coffee shop working laptop",
+  ] },
+}
+const PER_CATEGORY = 8 // 카테고리당 받을 고유 클립 수
 
-const outDir = path.join(root, "assets", "video", "stock")
+const stockDir = path.join(root, "assets", "video", "stock")
 const tmpDir = path.join(root, "assets", "video", "_tmp")
-// 오래된 s??.mp4 가 남아 개수가 어긋나지 않게 매번 새로 채운다
-if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true })
-mkdirSync(outDir, { recursive: true }); mkdirSync(tmpDir, { recursive: true })
+// 매번 새로 채워 개수·구조가 어긋나지 않게 stock 전체를 비운다
+if (existsSync(stockDir)) rmSync(stockDir, { recursive: true, force: true })
+mkdirSync(stockDir, { recursive: true }); mkdirSync(tmpDir, { recursive: true })
 
 // 세로에 가깝고 너무 크지 않은 mp4 파일 링크를 고른다
 function pickFile(v) {
@@ -62,7 +99,6 @@ async function search(q) {
 async function download(link, dest) {
   const buf = Buffer.from(await (await fetch(link)).arrayBuffer())
   if (buf.length < 20000) throw new Error(`too small ${buf.length}`)
-  const { writeFileSync } = await import("node:fs")
   writeFileSync(dest, buf)
 }
 
@@ -74,27 +110,40 @@ function normalize(src, dest) {
     { stdio: "ignore" })
 }
 
-const seen = new Set()
-const got = []
-for (const q of QUERIES) {
-  if (got.length >= TARGET) break
-  let results = []
-  try { results = await search(q) } catch (e) { console.warn(`  검색 실패(${q}): ${e.message}`); continue }
-  for (const r of results) {
-    if (got.length >= TARGET) break
-    if (seen.has(r.id)) continue
-    seen.add(r.id)
-    const n = String(got.length + 1).padStart(2, "0")
-    const raw = path.join(tmpDir, `raw${n}.mp4`)
-    const out = path.join(outDir, `s${n}.mp4`)
-    try {
-      await download(r.link, raw)
-      normalize(raw, out)
-      got.push(`video/stock/s${n}.mp4`)
-      console.log(`  ✓ s${n}.mp4  ← "${q}" (id ${r.id})`)
-    } catch (e) { console.warn(`  ✗ id ${r.id}: ${e.message}`) }
+const seen = new Set() // 카테고리 간 같은 클립 중복 방지 (전역)
+const manifest = {}    // slug → [상대경로]
+
+for (const [cat, { slug, queries }] of Object.entries(CATEGORIES)) {
+  const dir = path.join(stockDir, slug)
+  mkdirSync(dir, { recursive: true })
+  const got = []
+  console.log(`\n▶ ${cat} (${slug})`)
+  for (const q of queries) {
+    if (got.length >= PER_CATEGORY) break
+    let results = []
+    try { results = await search(q) } catch (e) { console.warn(`  검색 실패(${q}): ${e.message}`); continue }
+    for (const r of results) {
+      if (got.length >= PER_CATEGORY) break
+      if (seen.has(r.id)) continue
+      seen.add(r.id)
+      const n = String(got.length + 1).padStart(2, "0")
+      const raw = path.join(tmpDir, `raw.mp4`)
+      const out = path.join(dir, `s${n}.mp4`)
+      try {
+        await download(r.link, raw)
+        normalize(raw, out)
+        got.push(`video/stock/${slug}/s${n}.mp4`)
+        console.log(`  ✓ ${slug}/s${n}.mp4  ← "${q}" (id ${r.id})`)
+      } catch (e) { console.warn(`  ✗ id ${r.id}: ${e.message}`) }
+    }
   }
+  manifest[slug] = got
+  if (got.length < PER_CATEGORY) console.warn(`  ⚠ ${slug}: ${got.length}/${PER_CATEGORY}개만 확보 — 검색어 보강 필요`)
 }
+
 rmSync(tmpDir, { recursive: true, force: true })
-console.log(`\n받은 클립 ${got.length}개:`)
-console.log(JSON.stringify(got))
+// route/컴포지션이 카테고리→클립 목록을 읽을 수 있게 매니페스트 저장
+writeFileSync(path.join(stockDir, "manifest.json"), JSON.stringify(manifest, null, 2))
+const total = Object.values(manifest).reduce((a, b) => a + b.length, 0)
+console.log(`\n총 ${total}개 클립 · ${Object.keys(manifest).length}개 카테고리`)
+console.log("manifest: assets/video/stock/manifest.json")

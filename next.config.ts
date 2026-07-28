@@ -22,6 +22,9 @@ const nextConfig: NextConfig = {
     "/api/admin/shorts/preview": ["./assets/fonts/*"],
     "/api/lead-magnet/interview": ["./assets/fonts/*"],
     "/api/newsletter/visual": ["./assets/fonts/*"],
+    // 릴스(실사) 라우트가 카테고리→클립 목록을 읽는 매니페스트를 서버리스 번들에 포함.
+    // glob 이라 fetch 전(파일 없음)에도 빌드가 깨지지 않는다.
+    "/api/admin/shorts/render": ["./assets/video/stock/*.json"],
   },
   // 인스타 바이오 단축링크 — marklens.site/ig → 구독 페이지 직행(리드마그넷+폼 즉시 노출, UTM 추적)
   async redirects() {

@@ -353,8 +353,10 @@ export type ReelKineticVideoProps = {
   category: string
 }
 
-// 실사 스톡(Pexels) 세로 클립 — AI 인물을 대체. 컷마다 다른 클립이 나와 반복이 없다.
-const STOCK_CLIPS = Array.from({ length: 30 }, (_, i) => `video/stock/s${String(i + 1).padStart(2, "0")}.mp4`)
+// Studio 프리뷰용 기본 클립 — 실제 렌더의 클립 목록은 route(카테고리→manifest)가 정한다.
+// 미분류 공통 풀인 default 슬러그를 가리켜, 카테고리 마이그레이션 후에도 프리뷰가 404 나지 않게.
+// fetch-stock-clips.mjs 의 PER_CATEGORY(=8)와 슬러그 구조(stock/default/sNN.mp4)에 맞춘다.
+const STOCK_CLIPS = Array.from({ length: 8 }, (_, i) => `video/stock/default/s${String(i + 1).padStart(2, "0")}.mp4`)
 
 export const defaultKineticVideoProps: ReelKineticVideoProps = {
   category: "마케팅",
