@@ -13,6 +13,8 @@ Supabase는 마이그레이션 CLI 없이 **대시보드 → SQL Editor에 직�
 | 006 | `006_grants_tighten.sql` | anon/authenticated 권한을 최소 집합으로 축소 (005를 덮어씀) | **반드시 005 이후** |
 | 007 | `007_newsletter_approved_at.sql` | newsletter_issues.approved_at 추가 (코드가 기대하나 누락됐던 컬럼 — 발송 후 상태 업데이트·승인 워크플로용) | 001 |
 | 008 | `008_subscriber_drip.sql` | subscribers.drip_step 추가 (온보딩 드립 시퀀스 진행 추적). 기존 활성 구독자는 99로 세팅해 드립 제외 | 001 |
+| 009 | `009_cardnews_reel_settings.sql` | cardnews.reel_settings 추가 (릴스컷 연출 설정 + 비전이 고른 사진을 기사별로 고정, jsonb) | 001 |
+| 010 | `010_content_metrics.sql` | content_metrics 테이블 — 피드백 루프용 게시물별 성과 저장 (도달·저장·공유·댓글·팔로워, upsert 키 ig_post_id+platform). service_role 전용 | 001, 006 |
 
 ## 주의
 
