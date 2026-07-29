@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { refreshIgToken } from "@/lib/instagram"
+import { refreshIgToken, getMediaInsight } from "@/lib/instagram"
 import { refreshThreadsToken } from "@/lib/threads"
 import { publishCardnews } from "@/lib/cardnews/publish"
 import { revalidatePublicContent } from "@/lib/revalidate"
@@ -81,6 +81,52 @@ export async function GET(req: Request) {
     } catch (e) {
       result.scheduledError = e instanceof Error ? e.message : String(e)
     }
+  }
+
+  // ⑤-b 성과 스냅샷 — 최근 14일 발행 게시물 지표를 content_metrics 에 적재(피드백 루프).
+  // 위치: 발행 로직(⑤·⑥) 사이가 아니라 ⑥ 자동발행 분기 "앞"에 둔다. ⑥ 은 off/대기없음 시
+  //   early return 하므로, 뒤에 두면 그 날들엔 스냅샷이 건너뛰어 "매일 적재"가 깨진다.
+  // 안전: 전체를 try/catch 로 감싸고 개별 게시물 실패도 무시 → 스냅샷 실패가 발행에 영향 0.
+  // 범위: 지금은 cardnews·instagram 만. 큐레이션·릴스는 발행 경로 생기면 추가.
+  // content_id 는 cardnews.article_id (cardnews 에 id 컬럼이 없고 article_id 가 식별자).
+  try {
+    const since = new Date(Date.now() - 14 * 864e5).toISOString()
+    const { data: recent } = await supabase
+      .from("cardnews")
+      .select("article_id, ig_post_id, posted_at")
+      .not("ig_post_id", "is", null)
+      .gte("posted_at", since)
+
+    // 현재 팔로워 — ③에서 방금 기록한 값 우선, 없으면 최신 스냅샷에서
+    let followers: number | null = typeof result.igFollowers === "number" ? result.igFollowers : null
+    if (followers == null) {
+      const { data: snap } = await supabase
+        .from("follower_snapshots").select("followers").eq("platform", "instagram")
+        .order("recorded_at", { ascending: false }).limit(1).maybeSingle()
+      followers = snap?.followers ?? null
+    }
+
+    let snapped = 0
+    for (const c of recent ?? []) {
+      try {
+        const m = await getMediaInsight(c.ig_post_id as string)
+        if (!m) continue // 게시물 삭제/지표 미지원 → 스킵, 다음 것 계속
+        const { error } = await supabase.from("content_metrics").upsert({
+          content_type: "cardnews",
+          content_id: c.article_id,
+          ig_post_id: c.ig_post_id,
+          platform: "instagram",
+          reach: m.reach, likes: m.likes, saved: m.saved, shares: m.shares, comments: m.comments,
+          followers_at_time: followers,
+          posted_at: c.posted_at,
+          recorded_at: new Date().toISOString(),
+        }, { onConflict: "ig_post_id,platform" })
+        if (!error) snapped++
+      } catch { /* 개별 게시물 실패는 무시하고 다음으로 */ }
+    }
+    result.metricsSnapshot = snapped
+  } catch (e) {
+    result.metricsSnapshotError = e instanceof Error ? e.message : String(e)
   }
 
   // ⑥ 통일 드립 스위치 (app_config.ig_auto_publish === "on")
