@@ -1,0 +1,2 @@
+# TypeScript 소스는 항상 텍스트로 취급 — git 의 바이너리 오판정 방지, 줄 단위 diff 보장
+*.ts text
