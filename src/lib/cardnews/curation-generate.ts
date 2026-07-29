@@ -4,7 +4,7 @@ import {
   selectLatest, validateCuration, CURATION_TREND_COUNT, CURATION_LIMITS,
 } from "./curation-types"
 import type {
-  CurationCandidate, CurationCardnews, CurationSlide, CurationTrendSlide,
+  CurationCandidate, CurationCardnews, CurationSlide, CurationTrendSlide, CurationIntroSlide,
 } from "./curation-types"
 
 /* 주간 트렌드 큐레이션 생성 — 기존 카드뉴스 생성(generate/route.ts)과 완전히 별개 경로.
@@ -98,7 +98,10 @@ function assemble(llm: LlmOut | null, picked: CurationCandidate[], opts?: { titl
     ? llm!.intro.headline
     : ["이번 주 마크렌즈가", "주목한 트렌드 5"]
   const headline = rawHeadline.slice(0, 3)
-  const highlight = headline.some(l => l.includes(llm?.intro?.highlight ?? "")) ? llm!.intro.highlight : undefined
+  // llm 이 null 이거나 highlight 가 없으면 undefined. (빈 문자열은 includes 가 항상 true 라
+  // 예전엔 llm!.intro 를 null 참조해 크래시했다.)
+  const hl = llm?.intro?.highlight
+  const highlight = hl && headline.some(l => l.includes(hl)) ? hl : undefined
 
   const slides: CurationSlide[] = [
     { type: "intro", headline, highlight, saveHook: llm?.intro?.saveHook?.trim() || "지금 저장 안 하면 못 찾아요" },
@@ -134,7 +137,7 @@ function hardClamp(c: CurationCardnews): CurationCardnews {
     if (s.type === "intro") {
       let headline = s.headline.slice(0, 3).map(l => clamp(l, L.introHeadlineLine))
       if (headline.length < 2) headline = [headline[0] ?? "이번 주 마크렌즈가", "주목한 트렌드 5"]
-      const highlight = headline.some(l => l.includes(s.highlight ?? "")) ? s.highlight : undefined
+      const highlight = s.highlight && headline.some(l => l.includes(s.highlight!)) ? s.highlight : undefined
       return { ...s, headline, highlight, saveHook: clamp(s.saveHook, L.introSaveHook) }
     }
     if (s.type === "trend") {
@@ -143,6 +146,57 @@ function hardClamp(c: CurationCardnews): CurationCardnews {
     return { ...s, headline: clamp(s.headline, L.outroHeadline), body: clamp(s.body, L.outroBody), cta: clamp(s.cta, L.outroCta) }
   })
   return { ...c, slides }
+}
+
+/* ── 6) 인스타 캡션 ── 큐레이션(모음) 성격. cardnews 의 CAPTION_SYSTEM 과 별개. */
+const CAPTION_SYSTEM = `너는 마케팅 미디어 'MarkLens'의 인스타그램 에디터다. 주간 트렌드 큐레이션(여러 인사이트를 묶은 모음) 게시물의 캡션을 쓴다.
+
+[성격]
+- 큐레이션(모음)임을 드러낸다. "이번 주 마크렌즈가 주목한 트렌드 N개를 정리했어요" 류.
+- ⚠️ 원본 기사 날짜로 "최신 뉴스/방금/오늘" 주장 금지. 항상 "마크렌즈가 (이번 주) 주목한"으로 프레이밍.
+- 경어체(~해요/~거든요), 과장("충격·대박") 금지, 이모지는 전체에서 최대 2개.
+
+[구조 — 줄바꿈 포함]
+1) 후킹 한 줄: 마크렌즈가 이번 주 주목한 트렌드 N개를 정리했다는 취지
+2) (빈 줄)
+3) 트렌드 목록: "1. 제목" 형식으로 N줄. 제공된 제목을 그대로(재작성 금지), 한 줄에 하나.
+4) (빈 줄)
+5) 저장 유도 한 줄: 나중에 다시 보게 저장하라는 취지
+6) 더 깊은 분석은 프로필 링크 → 뉴스레터 구독
+7) (빈 줄)
+8) 해시태그 5~7개: #마케팅 #마케팅트렌드 #마케팅공부 #취준 #마케터 #큐레이션 #MarkLens
+
+출력: {"caption":"전체 캡션 텍스트"} JSON만.`
+
+function trendList(curation: CurationCardnews): string {
+  return curation.slides
+    .filter((s): s is CurationTrendSlide => s.type === "trend")
+    .map(s => `${s.item.rank}. ${s.item.title}`)
+    .join("\n")
+}
+
+// LLM 실패 시에도 발행이 막히지 않게 — 제목 목록 기반 템플릿 캡션.
+function fallbackCaption(curation: CurationCardnews): string {
+  const n = curation.slides.filter(s => s.type === "trend").length
+  return `이번 주 마크렌즈가 주목한 마케팅 트렌드 ${n}개를 정리했어요.
+
+${trendList(curation)}
+
+나중에 다시 보려면 저장 필수 📌
+더 깊은 분석은 프로필 링크 → 뉴스레터 구독
+
+#마케팅 #마케팅트렌드 #마케팅공부 #취준 #마케터 #큐레이션 #MarkLens`
+}
+
+async function generateCurationCaption(curation: CurationCardnews): Promise<string> {
+  const intro = curation.slides.find((s): s is CurationIntroSlide => s.type === "intro")
+  const n = curation.slides.filter(s => s.type === "trend").length
+  const result = await geminiJson<{ caption: string }>(
+    CAPTION_SYSTEM,
+    `표지: ${intro?.headline.join(" ") ?? ""}\n\n트렌드 ${n}개(이 제목을 캡션 목록에 그대로 넣어라):\n${trendList(curation)}\n\n이 큐레이션의 인스타 캡션을 작성하라. JSON만.`,
+    1200,
+  )
+  return result?.caption?.trim() || fallbackCaption(curation)
 }
 
 export interface BuiltCuration { curation: CurationCardnews | null; warnings: string[] }
@@ -173,6 +227,9 @@ export async function buildCuration(candidates: CurationCandidate[], opts?: { ti
     curation = hardClamp(curation)
     errs = validateCuration(curation)
   }
+
+  // 캡션 — 최종 확정된 슬라이드(제목)를 근거로 생성해 카드와 목록이 일치하게.
+  curation.caption = await generateCurationCaption(curation)
 
   return { curation, warnings: errs }
 }
