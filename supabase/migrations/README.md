@@ -15,6 +15,7 @@ Supabase는 마이그레이션 CLI 없이 **대시보드 → SQL Editor에 직�
 | 008 | `008_subscriber_drip.sql` | subscribers.drip_step 추가 (온보딩 드립 시퀀스 진행 추적). 기존 활성 구독자는 99로 세팅해 드립 제외 | 001 |
 | 009 | `009_cardnews_reel_settings.sql` | cardnews.reel_settings 추가 (릴스컷 연출 설정 + 비전이 고른 사진을 기사별로 고정, jsonb) | 001 |
 | 010 | `010_content_metrics.sql` | content_metrics 테이블 — 피드백 루프용 게시물별 성과 저장 (도달·저장·공유·댓글·팔로워, upsert 키 ig_post_id+platform). service_role 전용 | 001, 006 |
+| 011 | `011_curations.sql` | curations 테이블 — 주간 트렌드 큐레이션(7장) 저장 (slides jsonb, caption, ig_post_id, posted_at, performance). cardnews와 별개, service_role 전용 | 006 |
 
 ## 주의
 
