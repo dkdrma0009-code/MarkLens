@@ -149,37 +149,59 @@ export async function GET(req: Request) {
 
   // 하루 1건 통일 드립: ready 인사이트 1개 → 사이트 공개 + 카드뉴스 생성 + IG/Threads 동시 발행.
   // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 오래된 것부터 릴리스(FIFO — 백로그 소진).
+  // ── [진단 로깅] 발행 멈춤 원인 추적용. 발행 로직은 그대로, console.log/타이밍만 추가. ──
+  const dripStart = Date.now()
   const { data: readyRows } = await supabase
     .from("insights")
     .select("article_id, hook, summary, created_at, article:articles!inner(status)")
     .eq("article.status", "ready")
     .order("created_at", { ascending: true })
     .limit(5)
+  console.log("[drip] readyRows=", readyRows?.length ?? 0,
+    (readyRows ?? []).map(r => ({ art: r.article_id?.slice(0, 8), hook: !!r.hook, summary: !!r.summary, created: r.created_at?.slice(0, 10) })))
   const pick = (readyRows ?? []).find(r => r.hook && r.summary)
   if (!pick) {
+    console.log("[drip] pick 없음 → '대기 중인 ready 인사이트 없음' 반환")
     return NextResponse.json({ ...result, autoPublish: "on", drip: "대기 중인 ready 인사이트 없음" })
   }
+  console.log(`[drip] pick=${pick.article_id?.slice(0, 8)} hook="${(pick.hook ?? "").slice(0, 30)}"`)
   const articleId = pick.article_id
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
 
   // 1) 사이트 공개 (ready → published) + ISR 캐시 무효화
+  const t1 = Date.now()
+  console.log("[drip] step1 시작: article → published")
   await supabase.from("articles").update({ status: "published" }).eq("id", articleId)
   try { revalidatePublicContent() } catch { /* 무효화 실패는 발행에 영향 없음 */ }
+  console.log(`[drip] step1 완료 (${Date.now() - t1}ms)`)
 
   // 2) 카드뉴스 생성 (발행 전 반드시 존재해야 함 — 이미 있으면 재생성/갱신)
+  const t2 = Date.now()
+  console.log("[drip] step2 시작: cardnews generate 호출")
   try {
-    await fetch(`${base}/api/admin/cardnews/generate?secret=${process.env.N8N_WEBHOOK_SECRET}`, {
+    const genRes = await fetch(`${base}/api/admin/cardnews/generate?secret=${process.env.N8N_WEBHOOK_SECRET}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ articleId }),
     })
-  } catch (e) { result.cardnewsGenError = e instanceof Error ? e.message : String(e) }
+    console.log(`[drip] step2 응답 status=${genRes.status} ok=${genRes.ok} (${Date.now() - t2}ms)`)
+    if (!genRes.ok) console.log("[drip] step2 응답 본문(앞300):", (await genRes.text().catch(() => "")).slice(0, 300))
+  } catch (e) {
+    result.cardnewsGenError = e instanceof Error ? e.message : String(e)
+    console.log(`[drip] step2 예외 (${Date.now() - t2}ms): ${result.cardnewsGenError}`)
+  }
 
   // 3) IG + Threads 동시 발행 (publishCardnews가 둘 다 처리)
+  const t3 = Date.now()
+  console.log("[drip] step3 시작: publishCardnews 호출")
   try {
     const postId = await publishCardnews(articleId)
+    console.log(`[drip] step3 성공 postId=${postId} (step3 ${Date.now() - t3}ms · 드립 총 ${Date.now() - dripStart}ms)`)
     return NextResponse.json({ ...result, autoPublish: "on", drip: { articleId, hook: pick.hook, sitePublished: true, postId } })
   } catch (e) {
-    return NextResponse.json({ ...result, autoPublish: "on", drip: { articleId, sitePublished: true, publishError: e instanceof Error ? e.message : String(e) } }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.log(`[drip] step3 실패 (step3 ${Date.now() - t3}ms · 드립 총 ${Date.now() - dripStart}ms): ${msg}`)
+    if (e instanceof Error && e.stack) console.log("[drip] step3 스택(앞500):", e.stack.slice(0, 500))
+    return NextResponse.json({ ...result, autoPublish: "on", drip: { articleId, sitePublished: true, publishError: msg } }, { status: 500 })
   }
 }
