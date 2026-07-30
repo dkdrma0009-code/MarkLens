@@ -87,8 +87,8 @@ export async function GET(req: Request) {
   // 위치: 발행 로직(⑤·⑥) 사이가 아니라 ⑥ 자동발행 분기 "앞"에 둔다. ⑥ 은 off/대기없음 시
   //   early return 하므로, 뒤에 두면 그 날들엔 스냅샷이 건너뛰어 "매일 적재"가 깨진다.
   // 안전: 전체를 try/catch 로 감싸고 개별 게시물 실패도 무시 → 스냅샷 실패가 발행에 영향 0.
-  // 범위: 지금은 cardnews·instagram 만. 큐레이션·릴스는 발행 경로 생기면 추가.
-  // content_id 는 cardnews.article_id (cardnews 에 id 컬럼이 없고 article_id 가 식별자).
+  // 범위: cardnews·curations·instagram. (릴스는 발행 경로 생기면 추가.)
+  // content_id 는 cardnews.article_id (id 컬럼 없음) / curations.id.
   try {
     const since = new Date(Date.now() - 14 * 864e5).toISOString()
     const { data: recent } = await supabase
@@ -106,25 +106,37 @@ export async function GET(req: Request) {
       followers = snap?.followers ?? null
     }
 
+    // 게시물 1건 upsert (cardnews·curation 공용)
+    const upsertMetric = async (contentType: string, contentId: string, igPostId: string, postedAt: string | null): Promise<boolean> => {
+      const m = await getMediaInsight(igPostId)
+      if (!m) return false // 게시물 삭제/지표 미지원 → 스킵
+      const { error } = await supabase.from("content_metrics").upsert({
+        content_type: contentType, content_id: contentId, ig_post_id: igPostId, platform: "instagram",
+        reach: m.reach, likes: m.likes, saved: m.saved, shares: m.shares, comments: m.comments,
+        followers_at_time: followers, posted_at: postedAt, recorded_at: new Date().toISOString(),
+      }, { onConflict: "ig_post_id,platform" })
+      return !error
+    }
+
     let snapped = 0
     for (const c of recent ?? []) {
-      try {
-        const m = await getMediaInsight(c.ig_post_id as string)
-        if (!m) continue // 게시물 삭제/지표 미지원 → 스킵, 다음 것 계속
-        const { error } = await supabase.from("content_metrics").upsert({
-          content_type: "cardnews",
-          content_id: c.article_id,
-          ig_post_id: c.ig_post_id,
-          platform: "instagram",
-          reach: m.reach, likes: m.likes, saved: m.saved, shares: m.shares, comments: m.comments,
-          followers_at_time: followers,
-          posted_at: c.posted_at,
-          recorded_at: new Date().toISOString(),
-        }, { onConflict: "ig_post_id,platform" })
-        if (!error) snapped++
-      } catch { /* 개별 게시물 실패는 무시하고 다음으로 */ }
+      try { if (await upsertMetric("cardnews", c.article_id, c.ig_post_id as string, c.posted_at)) snapped++ }
+      catch { /* 개별 게시물 실패는 무시하고 다음으로 */ }
     }
     result.metricsSnapshot = snapped
+
+    // 큐레이션도 동일하게(발행 경로 생김). content_id = curations.id.
+    const { data: recentCur } = await supabase
+      .from("curations")
+      .select("id, ig_post_id, posted_at")
+      .not("ig_post_id", "is", null)
+      .gte("posted_at", since)
+    let snappedCur = 0
+    for (const c of recentCur ?? []) {
+      try { if (await upsertMetric("curation", c.id, c.ig_post_id as string, c.posted_at)) snappedCur++ }
+      catch { /* 개별 실패 무시 */ }
+    }
+    result.metricsSnapshotCuration = snappedCur
   } catch (e) {
     result.metricsSnapshotError = e instanceof Error ? e.message : String(e)
   }

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/quiz-seed",
       "schedule": "0 17 * * 0"
+    },
+    {
+      "path": "/api/cron/curation-weekly",
+      "schedule": "0 0 * * 1"
     }
   ]
 }
