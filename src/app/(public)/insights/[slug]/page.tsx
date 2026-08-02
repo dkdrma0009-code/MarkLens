@@ -16,29 +16,16 @@ import ReadingProgress from "@/components/ReadingProgress"
 import Image from "next/image"
 import type { Metadata } from "next"
 
-// 발행 콘텐츠는 자주 안 바뀌므로 ISR로 캐시(홈·목록과 동일 정책). 공개 데이터만 읽어
-// 쿠키를 안 쓰므로(createPublicClient) 실제로 캐시가 적용된다. 가장 많이 공유되는 페이지의 속도↑.
-export const revalidate = 3600
+// ⚠️ force-dynamic (ISR 아님) — 한글 슬러그 때문. ISR 캐시 경로에서 Next가 암묵 캐시 태그
+// `_N_T_${pathname}` 를 x-next-cache-tags 응답 헤더(Latin1)로 내는데, 한글 pathname 이 헤더를
+// 깨뜨려 500(사이트 인사이트 전멸). Vercel 은 프리렌더/on-demand 모두 pathname 을 디코딩해
+// 한글 태그를 만들어 회피 불가 → ISR 자체를 끄는 게 유일하게 확실한 해법. 대신 아래 fetch 는
+// createPublicClient(쿠키 없음)라 CDN(Cache-Control)로 캐시 가능하면 별도 처리한다.
+export const dynamic = "force-dynamic"
 
-// 동적 라우트는 generateStaticParams가 있어야 빌드 시 prerender + ISR 캐시된다.
-// 발행된 인사이트 슬러그를 모두 미리 생성. 목록에 없는 신규 슬러그는 dynamicParams 기본값(true)으로
-// 첫 요청 시 on-demand 생성 후 캐시된다. (발행 시 revalidatePublicContent로 즉시 갱신)
-export async function generateStaticParams() {
-  const supabase = createPublicClient()
-  const { data } = await supabase
-    .from("insights")
-    .select("slug, article:articles!inner(status)")
-    .eq("article.status", "published")
-  // 비-ASCII(한글) 슬러그는 프리렌더에서 제외한다. Next는 암묵 캐시 태그를
-  // `_N_T_${pathname}` 로 굽는데(server/lib/implicit-tags), 프리렌더된 한글 경로는
-  // 태그에 한글이 박혀 Vercel이 x-next-cache-tags 응답 헤더(Latin1)로 낼 때
-  // 'Invalid character in header content'로 500이 난다. 제외하면 on-demand로 서빙되고,
-  // 요청 경로가 %-인코딩(ASCII)이라 태그도 ASCII가 돼 안전. ASCII 슬러그는 그대로 프리렌더+ISR.
-  // (dynamicParams 기본 true 라 제외분도 정상 렌더)
-  return (data ?? [])
-    .map((i) => ({ slug: i.slug as string }))
-    .filter((p) => [...p.slug].every((c) => c.charCodeAt(0) < 128))
-}
+// generateStaticParams 는 제거했다. 이게 있으면 이 Next 버전은 route 를 정적 생성 경로로
+// 취급해 force-dynamic 이 무력화되고 ISR 캐시 태그(_N_T_/insights/<한글>)가 다시 생겨 500 이 난다.
+// 프리렌더 없이 순수 dynamic 으로 서빙하면 x-next-cache-tags 헤더가 아예 안 생겨 한글 슬러그도 안전.
 
 interface Props {
   params: Promise<{ slug: string }>
