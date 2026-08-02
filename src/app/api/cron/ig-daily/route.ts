@@ -184,12 +184,31 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ articleId }),
     })
+    result.cardnewsGenStatus = genRes.status
     console.log(`[drip] step2 응답 status=${genRes.status} ok=${genRes.ok} (${Date.now() - t2}ms)`)
-    if (!genRes.ok) console.log("[drip] step2 응답 본문(앞300):", (await genRes.text().catch(() => "")).slice(0, 300))
+    if (!genRes.ok) {
+      const body = (await genRes.text().catch(() => "")).slice(0, 300)
+      result.cardnewsGenBody = body
+      console.log("[drip] step2 응답 본문(앞300):", body)
+    }
   } catch (e) {
     result.cardnewsGenError = e instanceof Error ? e.message : String(e)
     console.log(`[drip] step2 예외 (${Date.now() - t2}ms): ${result.cardnewsGenError}`)
   }
+
+  // 2.5) 가드 — step2 가 실제로 cardnews 를 만들었는지 확인한다. 없으면 발행(step3)을 시도하지
+  //      않고 명확히 반환한다. publishCardnews 는 cardnews 가 없으면 "카드뉴스가 없습니다"로
+  //      던지는데(로그의 그 에러), 그걸 크래시로 만들지 않고 원인(step2 status)을 응답에 노출한다.
+  //      발행 로직(step3)은 그대로 두고, "cardnews 존재"라는 전제만 앞에서 보장한다.
+  const { data: cardCheck } = await supabase.from("cardnews").select("slides").eq("article_id", articleId).single()
+  if (!cardCheck?.slides) {
+    console.log(`[drip] step2 후 cardnews 없음 → 발행 스킵 (step2 status=${result.cardnewsGenStatus ?? "?"})`)
+    return NextResponse.json({
+      ...result, autoPublish: "on",
+      drip: { articleId, sitePublished: true, cardnewsMissing: true, reason: "step2(cardnews 생성)가 실패해 발행 전제(cardnews)가 없습니다" },
+    }, { status: 500 })
+  }
+  console.log(`[drip] cardnews 확인됨 (slides ${cardCheck.slides.length}장) → 발행 진행`)
 
   // 3) IG + Threads 동시 발행 (publishCardnews가 둘 다 처리)
   const t3 = Date.now()
