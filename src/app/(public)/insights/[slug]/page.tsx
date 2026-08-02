@@ -29,7 +29,15 @@ export async function generateStaticParams() {
     .from("insights")
     .select("slug, article:articles!inner(status)")
     .eq("article.status", "published")
-  return (data ?? []).map((i) => ({ slug: i.slug as string }))
+  // 비-ASCII(한글) 슬러그는 프리렌더에서 제외한다. Next는 암묵 캐시 태그를
+  // `_N_T_${pathname}` 로 굽는데(server/lib/implicit-tags), 프리렌더된 한글 경로는
+  // 태그에 한글이 박혀 Vercel이 x-next-cache-tags 응답 헤더(Latin1)로 낼 때
+  // 'Invalid character in header content'로 500이 난다. 제외하면 on-demand로 서빙되고,
+  // 요청 경로가 %-인코딩(ASCII)이라 태그도 ASCII가 돼 안전. ASCII 슬러그는 그대로 프리렌더+ISR.
+  // (dynamicParams 기본 true 라 제외분도 정상 렌더)
+  return (data ?? [])
+    .map((i) => ({ slug: i.slug as string }))
+    .filter((p) => [...p.slug].every((c) => c.charCodeAt(0) < 128))
 }
 
 interface Props {
