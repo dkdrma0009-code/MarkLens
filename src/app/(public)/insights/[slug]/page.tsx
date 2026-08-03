@@ -31,14 +31,32 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+// slug 로 못 찾으면 legacy_slug(옛 한글 슬러그)로 재조회한다. 슬러그 ASCII 마이그레이션 후
+// 옛 URL(검색 인덱싱분)이 안 깨지게 하는 폴백. legacy_slug 컬럼이 아직 없을 때(마이그레이션 전)도
+// try/catch 로 안전하게 slug-only 로 떨어진다.
+async function resolveInsight(
+  supabase: ReturnType<typeof createPublicClient>,
+  slug: string,
+  select: string,
+) {
+  const s = decodeURIComponent(slug)
+  const { data } = await supabase.from("insights").select(select).eq("slug", s).maybeSingle()
+  if (data) return data
+  try {
+    const legacy = await supabase.from("insights").select(select).eq("legacy_slug", s).maybeSingle()
+    return legacy.data ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const supabase = createPublicClient()
-  const { data: insight } = await supabase
-    .from("insights")
-    .select("hook, summary, category, article:articles(title, image_url, source_name)")
-    .eq("slug", decodeURIComponent(slug))
-    .single()
+  const insight = await resolveInsight(
+    supabase, slug,
+    "hook, summary, category, article:articles(title, image_url, source_name)",
+  ) as { hook?: string; summary?: string; category?: string; article?: unknown } | null
 
   if (!insight) return {}
 
@@ -75,13 +93,9 @@ export default async function InsightDetailPage({ params }: Props) {
   const { slug } = await params
   const supabase = createPublicClient()
 
-  // Next 16(Turbopack)이 라우트 파라미터를 디코딩하지 않고 넘기는 경우가 있어(한글 슬러그가 %EB..로 옴)
-  // DB의 원문 슬러그와 매칭되도록 명시적으로 디코딩한다.
-  const { data: insight } = await supabase
-    .from("insights")
-    .select("*, article:articles(*)")
-    .eq("slug", decodeURIComponent(slug))
-    .single()
+  // slug → 없으면 legacy_slug 폴백(옛 한글 URL 보존). decodeURIComponent 로 %EB.. 도 매칭.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insight = await resolveInsight(supabase, slug, "*, article:articles(*)") as any
 
   if (!insight) notFound()
 

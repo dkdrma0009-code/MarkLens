@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeArticle } from "@/lib/ai/analyze"
-import { slugify } from "@/lib/utils"
+import { buildInsightSlug } from "@/lib/utils"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
@@ -43,8 +43,8 @@ export async function POST(req: Request) {
         url: cleanStr(article.url),
       })
 
-      // 한국어 hook 기반 슬러그 — 한국어 검색 정렬 (id 접미사로 유니크 보장)
-      const slug = `${slugify(insight.hook) || slugify(article.title)}-${article.id.slice(0, 6)}`
+      // ASCII 슬러그(영문 title 우선 → hook → insight) + id6 유니크 해시
+      const slug = buildInsightSlug(article.title, insight.hook, article.id)
 
       if (!insight.hook) {
         await supabase.from("articles").update({ status: "rejected" }).eq("id", article.id)
