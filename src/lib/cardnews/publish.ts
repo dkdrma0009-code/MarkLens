@@ -20,10 +20,20 @@ function defaultCaption(hook: string | null, category: string | null): string {
 
 // 카드뉴스 1건을 인스타 캐러셀로 발행 (버튼/cron 공용). 반환: IG 게시물 id
 export async function publishCardnews(articleId: string): Promise<string> {
+  const supabase = createAdminClient()
+
+  // 스킵 처리된 카드뉴스(발행 멈춤 스테일 등)는 발행하지 않는다 — 사이트 공개는 유지, IG 만 종결.
+  const { data: card } = await supabase
+    .from("cardnews")
+    .select("publish_status")
+    .eq("article_id", articleId)
+    .maybeSingle()
+  if (card?.publish_status === "skipped_stale") {
+    throw new Error(`카드뉴스가 스킵 처리됨(${card.publish_status}) — 발행하지 않습니다.`)
+  }
+
   const rendered = await renderCardnewsBuffers(articleId)
   if (!rendered) throw new Error("카드뉴스가 없습니다. 먼저 생성하세요.")
-
-  const supabase = createAdminClient()
 
   // 공개 버킷 업로드 → JPEG 변환 URL (인스타는 JPEG만 허용)
   await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {})

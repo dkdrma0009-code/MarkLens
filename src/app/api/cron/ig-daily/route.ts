@@ -69,11 +69,13 @@ export async function GET(req: Request) {
   } catch { /* 실패 무시 */ }
 
   // ⑤ 예약 발행 — scheduled_at <= now AND posted_at IS NULL 인 카드뉴스 발행
+  // (publish_status='skipped_stale' 은 제외 — 발행 멈춤 스테일로 종결한 건 재발행 안 함)
   const { data: scheduled } = await supabase
     .from("cardnews")
     .select("article_id")
     .lte("scheduled_at", new Date().toISOString())
     .is("posted_at", null)
+    .is("publish_status", null)
   for (const item of scheduled ?? []) {
     try {
       await publishCardnews(item.article_id)
