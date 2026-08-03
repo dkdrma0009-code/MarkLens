@@ -1,0 +1,92 @@
+{
+  "branding": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/branding/s08.jpg"
+  ],
+  "performance": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/performance/s08.jpg"
+  ],
+  "crm": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/crm/s08.jpg"
+  ],
+  "content": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/content/s08.jpg"
+  ],
+  "seo": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/seo/s08.jpg"
+  ],
+  "social": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/social/s08.jpg"
+  ],
+  "ai": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/ai/s08.jpg"
+  ],
+  "psychology": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/psychology/s08.jpg"
+  ],
+  "default": [
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s01.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s02.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s03.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s04.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s05.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s06.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s07.jpg",
+    "https://ndehtnchkgvpjbxlkazk.supabase.co/storage/v1/object/public/stock-posters/default/s08.jpg"
+  ]
+}

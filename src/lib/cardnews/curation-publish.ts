@@ -25,7 +25,7 @@ export async function publishCuration(curationId: string): Promise<string> {
   const supabase = createAdminClient()
   const { data: cur } = await supabase
     .from("curations")
-    .select("id, slides, caption")
+    .select("id, slides, caption, week_of")
     .eq("id", curationId)
     .single()
   if (!cur?.slides) throw new Error("큐레이션이 없습니다 (먼저 생성·저장하세요).")
@@ -33,6 +33,7 @@ export async function publishCuration(curationId: string): Promise<string> {
   const rendered = await renderCurationBuffers({
     slides: cur.slides as CurationSlide[],
     caption: (cur as { caption?: string | null }).caption,
+    week_of: (cur as { week_of?: string | null }).week_of,
   })
 
   // 공개 버킷 재사용(cardnews-ig) → curations/<id>/ 경로 → JPEG 변환 URL(인스타는 JPEG만)
