@@ -16,6 +16,8 @@ Supabase는 마이그레이션 CLI 없이 **대시보드 → SQL Editor에 직�
 | 009 | `009_cardnews_reel_settings.sql` | cardnews.reel_settings 추가 (릴스컷 연출 설정 + 비전이 고른 사진을 기사별로 고정, jsonb) | 001 |
 | 010 | `010_content_metrics.sql` | content_metrics 테이블 — 피드백 루프용 게시물별 성과 저장 (도달·저장·공유·댓글·팔로워, upsert 키 ig_post_id+platform). service_role 전용 | 001, 006 |
 | 011 | `011_curations.sql` | curations 테이블 — 주간 트렌드 큐레이션(7장) 저장 (slides jsonb, caption, ig_post_id, posted_at, performance). cardnews와 별개, service_role 전용 | 006 |
+| 012 | `012_insight_legacy_slug.sql` | insights.legacy_slug 추가 — 슬러그 ASCII 마이그레이션 시 옛 한글 URL 리다이렉트/폴백용 | 001 |
+| 013 | `013_subscribers_source.sql` | subscribers.source 추가 — 구독 유입 경로. 컬럼 누락으로 2026-06-17 이후 구독이 조용히 실패하던 버그 복구 | 001 |
 
 ## 주의
 

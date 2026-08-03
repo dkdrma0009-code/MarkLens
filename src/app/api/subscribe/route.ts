@@ -75,9 +75,16 @@ export async function POST(req: Request) {
   // pending 상태로 저장 (source는 최초 구독 시만 기록, 재구독 시 덮어쓰지 않음)
   const row: Record<string, string> = { email, status: "pending" }
   if (source && typeof source === "string") row.source = source.slice(0, 80)
-  await supabase
+  const { error: saveError } = await supabase
     .from("subscribers")
     .upsert(row, { onConflict: "email" })
+
+  // DB 저장 실패는 실패로 처리한다 — 저장 안 됐는데 성공(확인메일)으로 넘어가면
+  // 구독자가 유령이 된다(과거 source 컬럼 누락 사고). 여기서 끊고 에러를 반환.
+  if (saveError) {
+    console.error("[subscribe] 저장 실패:", saveError.message)
+    return NextResponse.json({ error: "구독 저장에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 })
+  }
 
   // 확인 이메일 발송
   const token = await makeConfirmToken(email)
