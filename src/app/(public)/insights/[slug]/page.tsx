@@ -11,6 +11,7 @@ import InsightQuiz from "@/components/InsightQuiz"
 import InterviewSoundbites from "@/components/InterviewSoundbites"
 import ShareButtons from "@/components/ShareButtons"
 import NewsletterInlineCta from "@/components/NewsletterInlineCta"
+import { midCtaAfterSection, countParas, type BodySection } from "@/lib/insights/mid-cta"
 import ViewCounter from "@/components/ViewCounter"
 import ReadingProgress from "@/components/ReadingProgress"
 import Image from "next/image"
@@ -159,6 +160,19 @@ export default async function InsightDetailPage({ params }: Props) {
     insight.interview_points?.length && { id: "interview", label: "면접 한 마디" },
     (insight.quiz?.questions?.length || insight.quiz?.question) && { id: "learn", label: "학습 퀴즈" },
   ].filter(Boolean) as { id: string; label: string }[]
+
+  // 본문 중간 뉴스레터 CTA 삽입 위치 — 문단 수 기준 중간 지점(짧은 글엔 null). 하단 CTA 는 그대로.
+  const bodySections = [
+    insight.summary && { id: "summary", paras: 1 },
+    insight.key_takeaways?.length && { id: "takeaways", paras: insight.key_takeaways.length },
+    insight.why_it_matters && { id: "why", paras: countParas(insight.why_it_matters) },
+    insight.practical_applications && { id: "apply", paras: countParas(insight.practical_applications) },
+    insight.framework_analysis && { id: "framework", paras: countParas(insight.framework_analysis) },
+    terms.length && { id: "terms", paras: terms.length },
+    insight.interview_points?.length && { id: "interview", paras: insight.interview_points.length },
+    (insight.quiz?.questions?.length || insight.quiz?.question) && { id: "learn", paras: 1 },
+  ].filter(Boolean) as BodySection[]
+  const midCtaAfter = midCtaAfterSection(bodySections)
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -313,11 +327,19 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
+      {midCtaAfter === "takeaways" && (
+        <div className="mb-14"><NewsletterInlineCta variant="inline" location="insight_mid" /></div>
+      )}
+
       {/* ── 왜 중요한가 ── */}
       {insight.why_it_matters && (
         <Section id="why" title="왜 중요한가">
           <Prose text={insight.why_it_matters} />
         </Section>
+      )}
+
+      {midCtaAfter === "why" && (
+        <div className="mb-14"><NewsletterInlineCta variant="inline" location="insight_mid" /></div>
       )}
 
       {/* ── 실전 적용법 ── */}
@@ -327,6 +349,10 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
+      {midCtaAfter === "apply" && (
+        <div className="mb-14"><NewsletterInlineCta variant="inline" location="insight_mid" /></div>
+      )}
+
       {/* ── 프레임워크 분석 ── */}
       {insight.framework_analysis && (
         <Section id="framework" title="프레임워크 분석">
@@ -334,6 +360,10 @@ export default async function InsightDetailPage({ params }: Props) {
             <Prose text={insight.framework_analysis} />
           </div>
         </Section>
+      )}
+
+      {midCtaAfter === "framework" && (
+        <div className="mb-14"><NewsletterInlineCta variant="inline" location="insight_mid" /></div>
       )}
 
       {/* ── 마케팅 용어 풀이 ── (생성된 marketing_terms 데이터 노출 + 구조화) */}
@@ -356,11 +386,19 @@ export default async function InsightDetailPage({ params }: Props) {
         </Section>
       )}
 
+      {midCtaAfter === "terms" && (
+        <div className="mb-14"><NewsletterInlineCta variant="inline" location="insight_mid" /></div>
+      )}
+
       {/* ── 면접 한 마디 ── */}
       {insight.interview_points?.length > 0 && (
         <Section id="interview" title="면접에서 이렇게 말해보세요">
           <InterviewSoundbites items={insight.interview_points} color={meta.color} />
         </Section>
+      )}
+
+      {midCtaAfter === "interview" && (
+        <div className="mb-14"><NewsletterInlineCta variant="inline" location="insight_mid" /></div>
       )}
 
       {/* ── 마케팅 학습하기 ── */}
