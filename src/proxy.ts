@@ -52,6 +52,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // 크론/웹훅이 시크릿으로 호출하는 카드뉴스 생성은 세션 미들웨어를 건너뛴다.
+  // (라우트가 자체적으로 secret === N8N_WEBHOOK_SECRET 를 검증한다. 이 예외가 없으면
+  //  ig-daily 드립의 cardnews 생성이 미들웨어 401 에 막혀 자동발행이 통째로 실패한다.)
+  const secret = request.nextUrl.searchParams.get("secret")
+  if (pathname === "/api/admin/cardnews/generate" && secret && secret === process.env.N8N_WEBHOOK_SECRET) {
+    return NextResponse.next()
+  }
+
   // 2) 관리자 auth (기존 로직) — /admin, /api/admin 만
   // 응답 객체를 미리 생성 — setAll에서 쿠키/헤더를 여기에 기록
   const response = NextResponse.next()
