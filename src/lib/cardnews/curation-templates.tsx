@@ -1,4 +1,4 @@
-import { TOKENS } from "./templates"
+import { TOKENS, TYPO, SIZE } from "./templates"
 import type { CurationSlide, CurationIntroSlide, CurationTrendSlide, CurationOutroSlide } from "./curation-types"
 import { CURATION_SLIDE_COUNT } from "./curation-types"
 
@@ -11,10 +11,13 @@ import { CURATION_SLIDE_COUNT } from "./curation-types"
 
 const T = TOKENS
 
+// 큐레이션 전용 크기(px) — 현재 값 그대로 상수화 (공통 SIZE 에 없는 것만)
+const CSIZE = { rank: 190, trendTitle: 62, saveHook: 34, cta: 36 } as const
+
 // 섹션 라벨 (인디고, letter-spacing) — templates.tsx 의 sectionLabel 과 동일 패턴
 function sectionLabel(text: string) {
   return (
-    <div key="label" style={{ display: "flex", width: "100%", fontSize: 32, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em" }}>
+    <div key="label" style={{ display: "flex", width: "100%", fontSize: SIZE.eyebrow, fontWeight: 600, color: T.ACCENT, ...TYPO.EYEBROW }}>
       {text}
     </div>
   )
@@ -24,8 +27,8 @@ function sectionLabel(text: string) {
 function footer(page: number, total: number, showPage: boolean) {
   return (
     <div key="footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-      <div style={{ display: "flex", fontSize: 28, fontWeight: 600, color: T.SUB, letterSpacing: "0.1em" }}>MARKLENS</div>
-      <div style={{ display: "flex", fontSize: 28, color: T.SUB }}>
+      <div style={{ display: "flex", fontSize: SIZE.caption, fontWeight: 600, color: T.SUB, letterSpacing: "0.1em" }}>MARKLENS</div>
+      <div style={{ display: "flex", fontSize: SIZE.caption, color: T.SUB, ...TYPO.CAPTION }}>
         {showPage ? `${String(page).padStart(2, "0")} / ${String(total).padStart(2, "0")}` : ""}
       </div>
     </div>
@@ -67,8 +70,8 @@ function categoryBadge(category: string) {
   return (
     <div style={{
       display: "flex", alignItems: "center", alignSelf: "flex-start",
-      border: `2px solid ${T.ACCENT}`, borderRadius: 999, padding: "10px 24px",
-      fontSize: 30, fontWeight: 600, color: T.ACCENT,
+      border: `2px solid ${T.ACCENT}`, borderRadius: 999, padding: "12px 24px",
+      fontSize: SIZE.eyebrowSm, fontWeight: 600, color: T.ACCENT, ...TYPO.EYEBROW,
     }}>
       {category}
     </div>
@@ -80,14 +83,14 @@ function introSlide(s: CurationIntroSlide, total: number) {
   return frame([
     sectionLabel("이번 주 마케팅 트렌드"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center", marginTop: -20 }}>
-      <div style={{ display: "flex", flexDirection: "column", fontSize: 96, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.02em" }}>
+      <div style={{ display: "flex", flexDirection: "column", fontSize: SIZE.cover, fontWeight: 700, ...TYPO.DISPLAY }}>
         {s.headline.map((line, i) => highlightLine(line, s.highlight, i))}
       </div>
       {/* saveHook — 인디고 pill 로 강조(저장 유도) */}
       <div style={{
         display: "flex", alignItems: "center", alignSelf: "flex-start", marginTop: 48,
         background: "rgba(99,102,241,0.14)", border: `2px solid ${T.ACCENT}`, borderRadius: 999,
-        padding: "14px 28px", fontSize: 34, fontWeight: 700, color: "#A5B4FC",
+        padding: "16px 28px", fontSize: CSIZE.saveHook, fontWeight: 700, color: "#A5B4FC",
       }}>
         {s.saveHook}
       </div>
@@ -103,15 +106,15 @@ function trendSlide(s: CurationTrendSlide, page: number, total: number) {
     sectionLabel("이번 주 트렌드"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
       {/* rank 앵커 — 크게, 인디고 */}
-      <div style={{ display: "flex", fontSize: 190, fontWeight: 700, color: T.ACCENT, lineHeight: 1, letterSpacing: "-0.03em" }}>
+      <div style={{ display: "flex", fontSize: CSIZE.rank, fontWeight: 700, color: T.ACCENT, ...TYPO.DISPLAY, lineHeight: 1 }}>
         {String(it.rank).padStart(2, "0")}
       </div>
       {/* 제목 — 기존보다 낮춘 타이포 */}
-      <div style={{ display: "flex", fontSize: 62, fontWeight: 700, color: T.TEXT, lineHeight: 1.25, letterSpacing: "-0.02em", marginTop: 28, wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: CSIZE.trendTitle, fontWeight: 700, color: T.TEXT, ...TYPO.TITLE, marginTop: 28, wordBreak: "keep-all" }}>
         {it.title}
       </div>
       {/* 한 줄 요약 */}
-      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.5, marginTop: 24, wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.bodySm, color: T.BODY, ...TYPO.BODY, marginTop: 24, wordBreak: "keep-all" }}>
         {it.summary}
       </div>
       {/* 카테고리 뱃지 */}
@@ -128,17 +131,17 @@ function outroSlide(s: CurationOutroSlide, total: number) {
   return frame([
     <div key="spacer" style={{ display: "flex", height: 32 }} />,
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.title, fontWeight: 700, color: T.TEXT, ...TYPO.TITLE, wordBreak: "keep-all" }}>
         {s.headline}
       </div>
-      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44, wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.bodySm, color: T.BODY, ...TYPO.BODY, marginTop: 44, wordBreak: "keep-all" }}>
         {s.body}
       </div>
       {/* cta — 인디고 pill 로 강조 */}
       <div style={{
         display: "flex", alignItems: "center", alignSelf: "flex-start", marginTop: 64,
         background: "rgba(99,102,241,0.14)", border: `2px solid ${T.ACCENT}`, borderRadius: 999,
-        padding: "16px 32px", fontSize: 36, fontWeight: 700, color: "#A5B4FC",
+        padding: "16px 32px", fontSize: CSIZE.cta, fontWeight: 700, color: "#A5B4FC",
       }}>
         {s.cta}
       </div>

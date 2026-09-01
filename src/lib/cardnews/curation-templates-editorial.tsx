@@ -1,4 +1,4 @@
-import { TOKENS } from "./templates"
+import { TOKENS, TYPO } from "./templates"
 import type { CurationTrendItem } from "./curation-types"
 
 /* 큐레이션 "밝은 에디토리얼" 레이아웃 — lit_official_kr(Hot 8 Chart) 레퍼런스 재현.
@@ -21,6 +21,16 @@ const C = {
   ACCENT: "#4f46e5",
   CARD: "#eceae5",
 }
+
+// 에디토리얼 전용 크기(px) — 현재 값 그대로 상수화. 행간·자간은 TYPO(몽타주)로 매핑.
+// 키커·메타·번호·CTA 는 몽타주 무정의 역할이라 기존 트래킹 유지하고 크기만 토큰화.
+const ESIZE = {
+  coverHeadline: 74, headline: 68, outroHeadline: 72,  // DISPLAY
+  listTitle: 34,                                        // TITLE
+  summary: 32, body: 34, featureSummary: 30,            // BODY 계열
+  kicker: 24, meta: 22, rowKey: 20, listCat: 19,        // 키커·메타(트래킹 유지)
+  rank: 40, rowVal: 28, cta: 30,                        // 번호·값·CTA
+} as const
 
 const CAT_EN: Record<string, string> = {
   "브랜딩": "BRANDING", "퍼포먼스 마케팅": "PERFORMANCE", "CRM": "CRM", "콘텐츠 마케팅": "CONTENT",
@@ -47,19 +57,19 @@ function tile(src: string, style: React.CSSProperties): React.ReactElement {
 function header(item: CurationTrendItem, ctx: EditorialCtx): React.ReactElement {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 26 }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 }}>
         <div style={{ display: "flex", width: 8, height: 8, borderRadius: 4, background: C.ACCENT }} />
-        <div style={{ display: "flex", fontSize: 22, fontWeight: 700, color: C.INK, letterSpacing: "0.14em" }}>
+        <div style={{ display: "flex", fontSize: ESIZE.meta, fontWeight: 700, color: C.INK, letterSpacing: "0.14em" }}>
           {CAT_EN[item.category] ?? item.category}
         </div>
-        <div style={{ display: "flex", fontSize: 22, color: C.MUTED, letterSpacing: "0.1em" }}>
+        <div style={{ display: "flex", fontSize: ESIZE.meta, color: C.MUTED, letterSpacing: "0.1em" }}>
           · {String(ctx.page).padStart(2, "0")} / {String(ctx.total).padStart(2, "0")}
         </div>
       </div>
-      <div style={{ display: "flex", fontSize: 68, fontWeight: 800, color: C.INK, lineHeight: 1.16, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: ESIZE.headline, fontWeight: 800, color: C.INK, ...TYPO.DISPLAY, wordBreak: "keep-all" }}>
         {item.title}
       </div>
-      <div style={{ display: "flex", fontSize: 32, color: C.SUB, lineHeight: 1.5, marginTop: 22, wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: ESIZE.summary, color: C.SUB, ...TYPO.BODY, marginTop: 24, wordBreak: "keep-all" }}>
         {item.summary}
       </div>
     </div>
@@ -69,8 +79,8 @@ function header(item: CurationTrendItem, ctx: EditorialCtx): React.ReactElement 
 function footer(ctx: EditorialCtx): React.ReactElement {
   return (
     <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginTop: 40, paddingTop: 24, borderTop: `1px solid ${C.LINE}` }}>
-      <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: C.INK, letterSpacing: "0.12em" }}>MARKLENS</div>
-      <div style={{ display: "flex", fontSize: 22, color: C.MUTED }}>{ctx.source} · {ctx.date}</div>
+      <div style={{ display: "flex", fontSize: ESIZE.kicker, fontWeight: 700, color: C.INK, letterSpacing: "0.12em" }}>MARKLENS</div>
+      <div style={{ display: "flex", fontSize: ESIZE.meta, color: C.MUTED }}>{ctx.source} · {ctx.date}</div>
     </div>
   )
 }
@@ -128,29 +138,29 @@ export function renderCurationCoverEditorial(opts: {
 
   return frame([
     <div key="head" style={{ display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <div style={{ display: "flex", width: 8, height: 8, borderRadius: 4, background: C.ACCENT }} />
-        <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: C.INK, letterSpacing: "0.14em" }}>{kicker}</div>
+        <div style={{ display: "flex", fontSize: ESIZE.kicker, fontWeight: 700, color: C.INK, letterSpacing: "0.14em" }}>{kicker}</div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", fontSize: 74, fontWeight: 800, color: C.INK, lineHeight: 1.14, letterSpacing: "-0.02em" }}>
+      <div style={{ display: "flex", flexDirection: "column", fontSize: ESIZE.coverHeadline, fontWeight: 800, color: C.INK, ...TYPO.DISPLAY }}>
         {headline.map((l, i) => titleLine(l, i))}
       </div>
     </div>,
     <div key="list" style={{ display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 44 }}>
       {items.map((it, i) => (
         <div key={i} style={{ display: "flex", flexDirection: "row", alignItems: "center", flex: 1, gap: 24, borderTop: i > 0 ? `1px solid ${C.LINE}` : "0px solid transparent" }}>
-          <div style={{ display: "flex", width: 58, fontSize: 40, fontWeight: 800, color: C.INK }}>{it.rank}</div>
+          <div style={{ display: "flex", width: 58, fontSize: ESIZE.rank, fontWeight: 800, color: C.INK }}>{it.rank}</div>
           <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, paddingRight: 16 }}>
-            <div style={{ display: "flex", fontSize: 19, color: C.MUTED, letterSpacing: "0.12em", marginBottom: 6 }}>{CAT_EN[it.category] ?? it.category}</div>
-            <div style={{ display: "flex", fontSize: 34, fontWeight: 700, color: C.INK, lineHeight: 1.2, wordBreak: "keep-all" }}>{it.title}</div>
+            <div style={{ display: "flex", fontSize: ESIZE.listCat, color: C.MUTED, letterSpacing: "0.12em", marginBottom: 8 }}>{CAT_EN[it.category] ?? it.category}</div>
+            <div style={{ display: "flex", fontSize: ESIZE.listTitle, fontWeight: 700, color: C.INK, ...TYPO.TITLE, wordBreak: "keep-all" }}>{it.title}</div>
           </div>
           {tile(it.thumb, { width: 116, height: 116, flexShrink: 0, borderRadius: 14 })}
         </div>
       ))}
     </div>,
     <div key="foot" style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginTop: 32, paddingTop: 24, borderTop: `1px solid ${C.LINE}` }}>
-      <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: C.INK, letterSpacing: "0.12em" }}>MARKLENS</div>
-      <div style={{ display: "flex", fontSize: 22, color: C.MUTED }}>주간 트렌드 · {date}</div>
+      <div style={{ display: "flex", fontSize: ESIZE.kicker, fontWeight: 700, color: C.INK, letterSpacing: "0.12em" }}>MARKLENS</div>
+      <div style={{ display: "flex", fontSize: ESIZE.meta, color: C.MUTED }}>주간 트렌드 · {date}</div>
     </div>,
   ])
 }
@@ -161,18 +171,18 @@ export function renderOutroEditorial(opts: {
 }): React.ReactElement {
   const { headline, body, cta, date, thumbs } = opts
   return frame([
-    <div key="head" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 28 }}>
+    <div key="head" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 }}>
       <div style={{ display: "flex", width: 8, height: 8, borderRadius: 4, background: C.ACCENT }} />
-      <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: C.INK, letterSpacing: "0.14em" }}>MARKLENS WEEKLY</div>
+      <div style={{ display: "flex", fontSize: ESIZE.kicker, fontWeight: 700, color: C.INK, letterSpacing: "0.14em" }}>MARKLENS WEEKLY</div>
     </div>,
     <div key="body" style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 72, fontWeight: 800, color: C.INK, lineHeight: 1.16, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>{headline}</div>
-      <div style={{ display: "flex", fontSize: 34, color: C.SUB, lineHeight: 1.5, marginTop: 28, maxWidth: 820, wordBreak: "keep-all" }}>{body}</div>
+      <div style={{ display: "flex", fontSize: ESIZE.outroHeadline, fontWeight: 800, color: C.INK, ...TYPO.DISPLAY, wordBreak: "keep-all" }}>{headline}</div>
+      <div style={{ display: "flex", fontSize: ESIZE.body, color: C.SUB, ...TYPO.BODY, marginTop: 28, maxWidth: 820, wordBreak: "keep-all" }}>{body}</div>
       <div style={{ display: "flex", marginTop: 44 }}>
-        <div style={{ display: "flex", background: C.ACCENT, color: "#fff", fontSize: 30, fontWeight: 700, padding: "22px 36px", borderRadius: 999 }}>{cta}</div>
+        <div style={{ display: "flex", background: C.ACCENT, color: "#fff", fontSize: ESIZE.cta, fontWeight: 700, padding: "24px 36px", borderRadius: 999 }}>{cta}</div>
       </div>
     </div>,
-    <div key="thumbs" style={{ display: "flex", flexDirection: "row", gap: 14, marginBottom: 28 }}>
+    <div key="thumbs" style={{ display: "flex", flexDirection: "row", gap: 16, marginBottom: 28 }}>
       {thumbs.slice(0, 5).map((t) => tile(t, { width: 176, height: 132, flexShrink: 0, borderRadius: 12 }))}
     </div>,
     footer({ page: 7, total: 7, date, source: "주간 트렌드" }),
@@ -193,17 +203,17 @@ export function renderTrendEditorialFeature(
     <div key="media" style={{ display: "flex", flexDirection: "row", flexGrow: 1, gap: 24, marginTop: 44 }}>
       {tile(image, { flex: 1.6 })}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 18 }}>
-        <div style={{ display: "flex", flexDirection: "column", background: C.CARD, borderRadius: 18, padding: "30px 30px", gap: 18, flexGrow: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", background: C.CARD, borderRadius: 18, padding: "32px 32px", gap: 20, flexGrow: 1 }}>
           {rows.map(([k, v], i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ display: "flex", fontSize: 20, color: C.MUTED, letterSpacing: "0.1em" }}>{k}</div>
-              <div style={{ display: "flex", fontSize: 28, fontWeight: 700, color: C.INK }}>{v}</div>
+              <div style={{ display: "flex", fontSize: ESIZE.rowKey, color: C.MUTED, letterSpacing: "0.1em" }}>{k}</div>
+              <div style={{ display: "flex", fontSize: ESIZE.rowVal, fontWeight: 700, color: C.INK }}>{v}</div>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", background: C.ACCENT, borderRadius: 18, padding: "26px 28px" }}>
-          <div style={{ display: "flex", fontSize: 20, color: "rgba(255,255,255,0.72)", letterSpacing: "0.1em", marginBottom: 8 }}>THIS WEEK</div>
-          <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: "#fff", lineHeight: 1.3, wordBreak: "keep-all" }}>{item.summary}</div>
+        <div style={{ display: "flex", flexDirection: "column", background: C.ACCENT, borderRadius: 18, padding: "28px 28px" }}>
+          <div style={{ display: "flex", fontSize: ESIZE.rowKey, color: "rgba(255,255,255,0.72)", letterSpacing: "0.1em", marginBottom: 8 }}>THIS WEEK</div>
+          <div style={{ display: "flex", fontSize: ESIZE.featureSummary, fontWeight: 700, color: "#fff", lineHeight: 1.3, wordBreak: "keep-all" }}>{item.summary}</div>
         </div>
       </div>
     </div>,

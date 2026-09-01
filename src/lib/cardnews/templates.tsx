@@ -14,6 +14,27 @@ export const TOKENS = {
   SIGNATURE_BRACKETS: false, // 3.4 뷰파인더 모서리 마크 (기본 off)
 }
 
+/* ── 몽타주(원티드 디자인 시스템) 타이포 스케일 이식 ──
+   출처: montage.wanted.co.kr/docs/foundations · Typography.
+   색·크기·굵기는 기존 값 유지하고, 역할별 "행간 비율·자간(em)"만 몽타주 수치로 매핑한다.
+   (Display -0.028~-0.032 / Title -0.023 / Body +0.006 / Caption +0.025 em, 행간은 몽타주 비율) */
+export const TYPO = {
+  DISPLAY: { lineHeight: 1.3, letterSpacing: "-0.03em" },   // 대형 헤드라인 (Montage Display)
+  TITLE:   { lineHeight: 1.34, letterSpacing: "-0.023em" }, // 중형 헤드라인 (Montage Title)
+  BODY:    { lineHeight: 1.5, letterSpacing: "0.006em" },   // 본문 (Montage Body)
+  CAPTION: { lineHeight: 1.43, letterSpacing: "0.025em" },  // 캡션·주석 (Montage Caption)
+  EYEBROW: { lineHeight: 1.43, letterSpacing: "0.08em" },   // 키커(라벨) — 몽타주 무정의 역할, 기존 와이드 트래킹 유지
+} as const
+
+/* ── 크기 스케일(px) — 현재 값 그대로, 인라인 하드코딩만 역할 상수로 이동 ── */
+export const SIZE = {
+  cover: 96, coverPhoto: 92,        // DISPLAY
+  title: 66, keyword: 58,           // TITLE
+  body: 46, bodySm: 40, sub: 36,    // BODY 계열
+  eyebrow: 32, eyebrowSm: 30,       // EYEBROW
+  note: 32, caption: 28,            // CAPTION
+} as const
+
 const T = TOKENS
 
 /* ── 공통 조각 ──
@@ -23,7 +44,7 @@ const T = TOKENS
 // 섹션 라벨 (slides 2~5 상단)
 function sectionLabel(text: string) {
   return (
-    <div key="label" style={{ display: "flex", width: "100%", fontSize: 32, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em" }}>
+    <div key="label" style={{ display: "flex", width: "100%", fontSize: SIZE.eyebrow, fontWeight: 600, color: T.ACCENT, ...TYPO.EYEBROW }}>
       {text}
     </div>
   )
@@ -33,10 +54,10 @@ function sectionLabel(text: string) {
 function footer(page: number, total: number, showPage: boolean) {
   return (
     <div key="footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-      <div style={{ display: "flex", fontSize: 28, fontWeight: 600, color: T.SUB, letterSpacing: "0.1em" }}>
+      <div style={{ display: "flex", fontSize: SIZE.caption, fontWeight: 600, color: T.SUB, letterSpacing: "0.1em" }}>
         MARKLENS
       </div>
-      <div style={{ display: "flex", fontSize: 28, color: T.SUB }}>
+      <div style={{ display: "flex", fontSize: SIZE.caption, color: T.SUB, ...TYPO.CAPTION }}>
         {showPage ? `${String(page).padStart(2, "0")} / ${String(total).padStart(2, "0")}` : ""}
       </div>
     </div>
@@ -114,14 +135,14 @@ function coverSlide(s: CoverSlide, category: string, total: number, coverImage?:
       }} />,
       <div key="spacer" style={{ display: "flex", flexGrow: 1 }} />,
       <div key="text" style={{ display: "flex", flexDirection: "column", width: "100%", marginBottom: 56 }}>
-        <div style={{ display: "flex", width: "100%", fontSize: 30, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em", marginBottom: 28 }}>
+        <div style={{ display: "flex", width: "100%", fontSize: SIZE.eyebrowSm, fontWeight: 600, color: T.ACCENT, ...TYPO.EYEBROW, marginBottom: 28 }}>
           {category}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", fontSize: 92, fontWeight: 700, lineHeight: 1.18, letterSpacing: "-0.02em" }}>
+        <div style={{ display: "flex", flexDirection: "column", fontSize: SIZE.coverPhoto, fontWeight: 700, ...TYPO.DISPLAY }}>
           {s.headline.map((line, i) => highlightLine(line, s.highlight, i))}
         </div>
         {s.sub ? (
-          <div style={{ display: "flex", fontSize: 36, color: "#C9C9C9", marginTop: 32 }}>{s.sub}</div>
+          <div style={{ display: "flex", fontSize: SIZE.sub, color: "#C9C9C9", ...TYPO.BODY, marginTop: 32 }}>{s.sub}</div>
         ) : null}
       </div>,
       footer(1, total, false),
@@ -130,15 +151,15 @@ function coverSlide(s: CoverSlide, category: string, total: number, coverImage?:
 
   // 타이포 표지 (이미지 없을 때)
   return frame([
-    <div key="cat" style={{ display: "flex", width: "100%", fontSize: 30, fontWeight: 600, color: T.ACCENT, letterSpacing: "0.08em" }}>
+    <div key="cat" style={{ display: "flex", width: "100%", fontSize: SIZE.eyebrowSm, fontWeight: 600, color: T.ACCENT, ...TYPO.EYEBROW }}>
       {category}
     </div>,
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center", marginTop: -40 }}>
-      <div style={{ display: "flex", flexDirection: "column", fontSize: 96, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.02em" }}>
+      <div style={{ display: "flex", flexDirection: "column", fontSize: SIZE.cover, fontWeight: 700, ...TYPO.DISPLAY }}>
         {s.headline.map((line, i) => highlightLine(line, s.highlight, i))}
       </div>
       {s.sub ? (
-        <div style={{ display: "flex", fontSize: 36, color: T.SUB, marginTop: 36 }}>{s.sub}</div>
+        <div style={{ display: "flex", fontSize: SIZE.sub, color: T.SUB, ...TYPO.BODY, marginTop: 36 }}>{s.sub}</div>
       ) : null}
     </div>,
     footer(1, total, false),
@@ -149,11 +170,11 @@ function factSlide(s: FactSlide, total: number) {
   return frame([
     sectionLabel(s.label ?? "무슨 일?"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.55, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.body, color: T.BODY, ...TYPO.BODY, wordBreak: "keep-all" }}>
         {s.body}
       </div>
       {s.source ? (
-        <div style={{ display: "flex", fontSize: 28, color: T.SUB, marginTop: 56 }}>출처 · {s.source}</div>
+        <div style={{ display: "flex", fontSize: SIZE.caption, color: T.SUB, ...TYPO.CAPTION, marginTop: 56 }}>출처 · {s.source}</div>
       ) : null}
     </div>,
     footer(2, total, true),
@@ -164,10 +185,10 @@ function whySlide(s: WhySlide, total: number) {
   return frame([
     sectionLabel(s.label ?? "왜 중요한가"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.title, fontWeight: 700, color: T.TEXT, ...TYPO.TITLE, wordBreak: "keep-all" }}>
         {s.headline}
       </div>
-      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44, wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.bodySm, color: T.BODY, ...TYPO.BODY, marginTop: 44, wordBreak: "keep-all" }}>
         {s.body}
       </div>
     </div>,
@@ -179,10 +200,10 @@ function applySlide(s: ApplySlide, total: number) {
   return frame([
     sectionLabel(s.label ?? "당장 해볼 수 있는 것"),
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 46, color: T.BODY, lineHeight: 1.6, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.body, color: T.BODY, ...TYPO.BODY, wordBreak: "keep-all" }}>
         {s.body}
       </div>
-      <div style={{ display: "flex", fontSize: 32, color: T.SUB, marginTop: 64 }}>
+      <div style={{ display: "flex", fontSize: SIZE.note, color: T.SUB, ...TYPO.CAPTION, marginTop: 64 }}>
         더 구체적인 활용법은 풀버전에서 →
       </div>
     </div>,
@@ -196,11 +217,11 @@ function keywordsSlide(s: KeywordsSlide, total: number) {
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center", gap: 64 }}>
       {s.keywords.map((k, i) => (
         <div key={i} style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", fontSize: 58, fontWeight: 700, color: T.TEXT, letterSpacing: "-0.01em" }}>
+          <div style={{ display: "flex", fontSize: SIZE.keyword, fontWeight: 700, color: T.TEXT, ...TYPO.TITLE }}>
             {k.word}
           </div>
           {k.desc ? (
-            <div style={{ display: "flex", fontSize: 32, color: T.SUB, marginTop: 14 }}>{k.desc}</div>
+            <div style={{ display: "flex", fontSize: SIZE.note, color: T.SUB, ...TYPO.CAPTION, marginTop: 16 }}>{k.desc}</div>
           ) : null}
         </div>
       ))}
@@ -213,13 +234,13 @@ function ctaSlide(s: CtaSlide, total: number) {
   return frame([
     <div key="spacer" style={{ display: "flex", height: 32 }} />,
     <div key="mid" style={{ display: "flex", flexDirection: "column", width: "100%", flexGrow: 1, justifyContent: "center" }}>
-      <div style={{ display: "flex", fontSize: 66, fontWeight: 700, color: T.TEXT, lineHeight: 1.3, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.title, fontWeight: 700, color: T.TEXT, ...TYPO.TITLE, wordBreak: "keep-all" }}>
         {s.headline}
       </div>
-      <div style={{ display: "flex", fontSize: 40, color: T.BODY, lineHeight: 1.6, marginTop: 44, wordBreak: "keep-all" }}>
+      <div style={{ display: "flex", fontSize: SIZE.bodySm, color: T.BODY, ...TYPO.BODY, marginTop: 44, wordBreak: "keep-all" }}>
         {s.body}
       </div>
-      <div style={{ display: "flex", fontSize: 32, color: T.SUB, marginTop: 72 }}>
+      <div style={{ display: "flex", fontSize: SIZE.note, color: T.SUB, ...TYPO.CAPTION, marginTop: 72 }}>
         매주 월요일 7:30 · MarkLens Weekly
       </div>
     </div>,
