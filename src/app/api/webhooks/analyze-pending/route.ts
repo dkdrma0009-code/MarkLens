@@ -12,6 +12,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // 분석 순서: 기본 asc(오래된 순 — 기존 호출자 동작 유지). desc = 최신 우선(그날 수집분 우선 분석).
+  const newestFirst = searchParams.get("order") === "desc"
+
   const supabase = createAdminClient()
 
   const { data: articles } = await supabase
@@ -19,7 +22,7 @@ export async function POST(req: Request) {
     .select("*")
     .eq("status", "pending")
     .not("raw_content", "is", null)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: !newestFirst })
     .limit(3) // 분석이 article당 2패스(생성+refine)로 무거워져 배치 축소 — 크론 타임아웃 방지
 
   if (!articles || articles.length === 0) {
