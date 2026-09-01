@@ -150,14 +150,14 @@ export async function GET(req: Request) {
   }
 
   // 하루 1건 통일 드립: ready 인사이트 1개 → 사이트 공개 + 카드뉴스 생성 + IG/Threads 동시 발행.
-  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 오래된 것부터 릴리스(FIFO — 백로그 소진).
+  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 최신 것부터 릴리스(신선도 우선 — 분석일 기준).
   // ── [진단 로깅] 발행 멈춤 원인 추적용. 발행 로직은 그대로, console.log/타이밍만 추가. ──
   const dripStart = Date.now()
   const { data: readyRows } = await supabase
     .from("insights")
     .select("article_id, hook, summary, created_at, article:articles!inner(status)")
     .eq("article.status", "ready")
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(5)
   console.log("[drip] readyRows=", readyRows?.length ?? 0,
     (readyRows ?? []).map(r => ({ art: r.article_id?.slice(0, 8), hook: !!r.hook, summary: !!r.summary, created: r.created_at?.slice(0, 10) })))
