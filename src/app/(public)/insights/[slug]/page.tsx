@@ -246,8 +246,21 @@ export default async function InsightDetailPage({ params }: Props) {
             <>
               <Image src={article.fallback_image.url} alt="" fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
               {article.fallback_image.credit && (
-                <span className="absolute bottom-1.5 right-2.5 text-[10px] text-white/70 bg-black/40 px-1.5 py-0.5 rounded">
-                  Photo: {article.fallback_image.credit} / Unsplash
+                <span className="absolute bottom-1.5 right-2.5 text-[10px] text-white/85 bg-black/45 px-1.5 py-0.5 rounded">
+                  Photo by{" "}
+                  <a
+                    href={`${article.fallback_image.creditLink ?? "https://unsplash.com"}?utm_source=marklens&utm_medium=referral`}
+                    target="_blank" rel="noopener noreferrer" className="underline"
+                  >
+                    {article.fallback_image.credit}
+                  </a>{" "}
+                  on{" "}
+                  <a
+                    href="https://unsplash.com/?utm_source=marklens&utm_medium=referral"
+                    target="_blank" rel="noopener noreferrer" className="underline"
+                  >
+                    Unsplash
+                  </a>
                 </span>
               )}
             </>
