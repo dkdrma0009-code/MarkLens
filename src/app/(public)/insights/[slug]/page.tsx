@@ -238,12 +238,21 @@ export default async function InsightDetailPage({ params }: Props) {
 
       {/* 썸네일 — 상단에는 이미지만. 핫링크 차단 매체는 깨진 이미지 대신 카테고리 그라데이션 폴백
           (InsightCard 카드와 동일 정책 — 저작권 존중 + 깨짐 방지) */}
-      {article?.image_url && (
+      {(article?.image_url || article?.fallback_image?.url) && (
         <div className="relative rounded-2xl overflow-hidden mb-8 h-72">
-          {isHotlinkBlocked(article.image_url) ? (
-            <div className={`absolute inset-0 bg-gradient-to-br ${meta.gradient}`} />
-          ) : (
+          {article?.image_url && !isHotlinkBlocked(article.image_url) ? (
             <Image src={article.image_url} alt="" fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
+          ) : article?.fallback_image?.url ? (
+            <>
+              <Image src={article.fallback_image.url} alt="" fill priority className="object-cover" sizes="(max-width: 768px) 100vw, 672px" />
+              {article.fallback_image.credit && (
+                <span className="absolute bottom-1.5 right-2.5 text-[10px] text-white/70 bg-black/40 px-1.5 py-0.5 rounded">
+                  Photo: {article.fallback_image.credit} / Unsplash
+                </span>
+              )}
+            </>
+          ) : (
+            <div className={`absolute inset-0 bg-gradient-to-br ${meta.gradient}`} />
           )}
         </div>
       )}

@@ -14,6 +14,7 @@ interface Props {
       title: string
       source_name: string
       image_url?: string
+      fallback_image?: { url?: string } | null
     }
   }
   size?: "default" | "large"
@@ -25,6 +26,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
   const isLarge = size === "large"
   const headline = insight.hook || article?.title || ""
   const thumbnailSrc = article?.image_url ?? ""
+  const fallbackSrc = article?.fallback_image?.url ?? ""
 
   if (isLarge) {
     return (
@@ -38,6 +40,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
             src={thumbnailSrc}
             alt=""
             gradient={meta.gradient}
+            fallbackSrc={fallbackSrc}
             className="h-56 md:h-72"
           />
           {/* gradient overlay */}
@@ -81,6 +84,7 @@ export default function InsightCard({ insight, size = "default" }: Props) {
           src={thumbnailSrc}
           alt=""
           gradient={meta.gradient}
+            fallbackSrc={fallbackSrc}
           className="h-44"
         />
       </div>

@@ -102,6 +102,14 @@ export async function GET(req: Request) {
     }
   } catch { /* 사이트 공개 실패는 수집·분석에 영향 없음 */ }
 
+  // 2.6) 폴백 이미지 — 이미지 없거나 차단(musebyclios 등)된 published 아티클에 Unsplash 사진 채움
+  //      (그리드 보라 그라디언트 방지). 게이트 무관, best-effort, 배치(Unsplash rate limit).
+  let fallbackFilled = 0
+  try {
+    const { backfillFallbackImages } = await import("@/lib/fallback-image")
+    fallbackFilled = (await backfillFallbackImages(10)).filled
+  } catch { /* 폴백 실패는 수집·분석에 영향 없음 */ }
+
   // 3) 파이프라인 적체 감지 — "에러 없이 조용히 멈춤"을 잡는 안전망.
   //    과거 분석 stall(9일)은 에러가 아니라 미실행이라 어떤 알림에도 안 걸렸다.
   //    드레인 후에도 48h 이상 묵은 pending이 많으면 분석이 밀리고 있다는 신호 → 알림.
@@ -124,5 +132,5 @@ export async function GET(req: Request) {
     }
   } catch { /* 헬스체크 실패는 본 작업에 영향 없음 */ }
 
-  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, sitePublished, staleBacklog, dripSent: drip.sent })
+  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, sitePublished, fallbackFilled, staleBacklog, dripSent: drip.sent })
 }

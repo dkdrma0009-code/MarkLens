@@ -8,25 +8,30 @@ interface Props {
   alt: string
   gradient: string
   className?: string
+  fallbackSrc?: string  // 원본이 없거나 차단일 때 쓸 Unsplash 폴백
 }
 
-export default function InsightThumbnail({ src, alt, gradient, className = "" }: Props) {
-  const [failed, setFailed] = useState(false)
+export default function InsightThumbnail({ src, alt, gradient, className = "", fallbackSrc = "" }: Props) {
+  const [imgFailed, setImgFailed] = useState(false) // 원본 로드 실패
+  const [fbFailed, setFbFailed] = useState(false)   // 폴백 로드 실패
 
-  // 차단 매체는 프록시로 우회하지 않고 폴백 (저작권 존중). 빈 src/로드 실패도 폴백.
-  if (failed || !src || isHotlinkBlocked(src)) {
+  // 우선순위: 유효한 원본(비차단) → Unsplash 폴백 → 그라디언트
+  const originalOk = !!src && !isHotlinkBlocked(src) && !imgFailed
+  const usingOriginal = originalOk
+  const effective = originalOk ? src : (fallbackSrc && !fbFailed ? fallbackSrc : "")
+
+  if (!effective) {
     return <div className={`bg-gradient-to-br ${gradient} ${className}`} />
   }
 
-  // 일반 매체는 weserv 프록시 — 리사이즈·webp로 성능 최적화
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={weservThumb(src, 440)}
+      src={weservThumb(effective, 440)}
       alt={alt}
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => (usingOriginal ? setImgFailed(true) : setFbFailed(true))}
       className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${className}`}
     />
   )
