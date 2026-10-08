@@ -1,4 +1,6 @@
 import type { Slide, Cardnews, CoverSlide, FactSlide, WhySlide, ApplySlide, KeywordsSlide, CtaSlide } from "./types"
+import { renderEditorialSlide } from "./editorial-templates"
+import type { EditorialContext } from "./editorial"
 
 /* ── 디자인 토큰 (스펙 3.1) — 하나만 바꾸면 전체 반영 ── */
 export const TOKENS = {
@@ -249,7 +251,8 @@ function ctaSlide(s: CtaSlide, total: number) {
 }
 
 /* ── 진입점 ── */
-export function renderSlide(slide: Slide, category: string, total = 6, opts?: { coverImage?: string | null }): React.ReactElement {
+export function renderSlide(slide: Slide, category: string, total = 6, opts?: { coverImage?: string | null; page?: number; editorial?: EditorialContext }): React.ReactElement {
+  if (slide.role) return renderEditorialSlide(slide, category, total, opts?.page ?? 1, opts?.editorial ?? { family: "typography" })
   switch (slide.type) {
     case "cover": return coverSlide(slide, category, total, opts?.coverImage)
     case "fact": return factSlide(slide, total)

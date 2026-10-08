@@ -1,5 +1,7 @@
 import type { Slide, Cardnews } from "./types"
-import { SLIDE_ORDER } from "./types"
+import { EDITORIAL_ROLES, SLIDE_ORDER, type EditorialRole } from "./types"
+import { editorialLines } from "./editorial"
+import { editorialCopyErrors } from "./grounded-copy"
 
 // 글자수 (유니코드 코드포인트 기준 — 한글 1자 = 1)
 const len = (s: string) => [...(s ?? "")].length
@@ -21,13 +23,27 @@ export function validateCardnews(data: Cardnews): string[] {
   const errors: string[] = []
   const slides = data?.slides
 
-  if (!Array.isArray(slides) || slides.length !== 6) {
-    return [`slides는 6장이어야 합니다 (현재 ${slides?.length ?? 0}장)`]
+  if (!Array.isArray(slides) || slides.length < 5 || slides.length > 7) {
+    return [`slides는 5~7장이어야 합니다 (현재 ${slides?.length ?? 0}장)`]
+  }
+
+  const v2 = slides.some(s => s.role !== undefined)
+  if (!v2 && slides.length !== 6) return ["legacy slides는 기존 순서의 6장이어야 합니다"]
+  if (v2) {
+    const roles = slides.map(s => s.role).join(",")
+    const sequence = roles.split(",")
+    const ordered = sequence.every((role, i) => EDITORIAL_ROLES.indexOf(role as EditorialRole) >= 0 && (i === 0 || EDITORIAL_ROLES.indexOf(role as EditorialRole) > EDITORIAL_ROLES.indexOf(sequence[i - 1] as EditorialRole)))
+    if (!ordered || sequence[0] !== "hook" || sequence[1] !== "what" || !sequence.includes("take") || !sequence.some(r => r === "context" || r === "why") || !sequence.some(r => r === "action" || r === "end"))
+      errors.push("V2 role 순서가 유효하지 않습니다 (hook → what → [context] → [why] → take → [action] → [end])")
+    if (slides.some(s => "actionSourceIds" in s)) errors.push("actionSourceIds는 생성 내부 최상위 메타데이터입니다. slide에 포함하지 마세요")
+    errors.push(...editorialCopyErrors(slides))
+    const bodies = slides.filter(s => s.role !== "hook" && s.role !== "end" && "body" in s).map(s => "body" in s && typeof s.body === "string" ? s.body.trim() : "").filter(Boolean)
+    if (new Set(bodies).size !== bodies.length) errors.push("V2 본문이 중복됩니다. 장수를 채우기 위한 반복은 허용하지 않습니다")
   }
 
   slides.forEach((s, i) => {
     const n = i + 1
-    if (s.type !== SLIDE_ORDER[i]) {
+    if (!v2 && s.type !== SLIDE_ORDER[i]) {
       errors.push(`slide ${n}: type이 ${SLIDE_ORDER[i]}이어야 합니다 (현재 ${s.type})`)
       return
     }
@@ -45,11 +61,23 @@ export function validateSlideAll(s: Slide, n: number): string[] {
 
 export function validateSlide(s: Slide, n: number): string[] {
   const errors: string[] = []
+  if (s.role !== undefined) {
+    const roleTypes: Record<EditorialRole, Slide["type"]> = {
+      hook: "cover", what: "fact", context: "why", why: "why", take: "why", action: "apply", end: "cta",
+    }
+    if (!EDITORIAL_ROLES.includes(s.role) || roleTypes[s.role] !== s.type)
+      errors.push(`slide ${n}: V2 role/type 조합이 유효하지 않습니다`)
+  }
   switch (s.type) {
     case "cover": {
       if (!Array.isArray(s.headline) || s.headline.length < 2 || s.headline.length > 3)
         errors.push(`slide ${n}: cover.headline은 2~3줄이어야 합니다`)
-      else
+      else if (s.role) {
+        const text = s.headline.join("\n")
+        const photoLines = editorialLines(text, 13.5, 100).length, typeLines = editorialLines(text, 10, 100).length
+        if (photoLines > 3 || typeLines > 4)
+          errors.push(`slide ${n}: V2 headline 렌더 폭 초과 (Photo ${photoLines}/3줄, Typography ${typeLines}/4줄). 주체 하나와 사건 하나만 남기고 수식어를 줄이세요. 공식명은 보존하세요`)
+      } else
         s.headline.forEach((line, j) => {
           if (len(line) > 12) errors.push(`slide ${n}: cover.headline ${j + 1}줄이 12자 초과 (${len(line)}자: "${line}")`)
         })

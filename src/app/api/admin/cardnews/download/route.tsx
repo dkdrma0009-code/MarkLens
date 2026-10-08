@@ -6,6 +6,7 @@ import { renderSlide, TOKENS } from "@/lib/cardnews/templates"
 import { loadFonts } from "@/lib/cardnews/fonts"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 import type { Slide } from "@/lib/cardnews/types"
+import { prepareEditorialContext } from "@/lib/cardnews/render-context"
 
 export const maxDuration = 120
 
@@ -39,7 +40,11 @@ export async function GET(req: Request) {
   const fonts = await loadFonts()
   // 표지는 기사 사진이 기본, 없거나 fetch 실패 시 타이포 폴백 (usePhoto: false = 명시적 타이포)
   const usePhoto = (slides[0] as { usePhoto?: boolean })?.usePhoto !== false
-  const coverImage = usePhoto ? await fetchImageDataUri(article?.image_url) : null
+  const editorialArticle = slides.some(s => s.role)
+    ? (await supabase.from("articles").select("image_url, fallback_image, raw_content, source_name, published_at").eq("id", articleId).single()).data
+    : null
+  const editorial = await prepareEditorialContext(slides, category, editorialArticle)
+  const coverImage = !editorial && usePhoto ? await fetchImageDataUri(article?.image_url) : null
 
   // ASCII 안전 파일명 (한글 슬러그 대비)
   const rawSlug = insight?.slug ?? `cardnews-${articleId.slice(0, 6)}`
@@ -48,7 +53,7 @@ export async function GET(req: Request) {
   // 6장을 병렬 렌더링 후 ZIP에 순서대로 추가
   const buffers = await Promise.all(
     slides.map((slide, i) =>
-      new ImageResponse(renderSlide(slide, category, slides.length, { coverImage: i === 0 ? coverImage : null }), {
+      new ImageResponse(renderSlide(slide, category, slides.length, { coverImage: i === 0 ? coverImage : null, page: i + 1, editorial }), {
         width: TOKENS.WIDTH,
         height: TOKENS.HEIGHT,
         fonts,

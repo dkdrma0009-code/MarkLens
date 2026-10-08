@@ -2,10 +2,11 @@
 
 export interface CoverSlide {
   type: "cover"
-  headline: string[]      // 2~3줄, 줄당 최대 12자
+  headline: string[]      // 2~3 semantic lines; legacy ≤12 chars/line, V2 checked against render capacity
   highlight?: string      // 헤드라인에 실제 포함된 단어 1개
   sub?: string            // 최대 18자
   usePhoto?: boolean      // 표지 사진 배경 — 기본 사용(undefined=true), false만 명시적 타이포. 이미지 없으면 자동 타이포 폴백
+  photoCrop?: boolean     // V2 only: manually reviewed center crop; default preserves the entire image
 }
 
 export interface FactSlide {
@@ -40,7 +41,12 @@ export interface CtaSlide {
   body: string
 }
 
-export type Slide = CoverSlide | FactSlide | WhySlide | ApplySlide | KeywordsSlide | CtaSlide
+// V2 roles are optional JSON properties. Rows without roles retain the legacy contract.
+export const EDITORIAL_ROLES = ["hook", "what", "context", "why", "take", "action", "end"] as const
+export type EditorialRole = (typeof EDITORIAL_ROLES)[number]
+export type Slide = (CoverSlide | FactSlide | WhySlide | ApplySlide | KeywordsSlide | CtaSlide) & {
+  role?: EditorialRole
+}
 
 export interface Cardnews {
   category: string

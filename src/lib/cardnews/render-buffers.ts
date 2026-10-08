@@ -4,6 +4,7 @@ import { renderSlide, TOKENS } from "@/lib/cardnews/templates"
 import { loadFonts } from "@/lib/cardnews/fonts"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 import type { Slide } from "@/lib/cardnews/types"
+import { prepareEditorialContext } from "./render-context"
 
 export interface CardnewsRender {
   buffers: Buffer[]
@@ -25,12 +26,16 @@ export async function renderCardnewsBuffers(articleId: string): Promise<Cardnews
   const category = card.category ?? "마케팅"
   const fonts = await loadFonts()
   const usePhoto = (slides[0] as { usePhoto?: boolean })?.usePhoto !== false
-  const coverImage = usePhoto ? await fetchImageDataUri(article?.image_url) : null
+  const editorialArticle = slides.some(s => s.role)
+    ? (await supabase.from("articles").select("image_url, fallback_image, raw_content, source_name, published_at").eq("id", articleId).single()).data
+    : null
+  const editorial = await prepareEditorialContext(slides, category, editorialArticle)
+  const coverImage = !editorial && usePhoto ? await fetchImageDataUri(article?.image_url) : null
 
   const buffers = await Promise.all(
     slides.map(async (slide, i) => {
       const ab = await new ImageResponse(
-        renderSlide(slide, category, slides.length, { coverImage: i === 0 ? coverImage : null }),
+        renderSlide(slide, category, slides.length, { coverImage: i === 0 ? coverImage : null, page: i + 1, editorial }),
         { width: TOKENS.WIDTH, height: TOKENS.HEIGHT, fonts }
       ).arrayBuffer()
       return Buffer.from(ab)

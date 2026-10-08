@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, Heart, MessageCircle, Send, Bookmark,
 } from "lucide-react"
 import type { Slide, CoverSlide, KeywordsSlide } from "@/lib/cardnews/types"
+import { ROLE_LABELS } from "@/lib/cardnews/editorial"
 
 const SLIDE_NAMES = ["표지", "무슨 일?", "왜 중요한가", "당장 해볼 것", "키워드", "CTA"]
 
@@ -16,7 +17,7 @@ function defaultCaption(slides: Slide[] | null, category: string): string {
   const tag = category.replace(/\s+/g, "")
   return `💬 ${headline}
 
-이번 주 마케팅판에서 가장 눈에 띈 변화를 6장으로 정리했어요.
+이번 주 마케팅판에서 가장 눈에 띈 변화를 ${slides?.length ?? 6}장으로 정리했어요.
 우리 브랜드라면 어떻게 적용해볼 수 있을까요?
 
 "면접에서 이렇게 말해보세요" 풀버전은 프로필 링크에서 🔍
@@ -175,7 +176,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
 
       {generating && !slides && (
         <div className="border border-border rounded-xl p-16 text-center text-sm text-muted-foreground">
-          AI가 6장 분량 카피를 뽑는 중... (약 10초)
+          AI가 콘텐츠에 맞는 5~7장 카피를 뽑는 중... (약 10초)
         </div>
       )}
 
@@ -264,7 +265,7 @@ export default function CardnewsStudio({ articleId, initialSlides, initialCatego
               />
               <div className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-muted-foreground">{i + 1}. {SLIDE_NAMES[i]}</p>
+                  <p className="text-xs font-bold text-muted-foreground">{i + 1}. {s.role ? ROLE_LABELS[s.role] : SLIDE_NAMES[i]}</p>
                   <button
                     onClick={() => regenerateOne(i)}
                     disabled={regenIdx !== null}
@@ -303,10 +304,10 @@ function SlideEditor({ slide, onChange, onBlur, onCommit }: {
               onChange={e => onChange({ headline: s.headline.map((l, j) => j === i ? e.target.value : l) } as Partial<Slide>)}
               onBlur={onBlur} />
           ))}
-          <input value={s.highlight ?? ""} placeholder="강조 단어" className={cls}
-            onChange={e => onChange({ highlight: e.target.value } as Partial<Slide>)} onBlur={onBlur} />
-          <input value={s.sub ?? ""} placeholder="서브 (≤18자)" className={cls}
-            onChange={e => onChange({ sub: e.target.value } as Partial<Slide>)} onBlur={onBlur} />
+          {!slide.role ? <input value={s.highlight ?? ""} placeholder="강조 단어" className={cls}
+            onChange={e => onChange({ highlight: e.target.value } as Partial<Slide>)} onBlur={onBlur} /> : null}
+          {!slide.role ? <input value={s.sub ?? ""} placeholder="서브 (≤18자)" className={cls}
+            onChange={e => onChange({ sub: e.target.value } as Partial<Slide>)} onBlur={onBlur} /> : null}
           <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
@@ -316,6 +317,11 @@ function SlideEditor({ slide, onChange, onBlur, onCommit }: {
             />
             사진 표지 사용 (기본 — 이미지 없으면 자동 타이포 폴백)
           </label>
+          {slide.role ? <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground cursor-pointer">
+            <input type="checkbox" checked={s.photoCrop === true}
+              onChange={e => onCommit({ photoCrop: e.target.checked } as Partial<Slide>)} />
+            중앙 crop 사용 — 얼굴·로고·제품을 검수한 경우만
+          </label> : null}
         </div>
       )
     }

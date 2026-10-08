@@ -5,6 +5,8 @@ import { renderSlide, SAMPLE_CARDNEWS, TOKENS } from "@/lib/cardnews/templates"
 import { loadFonts } from "@/lib/cardnews/fonts"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 import type { Slide } from "@/lib/cardnews/types"
+import { prepareEditorialContext } from "@/lib/cardnews/render-context"
+import type { EditorialContext } from "@/lib/cardnews/editorial"
 
 export const maxDuration = 60
 
@@ -40,11 +42,12 @@ export async function GET(req: Request) {
   if (!await isAuthorized(req)) return new Response("Unauthorized", { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const slideNum = Math.min(Math.max(Number(searchParams.get("slide")) || 1, 1), 6)
+  const slideNum = Math.min(Math.max(Math.trunc(Number(searchParams.get("slide"))) || 1, 1), 7)
 
   let slides: Slide[]
   let category: string
   let coverImage: string | null = null
+  let editorial: EditorialContext | undefined
   let isPreview = false // 미생성 카드의 표지 프리뷰 여부 (캐시 정책 분기)
 
   if (searchParams.get("demo") === "1") {
@@ -72,7 +75,10 @@ export async function GET(req: Request) {
     }
 
     // 표지는 기사 사진이 기본, 없거나 fetch 실패 시 타이포 폴백 (usePhoto: false = 명시적 타이포)
-    if (slideNum === 1 && (slides[0] as { usePhoto?: boolean })?.usePhoto !== false) {
+    if (slides.some(s => s.role)) {
+      const { data: article } = await supabase.from("articles").select("image_url, fallback_image, raw_content, source_name, published_at").eq("id", articleId).single()
+      editorial = await prepareEditorialContext(slides, category, article)
+    } else if (slideNum === 1 && (slides[0] as { usePhoto?: boolean })?.usePhoto !== false) {
       const { data: article } = await supabase.from("articles").select("image_url").eq("id", articleId).single()
       coverImage = await fetchImageDataUri(article?.image_url)
     }
@@ -81,7 +87,7 @@ export async function GET(req: Request) {
   const slide = slides[slideNum - 1]
   if (!slide) return new Response("slide not found", { status: 404 })
 
-  return new ImageResponse(renderSlide(slide, category, slides.length, { coverImage }), {
+  return new ImageResponse(renderSlide(slide, category, slides.length, { coverImage, page: slideNum, editorial }), {
     width: TOKENS.WIDTH,
     height: TOKENS.HEIGHT,
     fonts: await loadFonts(),
