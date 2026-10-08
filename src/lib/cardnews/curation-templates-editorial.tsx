@@ -48,7 +48,7 @@ export interface EditorialCtx {
 function tile(src: string, style: React.CSSProperties): React.ReactElement {
   return (
     <div style={{ display: "flex", overflow: "hidden", borderRadius: 18, background: C.CARD, ...style }}>
-      <img src={src} width="100%" height="100%" style={{ objectFit: "cover" }} />
+      <img alt="" src={src} width="100%" height="100%" style={{ objectFit: "cover" }} />
     </div>
   )
 }

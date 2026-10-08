@@ -44,6 +44,19 @@ function rowStatus(r: CardnewsRow): Filter {
   return r.postedAt ? "posted" : "ready"
 }
 
+async function pollShortsStatus(params: URLSearchParams, onProgress: (percent: number) => void) {
+  const deadline = Date.now() + 5 * 60 * 1000
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 4000))
+    const statusRes = await fetch(`/api/admin/shorts/status?${params}`)
+    const status = await statusRes.json()
+    if (status.status === "error") throw new Error(status.error)
+    if (status.status === "rendering") onProgress(status.percent)
+    if (status.status === "done" && status.outputFile) return status
+  }
+  throw new Error("렌더 타임아웃 (5분 초과) — AWS Lambda 콘솔에서 확인")
+}
+
 export default function CardnewsTable({ initialRows, autoPublish, initialTerm }: { initialRows: CardnewsRow[]; autoPublish: boolean; initialTerm?: string }) {
   const [rows, setRows] = useState(initialRows)
   const [filter, setFilter] = useState<Filter>("all")
@@ -324,25 +337,14 @@ export default function CardnewsTable({ initialRows, autoPublish, initialTerm }:
       toast.loading("렌더 중... (Lambda)", { id: toastId })
 
       // 2) 상태 폴링 (최대 5분)
-      const deadline = Date.now() + 5 * 60 * 1000
-      while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, 4000))
-        const params = new URLSearchParams({ renderId, bucketName, functionName })
-        const statusRes = await fetch(`/api/admin/shorts/status?${params}`)
-        const status = await statusRes.json()
-
-        if (status.status === "error") throw new Error(status.error)
-        if (status.status === "rendering") {
-          toast.loading(`렌더 중... ${status.percent}%`, { id: toastId })
-        }
-        if (status.status === "done" && status.outputFile) {
-          toast.success("렌더 완료! 다운로드 또는 릴스 발행을 선택하세요.", { id: toastId })
-          // 릴스 캡션 = 카드뉴스 카루셀 풀 캡션(후킹+본문+CTA+해시태그) 재사용, 없으면 hook 폴백
-          setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: caption || r.hook || "", kind })
-          return
-        }
-      }
-      throw new Error("렌더 타임아웃 (5분 초과) — AWS Lambda 콘솔에서 확인")
+      const params = new URLSearchParams({ renderId, bucketName, functionName })
+      const status = await pollShortsStatus(params, percent => {
+        toast.loading(`렌더 중... ${percent}%`, { id: toastId })
+      })
+      toast.success("렌더 완료! 다운로드 또는 릴스 발행을 선택하세요.", { id: toastId })
+      // 릴스 캡션 = 카드뉴스 카루셀 풀 캡션(후킹+본문+CTA+해시태그) 재사용, 없으면 hook 폴백
+      setShortsModal({ articleId: r.articleId, outputFile: status.outputFile, slug, caption: caption || r.hook || "", kind })
+      return
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "렌더 실패", { id: toastId })
     } finally {

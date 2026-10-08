@@ -118,7 +118,7 @@ async function main() {
     manifest.push({ fixture: name, count: card.slides.length, family: ctx?.family ?? "legacy", validation: name === "long" ? "expected length warnings" : "PASS" })
   }
   // Legacy output must be byte-identical to the pre-Phase-5 renderer.
-  const original = execFileSync("git", ["show", "HEAD:src/lib/cardnews/templates.tsx"], { encoding: "utf8" })
+  const original = execFileSync("git", ["show", "b99c2b9:src/lib/cardnews/templates.tsx"], { encoding: "utf8" })
   const previous = await bundle("src/lib/cardnews/templates.tsx", "legacy-original", { entryPoints: undefined, stdin: { contents: original, resolveDir: path.resolve("src/lib/cardnews"), loader: "tsx" } })
   for (let i = 0; i < fixtures.legacy.slides.length; i++) {
     const buffer = Buffer.from(await new ImageResponse(previous.renderSlide(fixtures.legacy.slides[i], fixtures.legacy.category, 6, { coverImage: i === 0 ? image : null }), { width: 1080, height: 1350, fonts }).arrayBuffer())

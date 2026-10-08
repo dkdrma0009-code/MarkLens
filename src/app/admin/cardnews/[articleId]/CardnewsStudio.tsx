@@ -300,7 +300,7 @@ function SlideEditor({ slide, onChange, onBlur, onCommit }: {
       return (
         <div className="space-y-1.5">
           {s.headline.map((line, i) => (
-            <input key={i} value={line} placeholder={`헤드라인 ${i + 1}줄 (≤12자)`} className={cls}
+            <input key={i} value={line} placeholder={`헤드라인 ${i + 1}줄 (${slide.role ? "공식명 유지" : "≤12자"})`} className={cls}
               onChange={e => onChange({ headline: s.headline.map((l, j) => j === i ? e.target.value : l) } as Partial<Slide>)}
               onBlur={onBlur} />
           ))}

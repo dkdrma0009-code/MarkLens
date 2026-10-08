@@ -44,7 +44,7 @@ async function llm(prompt) {
       const t = d.candidates?.[0]?.content?.parts?.[0]?.text
       if (r.ok && t?.trim()) return { text: t, by: "Gemini" }
       console.warn("  Gemini 실패:", (d.error?.message ?? "").slice(0, 80), "→ Claude 폴백")
-    } catch (e) { console.warn("  Gemini 오류 → Claude 폴백") }
+    } catch { console.warn("  Gemini 오류 → Claude 폴백") }
   }
   const ak = readEnv("ANTHROPIC_API_KEY")
   if (ak) {
@@ -56,7 +56,7 @@ async function llm(prompt) {
       const t = d.content?.[0]?.text
       if (r.ok && t?.trim()) return { text: t, by: "Claude" }
       console.warn("  Claude 실패:", (d.error?.message ?? "").slice(0, 80), "→ OpenAI 폴백")
-    } catch (e) { console.warn("  Claude 오류 → OpenAI 폴백") }
+    } catch { console.warn("  Claude 오류 → OpenAI 폴백") }
   }
   const ok = readEnv("OPENAI_API_KEY")
   if (ok) {

@@ -53,7 +53,7 @@ function words(text: string): string[] {
 }
 
 // role 별 배경 — 근검정 위에 옅은 방사형 글로우. 정지 화면이라도 색으로 리듬을 준다.
-function bgFor(role: Role, frame: number, duration: number): React.CSSProperties {
+function bgFor(role: Role): React.CSSProperties {
   const glow = (x: number, y: number, c: string, size: number) =>
     `radial-gradient(${size}% ${size}% at ${x}% ${y}%, ${c} 0%, rgba(0,0,0,0) 60%)`
   const base: Record<Role, string> = {
@@ -163,7 +163,7 @@ export function renderKineticScene(beat: ReelBeat, frame: number, duration: numb
 
   return (
     <div style={{ ...container, opacity: exitOp }}>
-      {!overlay && <div style={bgFor(beat.role, frame, duration)} />}
+      {!overlay && <div style={bgFor(beat.role)} />}
       {flash > 0 && <div style={{ position: "absolute", inset: 0, background: T.ACCENT, opacity: flash }} />}
       {textBlock}
       {beat.role === "outro" && <Wordmark frame={frame} lastDelay={lastWordDelay} />}
