@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Mic, MicOff, Volume2, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
 
 type Stage = "settings" | "loading" | "interview" | "grading" | "report"
@@ -63,8 +64,16 @@ interface InterviewSessionProps {
   onRetry?: () => Promise<Question[]>  // "같은 설정으로 다시" 오버라이드 — prep 모드 재생성
 }
 
+// Browser capabilities are read after hydration; SSR uses a stable snapshot.
+function subscribeSpeechSupport() { return () => {} }
+function getSpeechSupport() {
+  const w = window as unknown as Record<string, unknown>
+  return !!(w.SpeechRecognition || w.webkitSpeechRecognition)
+}
+
 export default function InterviewSession({ externalQuestions, externalRole, externalCompanyName, feedbackContext, onGoBack, onRetry }: InterviewSessionProps = {}) {
   const isPrepMode = !!externalQuestions?.length
+  const [error, setError] = useState("")
   const [stage, setStage] = useState<Stage>(isPrepMode ? "interview" : "settings")
   const [role, setRole] = useState(externalRole ?? ROLES[0].key)
   const [count, setCount] = useState(5)
@@ -86,11 +95,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
   const [speaking, setSpeaking] = useState(false) // 면접관 TTS 발화 중
-  const [speechSupported] = useState(() => {
-    if (typeof window === "undefined") return false
-    const w = window as unknown as Record<string, unknown>
-    return !!(w.SpeechRecognition || w.webkitSpeechRecognition)
-  })
+  const speechSupported = useSyncExternalStore(subscribeSpeechSupport, getSpeechSupport, () => false)
   const recRef = useRef<{ stop: () => void } | null>(null)
 
   // ── 화상 모드 (v2.1) — 영상은 브라우저에만 저장, 서버 전송 없음 ──
@@ -282,6 +287,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   }
 
   async function start(prevStage: Stage = "settings") {
+    setError("")
     setStage("loading")
 
     // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행)
@@ -326,7 +332,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       setStage("interview")
     } catch {
       setStage(prevStage)
-      alert("질문 생성에 실패했어요. 다시 시도해주세요.")
+      setError("질문 생성에 실패했어요. 다시 시도해주세요.")
     }
   }
 
@@ -350,6 +356,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       return next
     })
 
+    setError("")
     setGrading(true)
     const q = questions[current]
     try {
@@ -363,7 +370,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       setFeedback(data)
       setQa(prev => [...prev, { question: q.question, answer }])
     } catch {
-      alert("피드백 생성에 실패했어요. 다시 제출해주세요.")
+      setError("피드백 생성에 실패했어요. 다시 제출해주세요.")
     } finally {
       setGrading(false)
     }
@@ -455,11 +462,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 설정 ──
   if (stage === "settings") return (
     <div className="space-y-8">
+      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
       <div>
         <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">지원 직무</p>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {ROLES.map(r => (
-            <button key={r.key} onClick={() => setRole(r.key)}
+            <button key={r.key} aria-pressed={role === r.key} onClick={() => setRole(r.key)}
               className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${role === r.key ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
               {r.label}
             </button>
@@ -471,7 +479,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">질문 수</p>
         <div className="flex gap-3">
           {[3, 5].map(n => (
-            <button key={n} onClick={() => setCount(n)}
+            <button key={n} aria-pressed={count === n} onClick={() => setCount(n)}
               className={`flex-1 py-3 rounded-xl border-2 text-base font-semibold transition-all ${count === n ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
               {n}문항 (~{n * 3}분)
             </button>
@@ -482,12 +490,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       <div>
         <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">면접 방식</p>
         <div className="flex gap-3">
-          <button onClick={() => setVideoMode(false)}
+          <button aria-pressed={!videoMode} onClick={() => setVideoMode(false)}
             className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${!videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
             <p className="text-sm font-bold">기본</p>
             <p className={`text-xs mt-0.5 ${!videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>타이핑 · 음성 답변</p>
           </button>
-          <button onClick={() => setVideoMode(true)}
+          <button aria-pressed={videoMode} onClick={() => setVideoMode(true)}
             className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
             <p className="text-sm font-bold">📹 화상 면접</p>
             <p className={`text-xs mt-0.5 ${videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>카메라 켜고 말로만 답변</p>
@@ -523,6 +531,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 면접 진행 ──
   if (stage === "interview" && q) return (
     <div>
+      {error && <p role="alert" className="text-sm text-red-500 mb-4">{error}</p>}
       {isPrepMode && current === 0 && !feedback && (
         <div className="mb-5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
           💡 맞춤 면접 질문이에요. 자기소개서 경험을 구체적으로 답해보세요.
@@ -530,7 +539,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         </div>
       )}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm text-gray-400 font-medium">{current + 1} / {questions.length}</span>
+        <span className="ml-career-progress text-sm text-gray-400 font-medium">Question {String(current + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}</span>
         <span className="text-sm text-gray-400">{KIND_LABEL[q.kind] ?? ""}</span>
       </div>
       <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mb-8">
@@ -565,10 +574,10 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
       {/* 면접관 질문 — 기본 모드만 텍스트로 표시 (화상 모드는 음성으로만) */}
       {!videoMode && (
-        <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
+        <div className="ml-interview-question rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
           <div className="flex items-start gap-3">
             <span className="text-2xl flex-shrink-0">🧑‍💼</span>
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1">{q.question}</p>
+            <p className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1">{q.question}</p>
             <button onClick={() => speak(q.question)} aria-label="질문 읽어주기"
               className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors">
               <Volume2 className="w-4 h-4" />
@@ -612,6 +621,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <div className="space-y-3">
           <div className="relative">
             <textarea
+              aria-label="면접 답변"
               value={answer}
               onChange={e => setAnswer(e.target.value)}
               disabled={grading}
@@ -824,6 +834,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
           {isPrepMode ? "정보 다시 입력" : "직무 바꾸기"}
         </button>
       </div>
+      <Link href="/learn" className="ml-career-next">다른 트렌드 훈련하기 →</Link>
     </div>
   )
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { Search, Plus, Trash2, ChevronDown, ChevronUp, Loader2, Tag } from "lucide-react"
 import type { InsightNote } from "@/types/insight-lab"
 
@@ -111,7 +111,7 @@ function CreateNoteModal({ onClose, onCreated }: { onClose: () => void; onCreate
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div role="dialog" aria-modal="true" aria-label="새 인사이트 노트" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
           <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">새 인사이트 노트</h3>
@@ -119,6 +119,7 @@ function CreateNoteModal({ onClose, onCreated }: { onClose: () => void; onCreate
         </div>
         <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
           <input
+            aria-label="노트 제목"
             value={form.title}
             onChange={e => set("title", e.target.value)}
             placeholder="제목 *"
@@ -128,6 +129,7 @@ function CreateNoteModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <div key={key}>
               <label className="text-xs font-bold text-gray-400 mb-1 block">{emoji} {label}</label>
               <textarea
+                aria-label={label}
                 value={form[key]}
                 onChange={e => set(key, e.target.value)}
                 rows={2}
@@ -139,6 +141,7 @@ function CreateNoteModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div>
             <label className="text-xs font-bold text-gray-400 mb-1 block">태그 (Enter로 추가)</label>
             <input
+              aria-label="노트 태그"
               value={form.tagInput}
               onChange={e => set("tagInput", e.target.value)}
               onKeyDown={addTag}
@@ -175,23 +178,25 @@ export default function NotesTab() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [showModal, setShowModal] = useState(false)
-
-  const fetchNotes = useCallback(async (q?: string) => {
-    setLoading(true)
-    const url = `/api/insight-lab/notes${q ? `?q=${encodeURIComponent(q)}` : ""}`
-    const res = await fetch(url)
-    const data = await res.json()
-    setNotes(Array.isArray(data) ? data : [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetchNotes() }, [fetchNotes])
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    if (!search) return  // 마운트 시 빈 검색은 위 effect가 처리
-    const t = setTimeout(() => fetchNotes(search), 300)
-    return () => clearTimeout(t)
-  }, [search, fetchNotes])
+    let active = true
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/insight-lab/notes${search ? `?q=${encodeURIComponent(search)}` : ""}`)
+        if (!res.ok) throw new Error("노트를 불러오지 못했어요")
+        const data = await res.json()
+        if (active) { setNotes(Array.isArray(data) ? data : []); setError("") }
+      } catch {
+        if (active) setError("노트를 불러오지 못했어요. 잠시 후 다시 검색해주세요.")
+      } finally {
+        if (active) setLoading(false)
+      }
+    }, search ? 300 : 0)
+    return () => { active = false; clearTimeout(timer) }
+  }, [search])
 
   function handleDelete(id: string) {
     setNotes(prev => prev.filter(n => n.id !== id))
@@ -204,6 +209,7 @@ export default function NotesTab() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
+            aria-label="인사이트 노트 검색"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="노트 검색…"
@@ -239,8 +245,9 @@ export default function NotesTab() {
         )
       })()}
 
+      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
       {/* 목록 */}
-      {loading ? (
+      {error ? null : loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
         </div>

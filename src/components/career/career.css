@@ -1,0 +1,99 @@
+/* Career Lab presentation stays inside the public surface. */
+.marklens-public .ml-career { color: var(--ml-ink); background: var(--ml-paper); }
+.ml-career :is(h1,h2,h3,p) { overflow-wrap: anywhere; word-break: keep-all; }
+.ml-career-landing :is(h1,h2,p) { margin: 0; }
+.ml-career :is(a,button,input,textarea,summary):focus-visible { outline: 2px solid var(--ml-blue-readable); outline-offset: 4px; }
+.ml-career-hero { padding-top: 84px; padding-bottom: 72px; }
+.ml-career-hero h1 { font-size: clamp(42px,5.2vw,76px); line-height: 1.16; letter-spacing: -.055em; font-weight: 800; margin-top: 24px; }
+.ml-career-hero h1 span { color: var(--ml-blue-readable); }
+.ml-career-hero-bottom { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-top: 32px; }
+.ml-career-hero-bottom p { color: var(--ml-muted); line-height: 1.8; font-size: 17px; }
+.ml-career-track { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; padding: 64px 0; border-top: 1px solid var(--ml-line); }
+.ml-career-track-copy .ml-eyebrow span { color: var(--ml-blue-readable); margin-right: 18px; }
+.ml-career-track-copy h2 { font-size: 48px; letter-spacing: -.05em; margin: 20px 0; font-weight: 800; }
+.ml-career-track-copy > p:not(.ml-eyebrow) { max-width: 440px; color: var(--ml-muted); line-height: 1.85; }
+.ml-career-track-copy .ml-button { margin-top: 32px; }
+.ml-career-track-copy .ml-text-link { display: block; width: fit-content; margin-top: 22px; font-size: 13px; }
+.ml-career-track-reverse .ml-career-track-copy { order: 2; }
+.ml-career-visual { min-height: 340px; padding: 28px 32px; display: flex; flex-direction: column; justify-content: space-between; background: var(--ml-dark); color: white; overflow: hidden; }
+.ml-career-visual-label,.ml-career-visual-note { font-size: 11px; letter-spacing: .1em; }
+.ml-career-visual-label { opacity: .6; }
+.ml-career-visual > div { padding: 30px 0; }
+.ml-career-visual > div p { font-size: clamp(24px,3.5vw,48px); line-height: 1.14; font-weight: 800; letter-spacing: -.04em; }
+.ml-career-visual-01 > div p:last-child { color: #7c9cff; }
+.ml-career-visual-02 { background: var(--ml-blue); }
+.ml-career-visual-03 { background: var(--ml-soft); color: var(--ml-ink); border: 1px solid var(--ml-line); }
+.ml-career-visual-03 > div p:last-child { color: var(--ml-blue-readable); }
+.ml-career-loop { background: var(--ml-dark); color: white; padding: 72px 0 84px; }
+.ml-career-loop h2 { font-size: 36px; margin: 24px 0 16px; letter-spacing: -.04em; font-weight: 800; }
+.ml-career-loop > div > p:not(.ml-eyebrow) { color: #b7b8bf; }
+.ml-career-loop-links { display: grid; grid-template-columns: repeat(4,1fr); gap: 24px; margin-top: 48px; }
+.ml-career-loop-links a { border-top: 1px solid #55565c; padding-top: 18px; }
+.ml-career-loop-links span { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .08em; color: #a8bbff; }
+.ml-career-loop-links strong { display: block; font-size: 20px; margin-top: 22px; }
+.ml-room { max-width: 1040px; padding-top: 44px; padding-bottom: 88px; }
+.ml-room-heading { padding-bottom: 32px; border-bottom: 1px solid var(--ml-line); margin-bottom: 32px; }
+.ml-career-back { display: inline-block; font-size: 12px; color: var(--ml-muted); margin-bottom: 32px; }
+.ml-room-heading h1 { font-size: clamp(30px,3.6vw,48px); font-weight: 800; letter-spacing: -.05em; line-height: 1.25; margin: 16px 0; }
+.ml-room-description { color: var(--ml-muted); line-height: 1.8; max-width: 670px; font-size: 15px; }
+.ml-training { max-width: 740px; margin: 0 auto; }
+.ml-career-prep-link { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--ml-line); padding: 0 0 24px; margin-bottom: 28px; font-size: 13px; color: var(--ml-muted); }
+.ml-career-prep-link strong { display: block; color: var(--ml-ink); margin-bottom: 5px; }
+.ml-career-process { color: var(--ml-blue-readable); font-size: 12px; line-height: 1.8; margin-bottom: 32px; }
+.ml-career-next { display: block; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--ml-line); font-size: 14px; color: var(--ml-blue-readable); }
+.ml-training :is(input,textarea) { font-size: 16px; color: var(--ml-ink); background: var(--ml-paper); border-color: var(--ml-line); border-radius: 0; min-height: 48px; }
+.ml-training textarea { line-height: 1.8; resize: vertical; }
+.ml-training button { min-height: 44px; }
+.ml-training [class*="rounded"]:not(.animate-spin) { border-radius: 0; }
+.ml-training :is([class*="border-gray"],[class*="border-indigo"],[class*="border-emerald"],[class*="border-amber"],[class*="border-yellow"]) { border-color: var(--ml-line); }
+.ml-training :is([class*="bg-gray-50"],[class*="bg-white"],[class*="bg-indigo-50"],[class*="bg-emerald-50"],[class*="bg-amber-50"],[class*="bg-yellow-50"]) { background-color: var(--ml-soft); }
+.ml-training :is([class*="text-gray-900"],[class*="text-gray-800"],[class*="text-gray-700"],[class*="text-gray-600"]) { color: var(--ml-ink); }
+.ml-training :is([class*="text-gray-500"],[class*="text-gray-400"],[class*="text-gray-300"]) { color: var(--ml-muted); }
+.ml-training :is([class*="text-indigo"],[class*="text-emerald-700"],[class*="text-amber-700"],[class*="text-yellow-700"]) { color: var(--ml-blue-readable); }
+.ml-training button:is([class*="bg-black"],[class*="bg-indigo-600"],[class*="bg-emerald-600"]) { background: var(--ml-blue); color: white; border-color: var(--ml-blue); }
+.ml-training button[class*="border-black"] { background: var(--ml-ink); color: var(--ml-paper); border-color: var(--ml-ink); }
+.ml-training button[class*="border-black"] p { color: inherit; }
+.ml-training [class*="h-full"][class*="bg-black"],.ml-training [class*="bg-gradient-to-r"] { background: var(--ml-blue); }
+.ml-training .text-6xl { font-size: 40px; }
+.ml-training .text-4xl { font-size: 28px; }
+.ml-training .ml-career-question { font-size: 27px; line-height: 1.5; font-weight: 700; }
+.ml-training .ml-interview-question { padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--ml-line); background: transparent; }
+.ml-interview-question > div > span { display: none; }
+.ml-interview-question textarea { padding-right: 68px; }
+.ml-training .ml-career-progress { color: var(--ml-blue-readable); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+.ml-career-tabs { overflow-x: auto; gap: 8px; margin-bottom: 8px; }
+.ml-career-tabs button { min-width: max-content; }
+.ml-career-xp { font-size: 12px; opacity: .85; }
+.ml-career-xp > div:first-child { flex-wrap: wrap; gap: 12px; }
+.ml-training :is(.animate-pulse,.animate-bounce) { animation: none; }
+@media (max-width: 767px) {
+  .ml-career-hero { padding-top: 44px; padding-bottom: 44px; }
+  .ml-career-hero h1 { font-size: 38px; }
+  .ml-career-hero-bottom { display: block; margin-top: 24px; }
+  .ml-career-hero-bottom p { font-size: 14px; }
+  .ml-career-hero-bottom a { display: inline-block; margin-top: 24px; }
+  .ml-career-track { grid-template-columns: 1fr; gap: 28px; padding: 40px 0; }
+  .ml-career-track-reverse .ml-career-track-copy { order: 0; }
+  .ml-career-track-copy h2 { font-size: 36px; margin: 16px 0; }
+  .ml-career-track-copy > p:not(.ml-eyebrow) { font-size: 14px; }
+  .ml-career-track-copy .ml-button { margin-top: 24px; }
+  .ml-career-visual { min-height: 235px; padding: 22px; }
+  .ml-career-visual > div p { font-size: 33px; }
+  .ml-career-loop { padding: 44px 0; }
+  .ml-career-loop h2 { font-size: 29px; line-height: 1.4; }
+  .ml-career-loop-links { grid-template-columns: 1fr; gap: 28px; margin-top: 32px; }
+  .ml-career-loop-links strong { margin-top: 12px; }
+  .ml-room { padding-top: 24px; padding-bottom: 56px; }
+  .ml-career-back { margin-bottom: 24px; }
+  .ml-room-heading { padding-bottom: 24px; margin-bottom: 24px; }
+  .ml-room-heading h1 { font-size: 30px; }
+  .ml-room-description { font-size: 14px; }
+  .ml-training .ml-career-question { font-size: 22px; }
+  .ml-training textarea[rows="5"] { min-height: 175px; padding-right: 64px; }
+  .ml-training .aspect-\[4\/3\] { aspect-ratio: 16 / 9; }
+  .ml-training .flex.gap-2:has(> button[aria-label="질문 다시 듣기"]) { flex-wrap: wrap; }
+  .ml-training .flex.gap-2:has(> button[aria-label="질문 다시 듣기"]) > button:last-child { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ml-career *, .ml-career *::before, .ml-career *::after { animation: none !important; transition: none !important; }
+}

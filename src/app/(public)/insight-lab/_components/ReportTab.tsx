@@ -33,17 +33,21 @@ function StatCard({ label, value, icon, sub }: { label: string; value: string | 
 
 export default function ReportTab() {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [stats, setStats] = useState<InsightUserStats | null>(null)
   const [sessions, setSessions] = useState<SessionItem[]>([])
 
   useEffect(() => {
     fetch("/api/insight-lab/stats")
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error("리포트를 불러오지 못했어요")
+        return r.json()
+      })
       .then(data => {
         setStats(data.stats)
         setSessions(data.sessions ?? [])
       })
-      .catch(() => {})
+      .catch(() => setError("성장 리포트를 불러오지 못했어요. 잠시 후 다시 열어주세요."))
       .finally(() => setLoading(false))
   }, [])
 
@@ -54,6 +58,8 @@ export default function ReportTab() {
       </div>
     )
   }
+
+  if (error) return <p role="alert" className="text-sm text-red-500 py-16">{error}</p>
 
   if (!stats || stats.total_sessions === 0) {
     return (

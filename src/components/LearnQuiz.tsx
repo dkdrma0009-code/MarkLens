@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { CheckCircle, XCircle, ChevronRight, RotateCcw, BookOpen, Share2 } from "lucide-react"
 
@@ -28,6 +29,7 @@ const TYPES = [
 ]
 
 export default function LearnQuiz() {
+  const [error, setError] = useState("")
   const [stage, setStage] = useState<Stage>("settings")
   const [count, setCount] = useState(10)
   const [level, setLevel] = useState("intermediate")
@@ -42,6 +44,7 @@ export default function LearnQuiz() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
 
   async function start() {
+    setError("")
     setStage("loading")
     try {
       const res = await fetch("/api/learn/generate", {
@@ -61,7 +64,7 @@ export default function LearnQuiz() {
       setStage("quiz")
     } catch {
       setStage("settings")
-      alert("문제 생성에 실패했습니다. 다시 시도해주세요.")
+      setError("문제 생성에 실패했습니다. 다시 시도해주세요.")
     }
   }
 
@@ -199,10 +202,11 @@ export default function LearnQuiz() {
   // ── 설정 화면 ──
   if (stage === "settings") return (
     <div className="space-y-8">
+      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
       <Setting label="문제 수">
         <div className="flex gap-3">
           {COUNT_OPTIONS.map(n => (
-            <button key={n} onClick={() => setCount(n)}
+            <button key={n} aria-pressed={count === n} onClick={() => setCount(n)}
               className={`flex-1 py-3 rounded-xl border-2 text-base font-semibold transition-all ${count === n ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
               {n}문제
             </button>
@@ -213,7 +217,7 @@ export default function LearnQuiz() {
       <Setting label="난이도">
         <div className="flex gap-3">
           {LEVELS.map(l => (
-            <button key={l.key} onClick={() => setLevel(l.key)}
+            <button key={l.key} aria-pressed={level === l.key} onClick={() => setLevel(l.key)}
               className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${level === l.key ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
               <p className="text-sm font-bold">{l.label}</p>
               <p className={`text-xs mt-0.5 ${level === l.key ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>{l.desc}</p>
@@ -225,7 +229,7 @@ export default function LearnQuiz() {
       <Setting label="문제 유형">
         <div className="flex gap-3">
           {TYPES.map(t => (
-            <button key={t.key} onClick={() => setType(t.key)}
+            <button key={t.key} aria-pressed={type === t.key} onClick={() => setType(t.key)}
               className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${type === t.key ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
               {t.label}
             </button>
@@ -262,7 +266,7 @@ export default function LearnQuiz() {
       </div>
 
       {/* 문제 */}
-      <p className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-snug mb-6">{q.question}</p>
+      <p className="ml-career-question text-xl font-bold text-gray-900 dark:text-gray-100 leading-snug mb-6">{q.question}</p>
 
       {/* 객관식 */}
       {q.type === "multiple_choice" && (
@@ -288,6 +292,7 @@ export default function LearnQuiz() {
       {q.type === "short_answer" && (
         <div className="space-y-3">
           <input
+            aria-label="퀴즈 단답형 답변"
             value={shortInput}
             onChange={e => setShortInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !answered && handleShortSubmit()}
@@ -381,6 +386,7 @@ export default function LearnQuiz() {
           <BookOpen className="w-4 h-4" /> 새 문제 시작
         </button>
       </div>
+      <Link href="/insights" className="ml-career-next">최신 인사이트에서 더 읽기 →</Link>
     </div>
   )
 

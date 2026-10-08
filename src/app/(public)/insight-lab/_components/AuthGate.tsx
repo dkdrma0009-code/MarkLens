@@ -62,13 +62,14 @@ export default function AuthGate() {
       <form onSubmit={sendMagicLink} className="w-full max-w-sm flex flex-col gap-3">
         <input
           type="email"
+          aria-label="로그인 이메일 주소"
           value={email}
           onChange={e => setEmail(e.target.value)}
           placeholder="이메일 주소"
           required
           className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
         <button
           type="submit"
           disabled={loading || !email.trim()}

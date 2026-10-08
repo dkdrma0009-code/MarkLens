@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Loader2, AlertCircle, Trophy } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 import AnalysisFlow from "./AnalysisFlow"
 import type { InsightChallenge } from "@/types/insight-lab"
 
@@ -16,6 +16,7 @@ export default function ChallengeTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [done, setDone] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     fetch("/api/insight-lab/challenge")
@@ -45,26 +46,14 @@ export default function ChallengeTab() {
     )
   }
 
-  if (done) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <div className="w-16 h-16 flex items-center justify-center rounded-full bg-yellow-50 dark:bg-yellow-950">
-          <Trophy className="w-8 h-8 text-yellow-500" />
-        </div>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">오늘의 챌린지 완료!</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">내일 새로운 챌린지가 기다리고 있어요.</p>
-        <button
-          onClick={() => setDone(false)}
-          className="mt-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
-        >
-          다시 도전하기
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-6">
+      {done && (
+        <div className="ml-career-completion">
+          <p className="text-sm font-bold">오늘의 챌린지를 완료했어요. 피드백을 읽고 다음 답변에 적용해보세요.</p>
+          <button onClick={() => { setDone(false); setAttempt(value => value + 1) }} className="text-sm underline mt-3">다시 도전하기</button>
+        </div>
+      )}
       {/* 챌린지 헤더 */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -85,6 +74,7 @@ export default function ChallengeTab() {
       </div>
 
       <AnalysisFlow
+        key={attempt}
         article={{ title: challenge.title, summary: challenge.summary }}
         challengeId={challenge.id}
         onComplete={() => setDone(true)}

@@ -1,47 +1,19 @@
 "use client"
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, Newspaper, GraduationCap, Info } from "lucide-react"
+import { useRef } from "react"
+import { Menu, X } from "lucide-react"
+import PublicNavigation from "./PublicNavigation"
 
-const NAV_ITEMS = [
-  { href: "/",          label: "홈",      icon: Home },
-  { href: "/insights",  label: "인사이트", icon: Newspaper },
-  { href: "/practice",  label: "면접 준비", icon: GraduationCap },
-  { href: "/about",     label: "소개",    icon: Info },
-]
-
+// 기존 바텀 탭 대신 데스크톱과 같은 IA를 사용하는 인라인 메뉴.
 export default function MobileBottomNav() {
-  const pathname = usePathname()
-
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href)
-
+  const menuRef = useRef<HTMLDetailsElement>(null)
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800 safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 rounded-xl transition-colors ${
-                active
-                  ? "text-gray-900 dark:text-white"
-                  : "text-gray-400 dark:text-gray-600"
-              }`}
-            >
-              <Icon
-                className={`w-5 h-5 transition-all ${active ? "stroke-[2.5]" : "stroke-[1.5]"}`}
-              />
-              <span className={`text-[10px] font-medium tracking-tight ${active ? "font-bold" : ""}`}>
-                {label}
-              </span>
-            </Link>
-          )
-        })}
-      </div>
-    </nav>
+    <details className="ml-mobile-menu" ref={menuRef}>
+      <summary aria-label="모바일 메뉴 열기 또는 닫기">
+        <Menu className="ml-menu-open" size={22} aria-hidden="true" />
+        <X className="ml-menu-close" size={22} aria-hidden="true" />
+      </summary>
+      <PublicNavigation className="ml-mobile-nav" onNavigate={() => { if (menuRef.current) menuRef.current.open = false }} />
+    </details>
   )
 }

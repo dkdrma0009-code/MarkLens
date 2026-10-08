@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Loader2, Star, BookmarkPlus, RotateCcw, Pencil } from "lucide-react"
 import InsightRadarChart from "./InsightRadarChart"
@@ -74,16 +75,18 @@ function SecondaryScoreBar({ label, score }: { label: string; score: number }) {
 }
 
 // ─── 결과 화면 ──────────────────────────────────────────────────────────────────
-function ResultView({ feedback, onSave, noteSaved, onRevise, onReset }: {
+function ResultView({ feedback, onSave, noteSaved, onRevise, onReset, error }: {
   feedback: InsightFeedback
   onSave: () => void
   noteSaved: boolean
   onRevise: () => void
   onReset: () => void
+  error: string
 }) {
   const isPivoted = feedback.scores.pivot >= 3
   return (
     <div className="flex flex-col gap-6">
+      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
       {/* 판정 배너 — 직선이면 앰버, 꺾였으면 에메랄드 */}
       <div className={`px-4 py-3 rounded-2xl border ${isPivoted ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900" : "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900"}`}>
         <p className={`text-sm font-bold ${isPivoted ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
@@ -173,6 +176,7 @@ function ResultView({ feedback, onSave, noteSaved, onRevise, onReset }: {
         )}
       </div>
 
+      <Link href="/interview" className="ml-career-next">이 인사이트를 면접에서 말해보기 →</Link>
       {/* 액션 — 피드백 반영해 다시 쓰기(선택) / 저장 / 새 훈련 */}
       <div className="flex flex-col gap-3">
         <button
@@ -241,7 +245,7 @@ export default function AnalysisFlow({ article, challengeId, customArticleText, 
 
   async function saveAsNote() {
     try {
-      await fetch("/api/insight-lab/notes", {
+      const res = await fetch("/api/insight-lab/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -253,8 +257,10 @@ export default function AnalysisFlow({ article, challengeId, customArticleText, 
           tags: [],
         }),
       })
+      if (!res.ok) throw new Error("노트 저장 실패")
       setNoteSaved(true)
-    } catch { /* silent */ }
+      setError("")
+    } catch { setError("노트를 저장하지 못했어요. 다시 시도해주세요.") }
   }
 
   // 피드백 반영해 다시 쓰기 — 답을 유지한 채 인사이트 단계로, 직전 꺾기 질문을 힌트로
@@ -271,7 +277,7 @@ export default function AnalysisFlow({ article, challengeId, customArticleText, 
   }
 
   if (feedback) {
-    return <ResultView feedback={feedback} onSave={saveAsNote} noteSaved={noteSaved} onRevise={revise} onReset={reset} />
+    return <ResultView feedback={feedback} onSave={saveAsNote} noteSaved={noteSaved} onRevise={revise} onReset={reset} error={error} />
   }
 
   return (
@@ -313,6 +319,7 @@ export default function AnalysisFlow({ article, challengeId, customArticleText, 
           <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{step.hint}</p>
         </div>
         <textarea
+          aria-label={step.title}
           value={answers[step.fieldKey] ?? ""}
           onChange={e => setAnswers(prev => ({ ...prev, [step.fieldKey]: e.target.value }))}
           placeholder={step.placeholder}
@@ -338,7 +345,7 @@ export default function AnalysisFlow({ article, challengeId, customArticleText, 
             className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors">다음</button>
         )}
       </div>
-      {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-500 text-center">{error}</p>}
     </div>
   )
 }

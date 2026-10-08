@@ -47,6 +47,7 @@ export default function FreeAnalysisTab() {
       <div className="flex flex-col gap-3">
         <input
           type="text"
+          aria-label="분석할 기사 제목"
           value={articleTitle}
           onChange={e => setArticleTitle(e.target.value)}
           placeholder="기사 제목 (선택)"
@@ -55,6 +56,7 @@ export default function FreeAnalysisTab() {
         />
         <div className="relative">
           <textarea
+            aria-label="분석할 기사 내용"
             value={articleText}
             onChange={e => setArticleText(e.target.value.slice(0, MAX_CHARS))}
             placeholder={`분석할 트렌드 / 기사 내용을 여기에 붙여넣으세요.\n\n예) 무신사 스탠다드의 2024년 4분기 오프라인 매출이 전년 동기 대비 68% 증가했다. 특히 30-40대 남성 고객 비율이 처음으로 20대를 넘어섰으며...`}

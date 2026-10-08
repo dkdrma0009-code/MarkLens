@@ -1,21 +1,24 @@
 import Link from "next/link"
 
-export default function Footer({ className }: { className?: string }) {
+const groups = [
+  { title: "Explore", links: [["Insights", "/insights"], ["Trends", "/#signals"], ["Collections", "/#collections"], ["Dictionary", "/glossary"]] },
+  { title: "Career", links: [["Career Lab", "/practice"], ["AI Interview", "/interview"], ["Learn", "/learn"], ["Insight Lab", "/insight-lab"]] },
+  { title: "About", links: [["MarkLens 소개", "/about"], ["Weekly", "/newsletter"], ["피드백", "/feedback"], ["RSS", "/feed.xml"]] },
+]
+
+export default function Footer() {
   return (
-    <footer className={`border-t border-border/50 mt-auto ${className ?? ""}`}>
-      <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <p className="font-semibold text-sm">MarkLens</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Where Marketing Trends Become Action</p>
+    <footer className="ml-footer">
+      <div className="ml-container">
+        <div className="ml-footer-top">
+          <div className="ml-footer-brand">
+            <Link href="/#main-content" className="ml-logo">MarkLens<span className="ml-logo-dot">.</span></Link>
+            <p>Where Marketing Trends<br />Become Action</p>
+            <div className="ml-footer-social"><a href="https://www.instagram.com/marklens.site" target="_blank" rel="noopener noreferrer">Instagram ↗</a><a href="https://www.threads.com/@marklens.site" target="_blank" rel="noopener noreferrer">Threads ↗</a></div>
+          </div>
+          {groups.map(group => <nav key={group.title} aria-label={group.title}><h2>{group.title}</h2>{group.links.map(([label, href]) => href.includes("#") ? <a key={href} href={href}>{label}</a> : <Link key={href} href={href}>{label}</Link>)}</nav>)}
         </div>
-        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          <Link href="/insights" className="hover:text-foreground transition-colors">인사이트</Link>
-          <Link href="/glossary" className="hover:text-foreground transition-colors">용어사전</Link>
-          <Link href="/newsletter" className="hover:text-foreground transition-colors">뉴스레터</Link>
-          <Link href="/about" className="hover:text-foreground transition-colors">소개</Link>
-          <a href="/feed.xml" className="hover:text-foreground transition-colors">RSS</a>
-        </nav>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MarkLens</p>
+        <div className="ml-footer-bottom"><span>© {new Date().getFullYear()} MarkLens</span><span>Marketing × Trend × Intelligence</span></div>
       </div>
     </footer>
   )

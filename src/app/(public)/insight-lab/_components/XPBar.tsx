@@ -10,10 +10,10 @@ interface XPBarProps {
 }
 
 export default function XPBar({ xp, streak, totalSessions }: XPBarProps) {
-  const { level, name, progress, next, current } = getLevel(xp)
+  const { level, name, progress, next } = getLevel(xp)
 
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+    <div className="ml-career-xp flex flex-col gap-3 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full">

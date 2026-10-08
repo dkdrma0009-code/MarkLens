@@ -3,83 +3,33 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Sun, Moon } from "lucide-react"
-import { useState, useEffect } from "react"
-
-const navItems = [
-  { href: "/insights",   label: "인사이트" },
-  { href: "/practice",   label: "면접 준비" },
-  { href: "/newsletter", label: "뉴스레터" },
-  { href: "/about",      label: "소개" },
-]
-
-function Logo() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"
-      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-      className="w-7 h-7">
-      <path d="M6 26V8l10 4 10-4v18"/>
-      <circle cx="16" cy="18" r="5"/>
-      <circle cx="16" cy="18" r="0.5" fill="currentColor" stroke="none"/>
-    </svg>
-  )
-}
-
-function ThemeToggle() {
-  const { setTheme, resolvedTheme } = useTheme()
-  // 마운트 전에는 서버와 동일한 placeholder를 그려 하이드레이션 불일치 방지
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  if (!mounted) return <div className="w-8 h-8" />
-  return (
-    <button
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 transition-colors"
-      aria-label="테마 전환"
-    >
-      {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-    </button>
-  )
-}
+import { Sun, Moon, ArrowUpRight } from "lucide-react"
+import PublicNavigation from "./PublicNavigation"
+import MobileBottomNav from "./MobileBottomNav"
 
 export default function Header() {
   const pathname = usePathname()
+  const { setTheme, resolvedTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
-        {/* 로고 */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-base tracking-tight">
-          <Logo />
-          <span>MarkLens</span>
+    <header className={`ml-header ${pathname === "/" ? "ml-header-home" : ""}`}>
+      <a className="ml-skip" href="#main-content">본문으로 건너뛰기</a>
+      <div className="ml-container ml-header-inner">
+        <Link href="/#main-content" className="ml-logo" aria-label="MarkLens 홈">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+            <path d="M6 26V8l10 4 10-4v18" />
+            <circle cx="16" cy="18" r="5" />
+          </svg>
+          MarkLens<span className="ml-logo-dot">.</span>
         </Link>
-
-        {/* 데스크탑 nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                pathname.startsWith(item.href)
-                  ? "text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* 우측: 테마 + 구독 */}
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Link
-            href="/newsletter"
-            className="hidden md:inline-flex text-sm font-semibold px-4 py-2 rounded-full bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity"
-          >
-            구독하기
-          </Link>
+        <PublicNavigation className="ml-desktop-nav" />
+        <div className="ml-header-actions">
+          <button className="ml-theme" aria-label="밝은 테마와 어두운 테마 전환" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+            <Moon className="ml-theme-moon" size={18} aria-hidden="true" />
+            <Sun className="ml-theme-sun" size={18} aria-hidden="true" />
+          </button>
+          <Link href="/newsletter" className="ml-header-subscribe">구독하기 <ArrowUpRight size={14} aria-hidden="true" /></Link>
+          <MobileBottomNav />
         </div>
       </div>
     </header>

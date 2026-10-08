@@ -22,7 +22,7 @@ export default function NewsletterInlineCta({
 }: {
   location?: string
   position?: string
-  variant?: "card" | "inline"
+  variant?: "card" | "inline" | "weekly"
 }) {
   const pos = position ?? POSITION[location] ?? location
   const [email, setEmail] = useState("")
@@ -74,7 +74,7 @@ export default function NewsletterInlineCta({
   }
 
   const field = (
-    <form onSubmit={submit} className="flex gap-2">
+    <form onSubmit={submit} className={variant === "weekly" ? "ml-weekly-form" : "flex gap-2"}>
       <input
         type="email"
         required
@@ -82,17 +82,21 @@ export default function NewsletterInlineCta({
         placeholder="이메일 주소"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors"
+        className={variant === "weekly" ? "ml-weekly-input" : "flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors"}
       />
       <button
         type="submit"
         disabled={loading}
-        className="px-5 py-2.5 text-sm font-semibold rounded-full bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+        className={variant === "weekly" ? "ml-button ml-button-blue" : "px-5 py-2.5 text-sm font-semibold rounded-full bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"}
       >
-        {loading ? "처리 중..." : "구독"}
+        {loading ? "처리 중..." : variant === "weekly" ? "무료로 구독하기 →" : "구독"}
       </button>
     </form>
   )
+
+  if (variant === "weekly") {
+    return <div ref={rootRef}>{done ? <p className="ml-weekly-success" role="status">확인 이메일을 보냈어요. 받은 편지함에서 구독을 확인해주세요.</p> : field}</div>
+  }
 
   // 본문 중간용 — 얇은 인라인 배너(본문 흐름 방해 최소, 팝업 아님). 읽던 맥락에 자연스러운 문구.
   if (variant === "inline") {

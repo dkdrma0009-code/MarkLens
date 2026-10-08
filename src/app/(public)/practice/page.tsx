@@ -1,77 +1,64 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { BookOpen, Mic, Lightbulb, ArrowRight } from "lucide-react"
+import "@/components/career/career.css"
 
 export const metadata: Metadata = {
-  title: "면접 준비 — MarkLens",
-  description: "마케팅 트렌드 퀴즈로 워밍업하고, AI 모의면접과 인사이트 분석으로 실전 감각을 키우세요.",
+  title: "Career Lab — MarkLens",
+  description: "읽은 마케팅 트렌드를 분석·퀴즈·면접으로 연결하고, 내 사고력과 실전 역량으로 바꾸세요.",
   alternates: { canonical: "/practice" },
 }
 
-const CARDS = [
-  {
-    href: "/learn",
-    icon: <BookOpen className="w-6 h-6" />,
-    title: "학습 퀴즈",
-    description: "최근 마케팅 인사이트에서 출제되는 문제로 트렌드 감각을 테스트해보세요. 면접 전 워밍업으로 딱 맞는 5분 루틴이에요.",
-  },
-  {
-    href: "/interview",
-    icon: <Mic className="w-6 h-6" />,
-    title: "AI 모의면접",
-    description: "실제 마케팅 직군 면접관처럼 질문하는 AI와 실시간으로 연습하세요. 답변 후 즉시 피드백과 개선 방향을 받을 수 있어요.",
-  },
-  {
-    href: "/insight-lab",
-    icon: <Lightbulb className="w-6 h-6" />,
-    title: "인사이트 분석",
-    description: "트렌드를 5단계로 직접 분석하고 AI 평가를 받아보세요. 관찰력·분석력·인사이트력·전략력을 체계적으로 키울 수 있어요.",
-    badge: "NEW",
-  },
+const TRACKS = [
+  { number: "01", label: "INSIGHT LAB", title: "생각하는 힘", description: "트렌드의 표면에서 한 걸음 더. 관찰과 맥락을 읽고, 나만의 인사이트와 브랜드 기회를 도출하세요.", href: "/insight-lab", cta: "인사이트 훈련 시작", words: ["OBSERVE", "INTERPRET", "REIMAGINE"], note: "관찰 → 인사이트 → 브랜드 기회" },
+  { number: "02", label: "AI INTERVIEW", title: "말하는 힘", description: "읽고 생각한 것을 내 언어로. 최신 마케팅 이슈와 지원 경험을 바탕으로 답변하고, AI 피드백으로 다듬으세요.", href: "/interview", cta: "면접 연습 시작", words: ["YOUR THINKING.", "YOUR VOICE."], note: "질문 → 답변 → 피드백", secondary: true },
+  { number: "03", label: "TREND QUIZ", title: "기억하는 힘", description: "스쳐 지나간 트렌드를 오래 남는 지식으로. 핵심 개념을 테스트하고, 해설로 이해의 빈틈을 채우세요.", href: "/learn", cta: "트렌드 퀴즈 시작", words: ["READ IT.", "RECALL IT."], note: "선택 → 확인 → 이해" },
+]
+const LOOP = [
+  { label: "READ", title: "최신 Insight 읽기", href: "/insights" },
+  { label: "THINK", title: "Insight Lab", href: "/insight-lab" },
+  { label: "TEST", title: "Trend Quiz", href: "/learn" },
+  { label: "SPEAK", title: "AI Interview", href: "/interview" },
 ]
 
 export default function PracticePage() {
   return (
-    <div className="max-w-2xl mx-auto px-6 py-14">
-      <div className="mb-12">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">면접 준비</p>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-          퀴즈 → AI 면접 → 인사이트 트레이닝
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-          마케팅 트렌드 감각을 퀴즈로 점검하고, AI 면접·인사이트 분석으로 실전 역량을 쌓으세요.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-5">
-        {CARDS.map(card => (
-          <Link
-            key={card.href}
-            href={card.href}
-            className="group flex items-start gap-5 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all"
-          >
-            <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex-shrink-0">
-              {card.icon}
+    <div className="ml-career ml-career-landing">
+      <header className="ml-career-hero ml-container">
+        <p className="ml-eyebrow">MARKLENS CAREER LAB</p>
+        <h1>읽은 트렌드를,<br />내 실력으로 바꾸세요<span>.</span></h1>
+        <div className="ml-career-hero-bottom">
+          <p>마케팅 인사이트를 분석하고, 테스트하고, 말해보세요.<br />읽는 데서 끝나지 않는 실전 사고 훈련.</p>
+          <a href="#training-tracks" className="ml-text-link">나의 훈련 찾기 ↘</a>
+        </div>
+      </header>
+      <div id="training-tracks" className="ml-container">
+        {TRACKS.map(track => (
+          <section key={track.number} className={`ml-career-track ${track.secondary ? "ml-career-track-reverse" : ""}`}>
+            <div className="ml-career-track-copy">
+              <p className="ml-eyebrow"><span>{track.number}</span> {track.label}</p>
+              <h2>{track.title}</h2>
+              <p>{track.description}</p>
+              <Link href={track.href} className="ml-button ml-button-blue">{track.cta} ↗</Link>
+              {track.secondary && <Link href="/interview/prep" className="ml-text-link">내 경험으로 맞춤 질문 준비 →</Link>}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{card.title}</h2>
-                  {card.badge && (
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full">
-                      {card.badge}
-                    </span>
-                  )}
-                </div>
-                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                {card.description}
-              </p>
+            <div className={`ml-career-visual ml-career-visual-${track.number}`} aria-hidden="true">
+              <span className="ml-career-visual-label">TRAINING / {track.number}</span>
+              <div>{track.words.map(word => <p key={word}>{word}</p>)}</div>
+              <span className="ml-career-visual-note">{track.note}</span>
             </div>
-          </Link>
+          </section>
         ))}
       </div>
+      <section className="ml-career-loop">
+        <div className="ml-container">
+          <p className="ml-eyebrow">04 / PRACTICE LOOP</p>
+          <h2>인사이트가 실력이 되는 흐름.</h2>
+          <p>하나의 트렌드에서 시작해, 나의 생각과 답변까지.</p>
+          <div className="ml-career-loop-links">{LOOP.map((item, index) => (
+            <Link key={item.href} href={item.href}><span>0{index + 1} / {item.label} <b>↗</b></span><strong>{item.title}</strong></Link>
+          ))}</div>
+        </div>
+      </section>
     </div>
   )
 }

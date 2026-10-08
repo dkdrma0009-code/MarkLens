@@ -21,10 +21,25 @@ export default function InsightLabTabs() {
   return (
     <div className="flex flex-col gap-6">
       {/* 탭 네비게이션 */}
-      <div className="flex items-center border-b border-gray-100 dark:border-gray-800 -mx-6 px-6">
+      <div className="ml-career-tabs flex items-center border-b border-gray-100 dark:border-gray-800" role="tablist" aria-label="인사이트 훈련">
         {TABS.map(tab => (
           <button
             key={tab.id}
+            role="tab"
+            id={`lab-tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls="lab-panel"
+            tabIndex={activeTab === tab.id ? 0 : -1}
+            onKeyDown={event => {
+              const index = TABS.findIndex(item => item.id === tab.id)
+              const next = event.key === "ArrowRight" ? (index + 1) % TABS.length
+                : event.key === "ArrowLeft" ? (index + TABS.length - 1) % TABS.length
+                : event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : -1
+              if (next < 0) return
+              event.preventDefault()
+              setActiveTab(TABS[next].id)
+              document.getElementById(`lab-tab-${TABS[next].id}`)?.focus()
+            }}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-1.5 px-3 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
@@ -40,7 +55,7 @@ export default function InsightLabTabs() {
       </div>
 
       {/* 탭 콘텐츠 */}
-      <div>
+      <div id="lab-panel" role="tabpanel" aria-labelledby={`lab-tab-${activeTab}`}>
         {activeTab === "challenge" && <ChallengeTab />}
         {activeTab === "free" && <FreeAnalysisTab />}
         {activeTab === "notes" && <NotesTab />}
