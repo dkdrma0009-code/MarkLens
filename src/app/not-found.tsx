@@ -1,7 +1,9 @@
 import Link from "next/link"
+import NotFoundSurface from "@/components/layout/NotFoundSurface"
 
 export default function NotFound() {
   return (
+    <NotFoundSurface>
     <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
       <p className="text-8xl font-bold text-gray-100 dark:text-gray-800 select-none">404</p>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 -mt-4 mb-3">
@@ -25,5 +27,6 @@ export default function NotFound() {
         </Link>
       </div>
     </div>
+    </NotFoundSurface>
   )
 }

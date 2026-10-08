@@ -8,10 +8,15 @@ export default function NewsletterClient() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
+  const [message, setMessage] = useState("")
+  const [failed, setFailed] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
+    setMessage("")
+    setFailed(false)
     trackEvent("newsletter_submit", { location: "newsletter_page" })
     try {
       const res = await fetch("/api/subscribe", {
@@ -22,10 +27,12 @@ export default function NewsletterClient() {
       if (!res.ok) throw new Error()
       const data = await res.json()
       if (data.alreadySubscribed) {
+        setMessage("이미 구독 중이에요!")
         toast.info("이미 구독 중이에요!")
         trackEvent("newsletter_already", { location: "newsletter_page" })
       } else if (data.emailFailed) {
-        // 구독은 저장됐지만 확인 메일 발송 실패 — 재시도 안내 (subscribed 유지 안 함)
+        setFailed(true)
+        setMessage("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
         toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
       } else {
         setSubscribed(true)
@@ -33,6 +40,8 @@ export default function NewsletterClient() {
         trackEvent("newsletter_subscribe", { location: "newsletter_page" })
       }
     } catch {
+      setFailed(true)
+      setMessage("오류가 발생했습니다. 다시 시도해주세요.")
       toast.error("오류가 발생했습니다. 다시 시도해주세요.")
     } finally {
       setLoading(false)
@@ -40,71 +49,54 @@ export default function NewsletterClient() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-14">
-
-      {/* Header */}
-      <div className="max-w-xl mb-14">
-        <p className="text-xs font-semibold text-gray-400 dark:text-gray-600 uppercase tracking-widest mb-4">
-          MarkLens Weekly
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight mb-4 text-gray-900 dark:text-gray-100">
-          매주 월요일 7:30 AM<br />
-          마케팅 브리핑을 받아보세요
-        </h1>
-        <p className="text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
-          글로벌 마케팅 트렌드, 실무 적용법, 포트폴리오 활용 팁까지 — 한 주를 시작하는 가장 좋은 방법입니다.
-        </p>
-        <p className="inline-block text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border border-indigo-100 dark:border-indigo-900 rounded-full px-3 py-1.5 mb-8">
-          🎁 지금 구독하면 「마케팅 면접 질문 40선」 PDF 드려요
-        </p>
-
-        {subscribed ? (
-          <div className="border border-gray-100 dark:border-gray-800 rounded-2xl p-6 bg-gray-50 dark:bg-gray-900">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">확인 이메일을 보냈습니다.</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">받은 편지함에서 구독 확인 버튼을 눌러주세요.</p>
+    <div className="ml-pages ml-weekly-page">
+      <header className="ml-page-hero ml-publication-hero">
+        <div className="ml-container ml-publication-grid">
+          <div>
+            <p className="ml-eyebrow">MARKLENS WEEKLY</p>
+            <h1>한 주의 변화를,<br />하나의 관점으로.</h1>
+            <p className="ml-page-intro">가장 의미 있는 마케팅 주제 하나를 깊게 읽습니다. 무슨 일이 있었는지부터, 내 일과 커리어에 어떤 의미가 있는지까지.</p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
-              type="email"
-              required
-              aria-label="이메일 주소"
-              placeholder="이메일 주소를 입력하세요"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 text-sm font-semibold rounded-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50 whitespace-nowrap"
-            >
-              {loading ? "처리 중..." : "구독하기"}
-            </button>
-          </form>
-        )}
-      </div>
-
-      {/* Newsletter Sections */}
-      <div className="border-t border-gray-100 dark:border-gray-800 pt-14">
-        <p className="text-xs font-semibold text-gray-400 dark:text-gray-600 uppercase tracking-widest mb-8">
-          뉴스레터 구성
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[
-            { number: "01", title: "This Week's Signals", desc: "이번 주 가장 중요한 마케팅 신호 3가지. AI 검색 변화, 브랜드 전략, 소비자 행동 변화까지." },
-            { number: "02", title: "Case of the Week", desc: "이번 주 최고의 마케팅 사례 1개. 무슨 일이 있었는지, 왜 성공했는지, 숨은 전략은 무엇인지." },
-            { number: "03", title: "AI Marketing Brief", desc: "마케터가 주목해야 할 AI 관련 소식. OpenAI, Google, Meta의 변화가 마케팅에 미치는 영향." },
-            { number: "04", title: "Portfolio Insight ✦", desc: "이 사례를 포트폴리오에 어떻게 담을 수 있는지. STAR 방식 예시와 면접 답변 예시 제공." },
-            { number: "05", title: "Career Lens ✦", desc: "현직자가 주목한 역량, 추천 자격증, 추천 프로젝트, 추천 툴. 취준생을 위한 커리어 코너." },
-          ].map((section) => (
-            <div key={section.number} className="border border-gray-100 dark:border-gray-800 rounded-2xl p-5 bg-white dark:bg-gray-900">
-              <span className="text-xs text-gray-400 dark:text-gray-600 font-mono">{section.number}</span>
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100 mt-2 mb-1.5">{section.title}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{section.desc}</p>
-            </div>
-          ))}
+          <div id="weekly-subscribe" className="ml-publication-form">
+            <p className="ml-publication-schedule">매주 월요일 아침을 위한 브리핑<br />7:30 초안 준비 · 에디터 검토 후 발송</p>
+            {subscribed ? (
+              <div className="ml-confirmation" role="status">
+                <h2>확인 이메일을 보냈습니다.</h2>
+                <p>받은 편지함에서 구독 확인 버튼을 눌러주세요.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} aria-busy={loading}>
+                <label htmlFor="weekly-email">이메일 주소</label>
+                <input id="weekly-email" type="email" autoComplete="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} aria-describedby="weekly-note" />
+                <button type="submit" disabled={loading} className="ml-button ml-button-blue">{loading ? "처리 중..." : "무료로 구독하기 →"}</button>
+                <p id="weekly-note" className="ml-form-note">무료 구독 · 언제든 구독을 취소할 수 있습니다.<br />구독 확인 후 마케팅 면접 질문 40선 PDF를 보내드려요.</p>
+                <p className="ml-form-message" role={failed ? "alert" : "status"}>{message}</p>
+              </form>
+            )}
+          </div>
         </div>
+      </header>
+      <div className="ml-container">
+        <section className="ml-page-section" aria-labelledby="weekly-value">
+          <h2 id="weekly-value" className="ml-eyebrow">WHAT YOU GET</h2>
+          <div>
+            {[
+              ["01", "한 주제를 깊게 읽기", "여러 소식을 얕게 훑는 대신, 이번 주 가장 강한 캠페인이나 트렌드 하나의 배경과 맥락을 읽습니다."],
+              ["02", "왜 중요한지 해석하기", "글로벌 사례가 마케터에게 어떤 변화를 요구하는지, 한국 시장에서는 어떻게 생각해볼지 짚습니다."],
+              ["03", "커리어로 연결하기", "읽고 끝내지 않도록. 면접에서 말할 관점과 포트폴리오에 적용할 아이디어를 함께 가져갑니다."],
+            ].map(([number, title, copy]) => <div key={number} className="ml-editorial-row"><span className="ml-index">{number}</span><h3>{title}</h3><p>{copy}</p></div>)}
+          </div>
+        </section>
+        <section className="ml-page-section" aria-labelledby="weekly-method">
+          <h2 id="weekly-method" className="ml-eyebrow">HOW MARKLENS WRITES</h2>
+          <ol className="ml-writing-flow">
+            {[["사건", "무슨 일이 일어났나"], ["맥락", "어떤 배경에서 나온 변화인가"], ["의미", "마케터에게 왜 중요한가"], ["커리어", "내 관점과 경험으로 어떻게 연결할까"]].map(([title, copy], i) => <li key={title}><span className="ml-index">0{i + 1}{i < 3 ? " →" : ""}</span><h3>{title}</h3><p>{copy}</p></li>)}
+          </ol>
+        </section>
+        <section className="ml-page-cta">
+          <div><h2>다음 주의 관점을 받아보세요.</h2><p>MarkLens Weekly · 한 주제, 더 깊은 이해.</p></div>
+          <a href="#weekly-subscribe" className="ml-button ml-button-blue">{subscribed ? "구독 확인 안내 보기 ↑" : "무료로 구독하기 ↑"}</a>
+        </section>
       </div>
     </div>
   )

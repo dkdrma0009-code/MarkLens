@@ -6,11 +6,11 @@ import { createPublicClient } from "@/lib/supabase/server"
 export const revalidate = 3600
 
 export const metadata: Metadata = {
-  title: "마케팅 용어 사전 — MarkLens",
+  title: "MarkLens Dictionary — 마케팅 언어를 정확하게",
   description:
     "마케팅 트렌드 분석에서 실제로 등장한 용어·약어를 한곳에. AEO·CRM·퍼포먼스 마케팅 등 실무 용어를 맥락과 함께 풀이합니다.",
   alternates: { canonical: "/glossary" },
-  openGraph: { title: "마케팅 용어 사전 — MarkLens", description: "실무에서 쓰는 마케팅 용어를 맥락과 함께 풀이합니다.", url: "/glossary", siteName: "MarkLens", type: "website" },
+  openGraph: { title: "MarkLens Dictionary — 마케팅 언어를 정확하게", description: "실무에서 쓰는 마케팅 용어를 맥락과 함께 풀이합니다.", url: "/glossary", siteName: "MarkLens", type: "website" },
 }
 
 function anchorId(term: string): string {
@@ -43,7 +43,7 @@ export default async function GlossaryPage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "DefinedTermSet",
-    name: "MarkLens 마케팅 용어 사전",
+    name: "MarkLens Dictionary",
     url: `${base}/glossary`,
     inLanguage: "ko-KR",
     hasDefinedTerm: terms.map((t) => ({
@@ -55,30 +55,30 @@ export default async function GlossaryPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-14">
+    <div className="ml-pages">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <header className="mb-10">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-3">마케팅 용어 사전</h1>
-        <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-          MarkLens 인사이트에서 실제로 등장한 마케팅 용어 {terms.length}개를 맥락과 함께 풀이합니다.
-          각 용어는 다룬 인사이트로 이어집니다.
-        </p>
+      <header className="ml-page-hero">
+        <div className="ml-container">
+          <p className="ml-eyebrow">MARKLENS DICTIONARY</p>
+          <h1>마케팅 언어를<br />정확하게 이해하세요.</h1>
+          <div className="ml-dictionary-intro">
+            <p className="ml-page-intro">발행된 Insights에서 실제로 등장한 용어를 맥락과 함께 풀이합니다. 정의를 읽고, 그 언어가 쓰인 사례로 이어가세요.</p>
+            <span className="ml-dictionary-count">{terms.length} TERMS / 0–9 · 가나다 · A–Z</span>
+          </div>
+        </div>
       </header>
 
       {terms.length === 0 ? (
-        <p className="text-gray-400">아직 정리된 용어가 없습니다.</p>
+        <p className="ml-empty ml-container">아직 정리된 용어가 없습니다.</p>
       ) : (
-        <dl className="space-y-4">
+        <dl className="ml-dictionary-list ml-container">
           {terms.map((t) => (
-            <div key={t.term} id={anchorId(t.term)} className="scroll-mt-20 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900 p-5">
-              <dt className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1.5">{t.term}</dt>
-              <dd className="text-base leading-relaxed text-gray-600 dark:text-gray-300">{t.definition}</dd>
-              {t.hook && (
-                <Link href={`/insights/${t.slug}`} className="inline-block mt-3 text-sm text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
-                  → 관련 인사이트: {t.hook}
-                </Link>
-              )}
+            <div key={t.term} id={anchorId(t.term)} className="ml-term">
+              <dt><span className="ml-term-letter" aria-hidden="true">{t.term[0].toLocaleUpperCase()}</span><span className="ml-term-name">{t.term}</span></dt>
+              <dd>{t.definition}
+                {t.hook && <Link href={`/insights/${t.slug}`}>관련 Insight → {t.hook}</Link>}
+              </dd>
             </div>
           ))}
         </dl>

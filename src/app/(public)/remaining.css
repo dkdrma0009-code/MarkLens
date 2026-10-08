@@ -1,0 +1,113 @@
+.marklens-public .ml-pages { background: var(--ml-paper); color: var(--ml-ink); }
+.marklens-public .ml-pages :where(h1, h2, h3, p, dd, fieldset) { margin: 0; }
+.marklens-public .ml-pages :is(a, button, input, textarea):focus-visible { outline: 2px solid var(--ml-blue-readable); outline-offset: 5px; }
+.marklens-public .ml-pages :where(h1, h2, h3, p, dt, dd, a) { word-break: keep-all; overflow-wrap: anywhere; }
+.marklens-public .ml-page-hero { padding-block: 72px 64px; border-bottom: 1px solid var(--ml-line); }
+.marklens-public .ml-page-hero .ml-eyebrow { color: var(--ml-blue-readable); margin-bottom: 28px; }
+.marklens-public .ml-page-hero h1 { font-family: var(--font-sans), sans-serif; font-size: clamp(40px, 4.5vw, 68px); font-weight: 700; line-height: 1.2; letter-spacing: -.065em; }
+.marklens-public .ml-page-intro { max-width: 620px; margin-top: 28px; font-size: 17px; line-height: 1.85; color: var(--ml-muted); }
+.marklens-public .ml-page-section { padding-block: 64px; border-bottom: 1px solid var(--ml-line); }
+.marklens-public .ml-page-section > .ml-eyebrow { color: var(--ml-muted); margin-bottom: 32px; }
+.marklens-public .ml-editorial-row { display: grid; grid-template-columns: 64px minmax(0, .9fr) minmax(0, 1.1fr); gap: 24px; padding-block: 28px; border-top: 1px solid var(--ml-line); align-items: baseline; }
+.marklens-public .ml-editorial-row :is(h2, h3) { font-size: 25px; line-height: 1.4; font-weight: 700; letter-spacing: -.04em; }
+.marklens-public .ml-editorial-row p { max-width: 580px; font-size: 15px; line-height: 1.85; color: var(--ml-muted); }
+.marklens-public .ml-publication-hero { background: var(--ml-dark); color: #fff; border-color: #38393e; }
+.marklens-public .ml-publication-hero .ml-eyebrow { color: #89a5ff; }
+.marklens-public .ml-publication-hero .ml-page-intro { color: #b9bbc3; }
+.marklens-public .ml-publication-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 80px; align-items: center; }
+.marklens-public .ml-publication-form { min-width: 0; border-top: 3px solid #6388ff; padding-top: 24px; scroll-margin-top: 100px; }
+.marklens-public .ml-publication-schedule { font-size: 13px; color: #b9bbc3; line-height: 1.8; margin-bottom: 28px; }
+.marklens-public .ml-publication-form label { display: block; font-size: 13px; margin-bottom: 10px; }
+.marklens-public .ml-publication-form input { display: block; width: 100%; min-width: 0; height: 52px; padding: 14px 16px; background: #fff; color: #111114; border: 1px solid #b9bbc3; border-radius: 0; font-size: 15px; }
+.marklens-public .ml-publication-form input::placeholder { color: #686970; opacity: 1; }
+.marklens-public .ml-publication-form .ml-button { width: 100%; margin-top: 12px; }
+.marklens-public .ml-publication-form .ml-form-note { font-size: 12px; color: #b9bbc3; line-height: 1.8; margin-top: 14px; }
+.marklens-public .ml-publication-form :is(input, button, a):focus-visible { outline-color: #89a5ff; }
+.marklens-public .ml-form-message { margin-top: 16px; font-size: 14px; line-height: 1.75; }
+.marklens-public .ml-form-message[role="alert"] { border-left: 2px solid currentColor; padding-left: 12px; }
+.marklens-public .ml-confirmation { padding-block: 20px; border-bottom: 1px solid #38393e; }
+.marklens-public .ml-confirmation h2 { font-size: 23px; line-height: 1.5; margin-bottom: 12px; }
+.marklens-public .ml-confirmation p { font-size: 15px; color: #b9bbc3; line-height: 1.8; }
+.marklens-public .ml-writing-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; list-style: none; padding: 0; margin: 0; }
+.marklens-public .ml-writing-flow li { border-top: 1px solid var(--ml-ink); padding-top: 20px; }
+.marklens-public .ml-writing-flow h3 { font-size: 32px; font-weight: 700; letter-spacing: -.04em; margin-block: 14px; }
+.marklens-public .ml-writing-flow p { color: var(--ml-muted); font-size: 14px; line-height: 1.8; }
+.marklens-public .ml-page-cta { display: flex; justify-content: space-between; align-items: center; gap: 32px; padding-block: 56px; }
+.marklens-public .ml-page-cta h2 { font-size: 30px; line-height: 1.5; letter-spacing: -.04em; font-weight: 700; }
+.marklens-public .ml-page-cta p { color: var(--ml-muted); font-size: 14px; margin-top: 12px; line-height: 1.8; }
+.marklens-public .ml-page-cta .ml-button { flex-shrink: 0; }
+.marklens-public .ml-dictionary-intro { display: flex; align-items: baseline; justify-content: space-between; gap: 32px; margin-top: 28px; }
+.marklens-public .ml-dictionary-intro .ml-page-intro { margin-top: 0; }
+.marklens-public .ml-dictionary-count { flex-shrink: 0; font-size: 12px; color: var(--ml-muted); }
+.marklens-public .ml-dictionary-list { margin-block: 0; padding-block: 16px 64px; }
+.marklens-public .ml-term { display: grid; grid-template-columns: 64px minmax(0, .9fr) minmax(0, 1.1fr); gap: 24px; padding-block: 32px; border-bottom: 1px solid var(--ml-line); scroll-margin-top: 100px; }
+.marklens-public .ml-term dt { display: contents; }
+.marklens-public .ml-term-letter { font-family: var(--font-geist-mono), monospace; color: var(--ml-blue-readable); font-size: 16px; padding-top: 5px; }
+.marklens-public .ml-term-name { font-size: 28px; font-weight: 700; line-height: 1.4; letter-spacing: -.04em; }
+.marklens-public .ml-term dd { font-size: 16px; line-height: 1.9; color: var(--ml-muted); min-width: 0; }
+.marklens-public .ml-term a { display: block; margin-top: 18px; font-size: 13px; line-height: 1.7; color: var(--ml-ink); }
+.marklens-public .ml-term a:hover { color: var(--ml-blue-readable); }
+.marklens-public .ml-about-tagline { margin-top: 40px; font-size: 13px; font-family: var(--font-geist-mono), monospace; color: var(--ml-muted); }
+.marklens-public .ml-about-lens { background: var(--ml-dark); color: #fff; padding-block: 64px; }
+.marklens-public .ml-about-lens .ml-eyebrow { color: #89a5ff; margin-bottom: 24px; }
+.marklens-public .ml-about-lens h2 { font-size: clamp(30px, 3.3vw, 48px); line-height: 1.4; font-weight: 700; letter-spacing: -.05em; max-width: 800px; }
+.marklens-public .ml-about-lens h2 + p { max-width: 700px; margin-top: 24px; font-size: 16px; line-height: 1.9; color: #b9bbc3; }
+.marklens-public .ml-about-links { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 28px; }
+.marklens-public .ml-about-links a { color: #fff; border-bottom: 1px solid #6388ff; padding-bottom: 6px; font-size: 14px; }
+.marklens-public .ml-feedback { max-width: 720px; padding-block: 56px 72px; }
+.marklens-public .ml-feedback-header { border-bottom: 1px solid var(--ml-line); padding-bottom: 32px; }
+.marklens-public .ml-feedback-header .ml-eyebrow { color: var(--ml-blue-readable); margin-bottom: 20px; }
+.marklens-public .ml-feedback-header h1 { font-size: clamp(30px, 3vw, 42px); font-weight: 700; line-height: 1.4; letter-spacing: -.05em; }
+.marklens-public .ml-feedback-header p:last-child { margin-top: 18px; color: var(--ml-muted); font-size: 13px; }
+.marklens-public .ml-feedback-form { display: grid; gap: 32px; padding-top: 32px; }
+.marklens-public .ml-feedback-form fieldset { padding: 0; border: 0; min-width: 0; }
+.marklens-public .ml-feedback-form :is(legend, label) { display: block; margin-bottom: 14px; font-size: 15px; font-weight: 600; line-height: 1.6; }
+.marklens-public .ml-feedback-form legend span { color: var(--ml-muted); font-size: 12px; font-weight: 400; }
+.marklens-public .ml-feedback-form textarea { display: block; width: 100%; min-height: 112px; padding: 14px 16px; border: 1px solid var(--ml-line); background: var(--ml-paper); color: var(--ml-ink); border-radius: 0; font-size: 15px; line-height: 1.8; resize: vertical; }
+.marklens-public .ml-feedback-form textarea::placeholder { color: var(--ml-muted); opacity: 1; }
+.marklens-public .ml-rating { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.marklens-public .ml-rating button { width: 48px; height: 48px; border: 1px solid var(--ml-line); font-size: 22px; cursor: pointer; }
+.marklens-public .ml-rating button[data-filled="true"] { color: var(--ml-blue-readable); border-color: var(--ml-blue-readable); }
+.marklens-public .ml-rating p { font-size: 13px; color: var(--ml-muted); margin-left: 8px; }
+.marklens-public .ml-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.marklens-public .ml-choices button { padding: 10px 16px; border: 1px solid var(--ml-line); font-size: 13px; cursor: pointer; }
+.marklens-public .ml-choices button[aria-pressed="true"] { background: var(--ml-ink); color: var(--ml-paper); border-color: var(--ml-ink); }
+.marklens-public .ml-state { max-width: 760px; padding-block: 96px; min-height: 60vh; }
+.marklens-public .ml-state .ml-eyebrow { color: var(--ml-blue-readable); margin-bottom: 24px; }
+.marklens-public .ml-state h1 { font-size: clamp(36px, 5vw, 64px); line-height: 1.2; letter-spacing: -.055em; font-weight: 700; }
+.marklens-public .ml-state > p:not(.ml-eyebrow) { margin-top: 24px; color: var(--ml-muted); font-size: 16px; line-height: 1.9; }
+.marklens-public .ml-state-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin-top: 32px; }
+.marklens-public .ml-loading-rule { width: 100%; height: 1px; background: var(--ml-line); margin-top: 32px; }
+@media (max-width: 1199px) {
+  .marklens-public .ml-publication-grid { gap: 48px; }
+  .marklens-public .ml-editorial-row, .marklens-public .ml-term { grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1.2fr); gap: 20px; }
+}
+@media (max-width: 767px) {
+  .marklens-public .ml-page-hero { padding-block: 40px; }
+  .marklens-public .ml-page-hero h1 { font-size: 38px; }
+  .marklens-public .ml-page-hero .ml-eyebrow { margin-bottom: 20px; }
+  .marklens-public .ml-page-intro { margin-top: 20px; font-size: 15px; line-height: 1.85; }
+  .marklens-public .ml-publication-grid { grid-template-columns: 1fr; gap: 32px; }
+  .marklens-public .ml-publication-schedule { margin-bottom: 20px; }
+  .marklens-public .ml-page-section { padding-block: 40px; }
+  .marklens-public .ml-editorial-row { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding-block: 24px; }
+  .marklens-public .ml-editorial-row :is(h2, h3) { font-size: 23px; }
+  .marklens-public .ml-editorial-row p { grid-column: 2; font-size: 14px; }
+  .marklens-public .ml-writing-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 20px; }
+  .marklens-public .ml-writing-flow h3 { font-size: 26px; }
+  .marklens-public .ml-page-cta { flex-direction: column; align-items: flex-start; padding-block: 40px; gap: 24px; }
+  .marklens-public .ml-page-cta h2 { font-size: 25px; }
+  .marklens-public .ml-dictionary-intro { display: block; margin-top: 20px; }
+  .marklens-public .ml-dictionary-count { display: block; margin-top: 20px; }
+  .marklens-public .ml-term { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding-block: 24px; }
+  .marklens-public .ml-term-name { font-size: 24px; }
+  .marklens-public .ml-term dd { grid-column: 2; font-size: 15px; line-height: 1.85; }
+  .marklens-public .ml-term a { margin-top: 14px; }
+  .marklens-public .ml-about-tagline { font-size: 11px; margin-top: 28px; }
+  .marklens-public .ml-about-lens { padding-block: 40px; }
+  .marklens-public .ml-about-lens h2 + p { font-size: 15px; }
+  .marklens-public .ml-feedback { padding-block: 40px 48px; }
+  .marklens-public .ml-feedback-header h1 { font-size: 30px; }
+  .marklens-public .ml-rating p { width: 100%; margin: 4px 0 0; }
+  .marklens-public .ml-state { padding-block: 64px; }
+}
