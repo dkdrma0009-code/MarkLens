@@ -1,45 +1,30 @@
 "use client"
-
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Trash2 } from "lucide-react"
+import ConfirmAction from "@/components/admin-v2/ConfirmAction"
 import EditInsight from "@/app/admin/articles/EditInsight"
 
-interface Props {
-  insightId: string
-}
-
-export default function InsightActions({ insightId }: Props) {
-  const [loading, setLoading] = useState(false)
+export default function InsightActions({ insightId, title = "선택한 Insight" }: { insightId: string; title?: string }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const lock = useRef(false)
+  const returnFocus = useRef<HTMLButtonElement>(null)
   const router = useRouter()
-
-  async function handleDelete() {
-    if (!confirm("이 인사이트를 삭제하시겠습니까?\n연결된 아티클은 '준비 완료' 상태로 복귀됩니다.")) return
-    setLoading(true)
+  async function remove() {
+    if (lock.current) return
+    lock.current = true; setBusy(true)
     try {
       const res = await fetch(`/api/admin/insights/${insightId}`, { method: "DELETE" })
-      if (!res.ok) throw new Error()
-      toast.success("삭제됐습니다.")
-      router.refresh()
-    } catch {
-      toast.error("삭제 실패")
-    } finally {
-      setLoading(false)
-    }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "삭제 실패. 다시 시도해주세요.")
+      toast.success("Insight를 삭제했습니다. 연결 Article은 Pending으로 돌아갑니다.")
+      setOpen(false); router.refresh()
+    } catch (e) { toast.error(e instanceof Error ? e.message : "삭제 실패") }
+    finally { lock.current = false; setBusy(false) }
   }
-
-  return (
-    <div className="flex items-center gap-2">
-      <EditInsight insightId={insightId} />
-      <button
-        onClick={handleDelete}
-        disabled={loading}
-        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-        title="삭제"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  )
+  return <div className="admin-row-actions"><EditInsight insightId={insightId} />
+    <button ref={returnFocus} className="admin-control" disabled={busy} onClick={() => setOpen(true)} aria-label={`${title} Insight 삭제`}>삭제</button>
+    <ConfirmAction returnFocus={returnFocus} open={open} onOpenChange={setOpen} title="Insight를 삭제할까요?" description={`“${title}”을 삭제합니다. 현재 API 동작상 연결된 Article은 pending 상태로 돌아갑니다. 삭제를 되돌리는 복원 API는 없습니다.`} confirmLabel="Insight 삭제" busy={busy} destructive onConfirm={remove} />
+  </div>
 }

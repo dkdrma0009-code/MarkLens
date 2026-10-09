@@ -1,86 +1,11 @@
 import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { formatDate } from "@/lib/utils"
+import { ContentError } from "@/components/admin-v2/ContentQueue"
+import { socialDate } from "@/components/admin-v2/social/types"
 import { ToggleSource, AddSourceForm } from "./RssSourceActions"
-
 export const dynamic = "force-dynamic"
-
 export default async function AdminSourcesPage() {
   await requireAdmin()
-  const supabase = createAdminClient()
-
-  const { data: sources } = await supabase
-    .from("rss_sources")
-    .select("*")
-    .order("name")
-
-  const active = sources?.filter(s => s.is_active).length ?? 0
-
-  return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">RSS 소스 관리</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            활성 소스 <span className="font-medium text-foreground">{active}개</span>
-            {sources && ` / 전체 ${sources.length}개`}
-          </p>
-        </div>
-        <AddSourceForm />
-      </div>
-
-      {!sources || sources.length === 0 ? (
-        <div className="border border-border rounded-lg p-12 text-center text-sm text-muted-foreground bg-background">
-          등록된 RSS 소스가 없습니다.
-        </div>
-      ) : (
-        <div className="border border-border rounded-lg overflow-hidden bg-background">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/30">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">소스명</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">슬러그</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">RSS URL</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">마지막 수집</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">상태</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sources.map((source) => (
-                <tr key={source.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3">
-                    <a
-                      href={source.website_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium hover:underline"
-                    >
-                      {source.name}
-                    </a>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{source.slug}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground max-w-xs">
-                    <a
-                      href={source.rss_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline truncate block"
-                    >
-                      {source.rss_url}
-                    </a>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {source.last_fetched_at ? formatDate(source.last_fetched_at) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <ToggleSource id={source.id} isActive={source.is_active} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
+  const result = await createAdminClient().from("rss_sources").select("*", { count: "exact" }).order("name").limit(200)
+  return <div className="ops-workspace"><div className="social-page-heading"><div><p>INGESTION SOURCES</p><h2>RSS intake operations</h2><span>이름순 최대 200개 · 전체 DB {result.error || result.count === null ? "조회 실패" : `${result.count}개`}</span></div><AddSourceForm /></div><p className="admin-note">활성 소스는 기존 자동 RSS 수집 대상입니다. 저장된 수집 시각은 성공률·uptime을 뜻하지 않습니다.</p>{result.error ? <ContentError /> : !result.data?.length ? <div className="admin-empty" role="status">등록된 RSS 소스가 없습니다.</div> : <><p className="admin-note">{result.data.length}개 불러옴 · 이 중 활성 {result.data.filter(row => row.is_active).length}개</p><div className="admin-content-table-wrap"><table className="admin-content-table sources-table"><caption className="sr-only">RSS sources and stored collection timestamps</caption><thead><tr>{["Source / Website", "Slug", "RSS URL", "Stored fetch time / KST", "Collection state"].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{result.data.map(source => <tr key={source.id}><td data-label="Source"><h3><a href={source.website_url} target="_blank" rel="noopener noreferrer">{source.name}</a></h3></td><td data-label="Slug">{source.slug}</td><td data-label="RSS URL"><a href={source.rss_url} target="_blank" rel="noopener noreferrer">{source.rss_url}</a></td><td data-label="Stored fetch time">{socialDate(source.last_fetched_at)}</td><td data-label="Collection state"><ToggleSource id={source.id} name={source.name} isActive={source.is_active} /></td></tr>)}</tbody></table></div></>}</div>
 }

@@ -1,136 +1,26 @@
 "use client"
-
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-
 const CATEGORIES = ["마케팅", "소비자 트렌드", "광고 전략", "디지털 마케팅", "FMCG", "브랜딩", "콘텐츠", "리테일"]
-
-export default function ChallengeForm() {
+export default function ChallengeForm({ initialDate }: { initialDate: string }) {
   const router = useRouter()
-  const [form, setForm] = useState({
-    title: "",
-    summary: "",
-    category: "마케팅",
-    difficulty: "보통",
-    source_name: "MarkLens",
-    source_url: "",
-    published_date: new Date().toISOString().slice(0, 10),
-    active: true,
-  })
+  const lock = useRef(false)
+  const [form, setForm] = useState({ title: "", summary: "", category: "마케팅", difficulty: "보통", source_name: "MarkLens", source_url: "", published_date: initialDate, active: true })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-
-  function set(key: string, val: string | boolean) {
-    setForm(f => ({ ...f, [key]: val }))
+  const [success, setSuccess] = useState("")
+  function set(key: keyof typeof form, value: string | boolean) { setForm(previous => ({ ...previous, [key]: value })) }
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (lock.current || !form.title.trim() || !form.summary.trim()) return
+    lock.current = true; setSaving(true); setError(""); setSuccess("")
+    try {
+      const response = await fetch("/api/admin/insight-lab/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "저장 실패")
+      setSuccess(`${form.title} · 등록 완료`); setForm(previous => ({ ...previous, title: "", summary: "", source_url: "" })); router.refresh()
+    } catch (error) { setError(error instanceof Error ? error.message : "저장 실패") }
+    finally { lock.current = false; setSaving(false) }
   }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.title.trim() || !form.summary.trim()) return
-    setSaving(true)
-    setError("")
-
-    const res = await fetch("/api/admin/insight-lab/challenges", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    })
-    const data = await res.json()
-    setSaving(false)
-
-    if (!res.ok) {
-      setError(data.error ?? "저장 실패")
-    } else {
-      setSuccess(true)
-      setForm(f => ({ ...f, title: "", summary: "", source_url: "" }))
-      router.refresh()
-      setTimeout(() => setSuccess(false), 2000)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div>
-        <label className="text-xs font-bold text-gray-400 block mb-1">제목 *</label>
-        <input
-          value={form.title}
-          onChange={e => set("title", e.target.value)}
-          required
-          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-bold text-gray-400 block mb-1">요약 (트렌드 내용) *</label>
-        <textarea
-          value={form.summary}
-          onChange={e => set("summary", e.target.value)}
-          rows={5}
-          required
-          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-bold text-gray-400 block mb-1">카테고리</label>
-          <select
-            value={form.category}
-            onChange={e => set("category", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-bold text-gray-400 block mb-1">난이도</label>
-          <select
-            value={form.difficulty}
-            onChange={e => set("difficulty", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option>쉬움</option>
-            <option>보통</option>
-            <option>어려움</option>
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-bold text-gray-400 block mb-1">출처</label>
-          <input
-            value={form.source_name}
-            onChange={e => set("source_name", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-bold text-gray-400 block mb-1">발행일</label>
-          <input
-            type="date"
-            value={form.published_date}
-            onChange={e => set("published_date", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={form.active}
-          onChange={e => set("active", e.target.checked)}
-          className="rounded"
-        />
-        즉시 활성화
-      </label>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      {success && <p className="text-xs text-emerald-600">저장됐어요!</p>}
-      <button
-        type="submit"
-        disabled={saving || !form.title.trim() || !form.summary.trim()}
-        className="py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
-      >
-        {saving ? "저장 중…" : "챌린지 등록"}
-      </button>
-    </form>
-  )
+  return <form onSubmit={handleSubmit} className="challenge-form"><fieldset disabled={saving}><label className="social-field">제목 *<input required value={form.title} onChange={event => set("title", event.target.value)} /></label><label className="social-field">요약 (트렌드 내용) *<textarea required rows={5} value={form.summary} onChange={event => set("summary", event.target.value)} /></label><div className="challenge-form-pair"><label className="social-field">카테고리<select value={form.category} onChange={event => set("category", event.target.value)}>{CATEGORIES.map(value => <option key={value}>{value}</option>)}</select></label><label className="social-field">난이도<select value={form.difficulty} onChange={event => set("difficulty", event.target.value)}>{["쉬움", "보통", "어려움"].map(value => <option key={value}>{value}</option>)}</select></label></div><div className="challenge-form-pair"><label className="social-field">출처<input value={form.source_name} onChange={event => set("source_name", event.target.value)} /></label><label className="social-field">발행일<input type="date" value={form.published_date} onChange={event => set("published_date", event.target.value)} /></label></div><label className="social-field">출처 URL (선택)<input type="url" value={form.source_url} onChange={event => set("source_url", event.target.value)} /></label><label className="ops-ack"><input type="checkbox" checked={form.active} onChange={event => set("active", event.target.checked)} />즉시 활성화 · active</label></fieldset><div aria-live="polite">{error && <p role="alert" className="social-notice">{error}</p>}{success && <p role="status" className="challenge-success">{success}</p>}</div><button className="admin-control admin-primary" disabled={saving || !form.title.trim() || !form.summary.trim()}>{saving ? "저장 중…" : "Challenge 등록"}</button></form>
 }

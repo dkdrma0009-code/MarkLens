@@ -1,145 +1,58 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Trash2 } from "lucide-react"
+import { Menu } from "@base-ui/react/menu"
+import { Ellipsis, LoaderCircle } from "lucide-react"
+import ConfirmAction from "@/components/admin-v2/ConfirmAction"
 
-interface Props {
-  articleId: string
-  status: string
-  hasInsight?: boolean
-}
+type Operation = "publish" | "reject" | "delete" | "analyze" | "restore"
 
-export default function ArticleActions({ articleId, status, hasInsight }: Props) {
-  const [loading, setLoading] = useState(false)
+export default function ArticleActions({ articleId, status, hasInsight, title = "선택한 콘텐츠" }: {
+  articleId: string; status: string; hasInsight?: boolean; title?: string
+}) {
+  const [busy, setBusy] = useState<Operation | null>(null)
+  const [confirm, setConfirm] = useState<Operation | null>(null)
+  const lock = useRef(false)
+  const returnFocus = useRef<HTMLElement | null>(null)
+  const menuTrigger = useRef<HTMLButtonElement>(null)
   const router = useRouter()
-
-  async function updateStatus(newStatus: string) {
-    setLoading(true)
+  async function run(op: Operation) {
+    if (lock.current) return
+    lock.current = true
+    setBusy(op)
     try {
-      const res = await fetch(`/api/articles/${articleId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+      const isStatus = op === "publish" || op === "reject" || op === "restore"
+      const res = await fetch(op === "delete" ? `/api/admin/articles/${articleId}` : op === "analyze" ? "/api/articles/analyze" : `/api/articles/${articleId}/status`, {
+        method: op === "delete" ? "DELETE" : isStatus ? "PATCH" : "POST",
+        ...(op === "delete" ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(op === "analyze" ? { articleId } : { status: op === "publish" ? "published" : op === "reject" ? "rejected" : "pending" }) }),
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? "오류")
-      }
-      // 발행 시 퀴즈 자동 생성 (백그라운드, 실패해도 무방)
-      if (newStatus === "published") {
-        fetch("/api/admin/quiz-bulk", { method: "POST" }).catch(() => {})
-      }
-      toast.success(newStatus === "published" ? "발행됐습니다." : newStatus === "rejected" ? "거절됐습니다." : "업데이트됐습니다.")
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error ?? "처리하지 못했습니다. 다시 시도해주세요.")
+      if (op === "publish") fetch("/api/admin/quiz-bulk", { method: "POST" }).catch(() => {})
+      toast.success(op === "analyze" ? "분석이 완료됐습니다." : op === "publish" ? "사이트에 공개됐습니다." : op === "reject" ? "Rejected 상태로 변경했습니다." : op === "restore" ? "Pending 상태로 복원했습니다." : "Article과 연결 Insight를 삭제했습니다.")
+      setConfirm(null)
       router.refresh()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "오류가 발생했습니다.")
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "처리 실패. 다시 시도해주세요.") }
+    finally { lock.current = false; setBusy(null) }
   }
-
-  async function analyzeOne() {
-    setLoading(true)
-    try {
-      const res = await fetch("/api/articles/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "분석 실패")
-      toast.success("분석 완료됐습니다.")
-      router.refresh()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "오류가 발생했습니다.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function deleteArticle() {
-    if (!confirm("이 아티클을 삭제하시겠습니까? 연결된 인사이트도 함께 삭제됩니다.")) return
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/admin/articles/${articleId}`, { method: "DELETE" })
-      if (!res.ok) throw new Error()
-      toast.success("삭제됐습니다.")
-      router.refresh()
-    } catch {
-      toast.error("삭제 실패")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (status === "rejected") return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={() => updateStatus("pending")}
-        disabled={loading}
-        className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-      >
-        복원
-      </button>
-      <button
-        onClick={deleteArticle}
-        disabled={loading}
-        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-        title="삭제"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  )
-
-  return (
-    <div className="flex items-center gap-2">
-      {status === "ready" && (
-        <button
-          onClick={() => hasInsight
-            ? updateStatus("published")
-            : toast.error("인사이트 분석을 먼저 완료해주세요.")
-          }
-          disabled={loading}
-          title={hasInsight ? "발행" : "인사이트 없음 — 분석 후 발행 가능"}
-          className={`text-xs font-medium px-3 py-1 rounded transition-colors whitespace-nowrap ${
-            hasInsight
-              ? "bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-          }`}
-        >
-          {hasInsight ? "발행" : "발행 불가"}
-        </button>
-      )}
-      {status === "pending" && (
-        <button
-          onClick={analyzeOne}
-          disabled={loading}
-          className="text-xs font-medium px-3 py-1 rounded border border-border hover:bg-accent transition-colors disabled:opacity-50 whitespace-nowrap"
-        >
-          {loading ? "분석 중..." : "분석"}
-        </button>
-      )}
-      {status === "analyzing" && (
-        <span className="text-xs text-muted-foreground">분석 중...</span>
-      )}
-      <button
-        onClick={() => updateStatus("rejected")}
-        disabled={loading}
-        className="text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 whitespace-nowrap"
-      >
-        거절
-      </button>
-      <button
-        onClick={deleteArticle}
-        disabled={loading}
-        className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-        title="삭제"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  )
+  const copy = confirm === "publish" ? { title: "사이트에 공개할까요?", description: `“${title}”을 공개합니다. 공개 후 marklens.site에서 즉시 노출될 수 있습니다. 기존 동작에 따라 퀴즈 생성도 백그라운드에서 요청됩니다.`, label: "사이트 공개" }
+    : confirm === "reject" ? { title: "Rejected 상태로 변경할까요?", description: `“${title}”의 Article 상태를 rejected로 변경합니다. 공개 목록의 Published 대상에서 제외됩니다. 기존 직접 URL 접근 동작은 유지됩니다. Article과 Insight 데이터는 삭제하지 않습니다.`, label: "Reject" }
+    : { title: "Article을 삭제할까요?", description: `“${title}”과 연결된 Insight를 함께 삭제합니다. 삭제를 되돌리는 복원 API는 없습니다.`, label: "Article 삭제" }
+  return <div className="admin-row-actions">
+    {busy ? <span className="admin-working" role="status"><LoaderCircle size={14} className="admin-spin" />{busy === "analyze" ? "분석 중…" : "처리 중…"}</span>
+      : status === "pending" ? <button className="admin-control admin-primary" onClick={() => run("analyze")}>분석</button>
+      : status === "ready" ? <button className="admin-control admin-primary" disabled={!hasInsight} title={!hasInsight ? "hook·summary 분석을 먼저 완료해주세요" : undefined} onClick={event => { returnFocus.current = event.currentTarget; setConfirm("publish") }}>사이트 공개</button>
+      : status === "analyzing" ? <span className="admin-working" role="status">분석 상태</span>
+      : status === "rejected" ? <button className="admin-control" onClick={() => run("restore")}>Pending 복원</button> : null}
+    <Menu.Root><Menu.Trigger ref={menuTrigger} className="admin-icon-control" disabled={!!busy} aria-label={`${title} 추가 작업`}><Ellipsis size={18} /></Menu.Trigger>
+      <Menu.Portal><Menu.Positioner sideOffset={5} align="end" className="admin-menu-positioner"><Menu.Popup className="admin-action-menu">
+        {status !== "analyzing" && status !== "pending" && status !== "rejected" && <Menu.Item onClick={() => run("analyze")}>재분석</Menu.Item>}
+        {status !== "rejected" && <Menu.Item onClick={() => { returnFocus.current = menuTrigger.current; setConfirm("reject") }}>Reject 상태로 변경</Menu.Item>}
+        <Menu.Item className="admin-menu-destructive" onClick={() => { returnFocus.current = menuTrigger.current; setConfirm("delete") }}>Article 삭제</Menu.Item>
+      </Menu.Popup></Menu.Positioner></Menu.Portal>
+    </Menu.Root>
+    <ConfirmAction returnFocus={returnFocus} open={confirm !== null} onOpenChange={open => { if (!open) setConfirm(null) }} title={copy.title} description={copy.description} confirmLabel={copy.label} busy={!!busy} destructive={confirm !== "publish"} onConfirm={() => confirm && run(confirm)} />
+  </div>
 }

@@ -1,51 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdmin } from "@/lib/api-auth"
 import { redirect } from "next/navigation"
-import Link from "next/link"
+import { ContentError } from "@/components/admin-v2/ContentQueue"
 import ChallengeForm from "./_components/ChallengeForm"
-
+export const dynamic = "force-dynamic"
 export default async function AdminInsightLabPage() {
   if (!await isAdmin()) redirect("/")
-
-  const sb = createAdminClient()
-  const { data: challenges } = await sb
-    .from("insight_challenges")
-    .select("*")
-    .order("published_date", { ascending: false })
-    .limit(30)
-
-  return (
-    <div className="max-w-3xl mx-auto px-6 py-10">
-      <div className="mb-8">
-        <Link href="/admin" className="text-xs text-gray-400 hover:text-gray-600 mb-4 inline-block">← 어드민</Link>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">챌린지 관리</h1>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* 신규 챌린지 등록 */}
-        <div>
-          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">새 챌린지 등록</h2>
-          <ChallengeForm />
-        </div>
-
-        {/* 챌린지 목록 */}
-        <div>
-          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">챌린지 목록 ({challenges?.length ?? 0}개)</h2>
-          <div className="flex flex-col gap-2">
-            {(challenges ?? []).map(ch => (
-              <div key={ch.id} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 line-clamp-1">{ch.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{ch.published_date} · {ch.difficulty} · {ch.category}</p>
-                </div>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${ch.active ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950" : "text-gray-400 bg-gray-100 dark:bg-gray-800"}`}>
-                  {ch.active ? "활성" : "비활성"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const result = await createAdminClient().from("insight_challenges").select("*", { count: "exact" }).order("published_date", { ascending: false }).limit(30)
+  const initialDate = new Date().toISOString().slice(0, 10)
+  return <div className="ops-workspace"><div className="social-page-heading"><div><p>CHALLENGES</p><h2>Career Lab content operations</h2><span>발행일순 최대 30개 · 전체 DB {result.error || result.count === null ? "조회 실패" : `${result.count}개`}</span></div><a className="admin-control admin-primary" href="#new-challenge">New challenge ↓</a></div><div className="challenge-operations"><section aria-label="Challenge list"><div className="ops-panel-heading"><div><p>CONTENT / STORED RECORDS</p><h3>Challenge list</h3></div></div>{result.error ? <ContentError /> : !result.data?.length ? <div className="admin-empty" role="status">등록된 Challenge가 없습니다.</div> : <div className="challenge-list">{result.data.map(row => <article key={row.id}><div><strong>{row.title}</strong><p>{row.published_date} · {row.category} · {row.difficulty}</p><span className="admin-content-status">{row.active ? "활성" : "비활성"}</span></div><p>{row.summary}</p><small>출처: {row.source_name || "기록 없음"}</small></article>)}</div>}</section><section id="new-challenge" className="challenge-new"><p className="ops-eyebrow">NEW / EXISTING API</p><h3>새 Challenge 등록</h3><p className="admin-note">기존 active 설정과 발행일을 사용합니다. 별도 승인 workflow는 없습니다.</p><ChallengeForm initialDate={initialDate} /></section></div></div>
 }

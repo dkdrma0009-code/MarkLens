@@ -25,6 +25,7 @@ export default function HealthPanel() {
     try {
       const res = await fetch("/api/admin/health")
       const j = (await res.json()) as HealthResp
+      if (!j.checks || !j.checkedAt) throw new Error("Invalid health response")
       setData(j)
     } catch {
       setError("헬스체크 호출 실패")
@@ -38,7 +39,10 @@ export default function HealthPanel() {
     let cancelled = false
     fetch("/api/admin/health")
       .then(res => res.json())
-      .then((j: HealthResp) => { if (!cancelled) setData(j) })
+      .then((j: HealthResp) => {
+        if (!j.checks || !j.checkedAt) throw new Error("Invalid health response")
+        if (!cancelled) setData(j)
+      })
       .catch(() => { if (!cancelled) setError("헬스체크 호출 실패") })
     return () => { cancelled = true }
   }, [])

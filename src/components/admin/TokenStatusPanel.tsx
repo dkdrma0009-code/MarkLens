@@ -17,18 +17,33 @@ function Badge({ days }: { days: number | null }) {
 
 export default function TokenStatusPanel() {
   const [status, setStatus] = useState<TokenStatus | null>(null)
+  const [loadError, setLoadError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
   async function load() {
-    const res = await fetch("/api/admin/tokens").catch(() => null)
-    if (res?.ok) setStatus(await res.json())
+    try {
+      const res = await fetch("/api/admin/tokens")
+      if (!res.ok) throw new Error("Token status unavailable")
+      const data: TokenStatus = await res.json()
+      if (!data.ig || !data.threads) throw new Error("Invalid token status")
+      setStatus(data)
+      setLoadError(false)
+    } catch { setLoadError(true) }
   }
 
   useEffect(() => {
+    let cancelled = false
     fetch("/api/admin/tokens")
-      .then(res => res.ok ? res.json() : null)
-      .catch(() => null)
-      .then((data: TokenStatus | null) => { if (data) setStatus(data) })
+      .then(res => {
+        if (!res.ok) throw new Error("Token status unavailable")
+        return res.json()
+      })
+      .then((data: TokenStatus) => {
+        if (!data.ig || !data.threads) throw new Error("Invalid token status")
+        if (!cancelled) setStatus(data)
+      })
+      .catch(() => { if (!cancelled) setLoadError(true) })
+    return () => { cancelled = true }
   }, [])
 
   async function handleRefresh(platform: "ig" | "threads" | "both") {
@@ -69,6 +84,7 @@ export default function TokenStatusPanel() {
         </button>
       </div>
 
+      {loadError && <p className="text-xs text-red-600 mb-3" role="status">데이터를 불러오지 못했습니다.</p>}
       <div className="space-y-3">
         {[
           { label: "인스타그램", key: "ig" as const },
@@ -79,7 +95,7 @@ export default function TokenStatusPanel() {
             <div key={key} className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{label}</span>
               <div className="flex items-center gap-2">
-                {s ? <Badge days={s.daysLeft} /> : <span className="text-xs text-muted-foreground">로딩 중...</span>}
+                {s ? <Badge days={s.daysLeft} /> : <span className="text-xs text-muted-foreground">{loadError ? "확인 불가" : "로딩 중..."}</span>}
                 <button
                   onClick={() => handleRefresh(key)}
                   disabled={refreshing}

@@ -49,8 +49,8 @@ export default function ReelPreview({
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-5">
-      <div className="shrink-0">
+    <div className="social-reel-layout">
+      <div className="social-reel-player">
         <Player
           component={ReelComposition}
           inputProps={inputProps}
@@ -58,7 +58,7 @@ export default function ReelPreview({
           fps={FPS}
           compositionWidth={1080}
           compositionHeight={1920}
-          style={{ width: 260, height: 462, borderRadius: 10, overflow: "hidden" }}
+          style={{ width: "100%", aspectRatio: "9 / 16", borderRadius: 2, overflow: "hidden" }}
           controls
           loop
         />
@@ -67,7 +67,7 @@ export default function ReelPreview({
         </p>
       </div>
 
-      <div className="flex-1 space-y-4 text-xs">
+      <div className="social-reel-settings text-xs">
         <div>
           <p className="font-semibold mb-1.5">레이아웃</p>
           <div className="flex gap-1.5">
@@ -79,6 +79,7 @@ export default function ReelPreview({
             ] as const).map(([v, lbl]) => (
               <button
                 key={v}
+                aria-pressed={settings.layout === v}
                 onClick={() => onChange({ ...settings, layout: v })}
                 className={`px-2.5 py-1.5 rounded-md border font-medium ${
                   settings.layout === v
@@ -115,6 +116,7 @@ export default function ReelPreview({
               return (
                 <button
                   key={t}
+                  aria-pressed={on}
                   onClick={() => toggleType(t)}
                   disabled={!exists}
                   title={exists ? undefined : "이 카드뉴스에 없는 장면입니다"}
@@ -167,7 +169,7 @@ export default function ReelPreview({
               </label>
               {settings.credit !== null && (
                 <input
-                  type="text"
+                  type="text" aria-label="엔딩 크레딧 문구"
                   value={settings.credit}
                   onChange={e => onChange({ ...settings, credit: e.target.value })}
                   className="w-full text-xs px-2.5 py-1.5 rounded-md border border-border bg-transparent"
@@ -220,12 +222,13 @@ function ShotEditor({ picked, settings, onChange }: {
   }
 
   return (
-    <div className="border-t border-border pt-3">
+    <div className="social-shot-editor border-t border-border pt-3">
       <p className="font-semibold mb-1.5">장면별 조절</p>
       <div className="flex flex-wrap gap-1.5 mb-3">
         {picked.map(s => (
           <button
             key={s.type}
+            aria-pressed={s.type === target}
             onClick={() => setSel(s.type)}
             className={`px-2.5 py-1 rounded-md border font-medium ${
               s.type === target
@@ -314,7 +317,7 @@ function Slider({ label, value, min, max, step, unit, display, onChange }: {
         </span>
       </div>
       <input
-        type="range" min={min} max={max} step={step} value={value}
+        aria-label={label} type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(Number(e.target.value))}
         className="w-full accent-indigo-500"
       />
