@@ -33,6 +33,7 @@ const groups = [
 ]
 
 function activePath(pathname: string, href: string) {
+  if (href === "/admin/articles" && pathname.startsWith("/admin/preview/")) return true
   return href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`)
 }
 

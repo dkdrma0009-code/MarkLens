@@ -28,7 +28,7 @@ export default function SlideEditor({ slide, onChange, onBlur, onCommit }: {
               type="checkbox"
               checked={s.usePhoto !== false}
               onChange={e => onCommit({ usePhoto: e.target.checked } as Partial<Slide>)}
-              className="w-3.5 h-3.5 accent-indigo-600"
+              className="w-3.5 h-3.5 accent-[#174cff]"
             />
             사진 표지 사용 (기본 — 이미지 없으면 자동 타이포 폴백)
           </label>
