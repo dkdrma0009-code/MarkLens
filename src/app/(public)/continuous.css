@@ -1,0 +1,104 @@
+/* Additional motion only; the approved editorial composition stays in composition.css. */
+.marklens-public .ml-radar-frames { position: absolute; inset: 0; }
+.marklens-public .ml-radar-frame { position: absolute; inset: 0; opacity: 0; transform: translateY(4px); transition: opacity 480ms ease, transform 480ms var(--ease-editorial); }
+.marklens-public .ml-radar-frame-active { opacity: 1; transform: none; }
+.marklens-public .ml-radar-media .ml-hero-image-link img { animation: none; }
+.marklens-public .ml-radar-media .ml-image { height: 100%; }
+.marklens-public .ml-radar-media .ml-hero-caption { min-height: 76px; }
+.marklens-public .ml-home .ml-hero-radar article { transition: border-color 350ms ease; }
+.marklens-public .ml-hero-radar .ml-radar-current { border-color: #89a5ff; }
+.marklens-public .ml-radar-current h3 { color: #a8baff; }
+.marklens-public .ml-radar-controls { margin-top: 16px; }
+.marklens-public .ml-radar-progress { height: 2px; background: #383a42; overflow: hidden; }
+.marklens-public .ml-radar-progress > span { display: block; height: 100%; background: #89a5ff; transform-origin: left; transform: scaleX(0); animation: ml-radar-timer 6s linear both paused; }
+.marklens-public .ml-radar-controls[data-running="true"] .ml-radar-progress > span { animation-play-state: running; }
+.marklens-public .ml-radar-controls > div:last-child { display: flex; align-items: center; gap: 4px; padding-top: 8px; }
+.marklens-public .ml-radar-count { color: #9699a4; font-size: 10px; font-family: var(--font-geist-mono), monospace; margin-right: auto; }
+.marklens-public .ml-radar-controls button, .marklens-public .ml-pulse-toggle { display: grid; place-items: center; width: 28px; height: 28px; color: #b6bed0; background: transparent; border: 1px solid #454b58; cursor: pointer; }
+.marklens-public .ml-radar-controls button:is(:hover, :focus-visible), .marklens-public .ml-pulse-toggle:is(:hover, :focus-visible) { color: #fff; border-color: #89a5ff; }
+.marklens-public .ml-signal-dot { animation: none; }
+.marklens-public .ml-pulse-stream { min-width: 0; position: relative; }
+.marklens-public .ml-pulse-track { min-width: 0; }
+.marklens-public .ml-pulse-duplicate, .marklens-public .ml-pulse-toggle { display: none; }
+.marklens-public .ml-pulse-stream[data-static="true"] .ml-pulse-track { animation: none; width: auto; }
+.marklens-public .ml-home .ml-pulse-stream[data-static="true"] .ml-pulse-duplicate, .marklens-public .ml-pulse-stream[data-static="true"] .ml-pulse-toggle { display: none; }
+.marklens-public .ml-collection-frame { transform: scale(1.02); transition-duration: 480ms; }
+.marklens-public .ml-frame-active { transform: none; }
+.marklens-public .ml-collection-meta { display: flex; justify-content: space-between; gap: 16px; color: var(--ml-muted); font-size: 10px; line-height: 1.8; padding-top: 12px; }
+.marklens-public .ml-collection-meta > span { color: var(--ml-blue-readable); white-space: nowrap; }
+.marklens-public .ml-weekly-edition::before { transform: rotate(-2deg) translate(-6px, 4px); }
+.marklens-public .ml-weekly-edition::after { transform: rotate(2deg) translate(8px, 4px); }
+.marklens-public .ml-weekly-edition::before, .marklens-public .ml-weekly-edition::after, .marklens-public .ml-weekly-paper { transition: transform 480ms var(--ease-editorial); }
+
+@media (min-width: 1024px) {
+  .marklens-public .ml-home .ml-pulse-window { overflow: hidden; padding-bottom: 4px; }
+  .marklens-public .ml-home .ml-pulse-track { display: flex; width: max-content; animation: ml-pulse-flow 90s linear infinite paused; }
+  .marklens-public .ml-home .ml-pulse-items { display: flex; gap: 20px; padding-right: 20px; }
+  .marklens-public .ml-home .ml-pulse-items article { flex: 0 0 230px; width: 230px; }
+  .marklens-public .ml-home .ml-pulse-duplicate { display: flex; }
+  .marklens-public .ml-pulse-duplicate h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .marklens-public .ml-pulse-toggle { display: grid; position: absolute; top: -28px; right: 0; width: 22px; height: 22px; }
+  .marklens-public .ml-pulse-stream[data-visible="true"][data-paused="false"]:not(:hover):not(:focus-within) .ml-pulse-track { animation-play-state: running; }
+  /* Keep a focused link stationary and inside its visible window. */
+  .marklens-public .ml-pulse-window:focus-within .ml-pulse-track { animation: none; }
+  .marklens-public .ml-home .ml-signals-layout { grid-template-columns: .85fr 1.35fr; align-items: start; }
+  .marklens-public .ml-signals-sticky { position: sticky; top: 112px; }
+  .marklens-public .ml-signals-sticky .ml-section-heading { display: block; margin-bottom: 28px; }
+  .marklens-public .ml-signals-sticky .ml-section-heading > p { margin-top: 24px; font-size: 11px; }
+  .marklens-public .ml-home .ml-signals-sticky .ml-section-heading h2 { font-size: clamp(72px, 7vw, 108px); }
+  .marklens-public .ml-signals-intro .ml-signal-mark { font-size: 84px; margin-bottom: 24px; transform: translateX(calc(var(--signal-step, 0) * 2px)); transition: transform 280ms ease; }
+  .marklens-public .ml-signals-intro > .ml-eyebrow { margin-top: 0; }
+  .marklens-public .ml-home .ml-signal-list article { min-height: 360px; align-content: center; padding-block: 48px; }
+  .marklens-public .ml-home .ml-signal-list article:first-child { padding-top: 48px; }
+  .marklens-public .ml-home .ml-signal-list article > .ml-index { color: #777f8f; transition: color 280ms ease; }
+  .marklens-public .ml-home .ml-signal-list h3 { color: #b0b6c2; transition: color 280ms ease; }
+  .marklens-public .ml-home .ml-signal-arrow { color: #777f8f; transition: color 280ms ease; }
+  .marklens-public .ml-home .ml-signal-active > .ml-index, .marklens-public .ml-home .ml-signal-active .ml-signal-arrow { color: #89a5ff; }
+  .marklens-public .ml-home .ml-signal-active h3, .marklens-public .ml-home .ml-signal-list article:focus-within h3 { color: #fff; }
+  .marklens-public .ml-signal-list article.ml-signal-active::after { transform: scaleX(1); transition-duration: 280ms; }
+  .marklens-public .ml-main-image .ml-image { transform: translateY(var(--ml-main-depth, 0px)) scale(1.055); }
+  .marklens-public .ml-home .ml-signals::before, .marklens-public .ml-home .ml-latest::before { content: ""; display: block; width: 48px; height: 2px; background: #89a5ff; margin: -89px auto 87px; }
+  .marklens-public .ml-home .ml-latest::before { margin-top: -101px; margin-bottom: 99px; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .marklens-public .ml-latest-lead:is(:hover, :focus-within) .ml-image img, .marklens-public .ml-latest-supporting article:is(:hover, :focus-within) .ml-image img { transform: scale(1.03); }
+  .marklens-public .ml-latest-grid article:is(:hover, :focus-within) h3 a { text-decoration-color: var(--ml-blue-readable); }
+  .marklens-public .ml-weekly-edition:hover::before { transform: rotate(-2deg) translate(-12px, 8px); }
+  .marklens-public .ml-weekly-edition:hover::after { transform: rotate(2deg) translate(14px, 8px); }
+  .marklens-public .ml-weekly-edition:hover .ml-weekly-paper { transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .marklens-public .ml-radar-frames { animation: ml-photo-open var(--motion-slow) var(--ease-editorial) 180ms backwards; }
+  .marklens-public .ml-radar-media .ml-hero-caption { animation: ml-editorial-enter 480ms var(--ease-editorial) backwards; }
+  .marklens-public .ml-weekly-edition[data-motion-seen="true"] .ml-weekly-paper { animation: ml-paper-settle 720ms var(--ease-editorial) 100ms backwards; }
+  .marklens-public .ml-weekly-edition[data-motion-seen="true"]::before { animation: ml-paper-back-a 800ms var(--ease-editorial) 40ms backwards; }
+  .marklens-public .ml-weekly-edition[data-motion-seen="true"]::after { animation: ml-paper-back-b 800ms var(--ease-editorial) 160ms backwards; }
+}
+@media (max-width: 1199px) {
+  .marklens-public .ml-radar-controls { grid-column: 1 / -1; grid-row: 3; margin: 0; }
+  .marklens-public .ml-radar-controls > div:last-child { justify-content: end; }
+  .marklens-public .ml-radar-count { margin-right: 16px; }
+}
+@media (max-width: 1023px) {
+  .marklens-public .ml-signals-sticky { position: static; }
+  .marklens-public .ml-pulse-track { animation: none; }
+}
+@media (max-width: 767px) {
+  .marklens-public .ml-radar-media .ml-hero-caption { min-height: 64px; }
+  .marklens-public .ml-collection-meta { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marklens-public .ml-home .ml-pulse-track { animation: none; width: auto; }
+  .marklens-public .ml-home .ml-pulse-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-right: 0; }
+  .marklens-public .ml-home .ml-pulse-items article { width: auto; }
+  .marklens-public .ml-home .ml-pulse-duplicate, .marklens-public .ml-pulse-toggle { display: none; }
+  .marklens-public .ml-radar-progress > span { animation: none; transform: scaleX(1); }
+  .marklens-public .ml-radar-frame, .marklens-public .ml-main-image .ml-image, .marklens-public .ml-signal-mark { transform: none !important; }
+}
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) { .marklens-public .ml-home .ml-pulse-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) { .marklens-public .ml-home .ml-pulse-items { grid-template-columns: 1fr; } }
+@keyframes ml-radar-timer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ml-pulse-flow { to { transform: translateX(-50%); } }
+@keyframes ml-paper-settle { from { transform: translateY(16px); } to { transform: none; } }
+@keyframes ml-paper-back-a { from { transform: rotate(0) translate(0, 16px); } to { transform: rotate(-2deg) translate(-6px, 4px); } }
+@keyframes ml-paper-back-b { from { transform: rotate(0) translate(0, 16px); } to { transform: rotate(2deg) translate(8px, 4px); } }

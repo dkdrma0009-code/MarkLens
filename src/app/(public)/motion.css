@@ -1,0 +1,71 @@
+/* Public-only editorial motion. HTML remains readable before JS and in reduced motion. */
+.marklens-public {
+  --motion-fast: 220ms;
+  --motion-base: 560ms;
+  --motion-slow: 960ms;
+  --ease-editorial: cubic-bezier(.22, 1, .36, 1);
+}
+
+.marklens-public .ml-hero h1 .ml-hero-line { display: block; overflow: hidden; padding-bottom: .12em; margin-bottom: -.12em; }
+.marklens-public .ml-hero-line > span { display: block; }
+.marklens-public .ml-hero-line:nth-child(2) { color: #6388ff; }
+.marklens-public .ml-hero-image-link { position: relative; }
+.marklens-public .ml-main-image { overflow: hidden; }
+.marklens-public :is(.ml-image img, .ml-article-image img) { object-position: center; }
+.marklens-public .ml-image img { transition: transform var(--motion-base) var(--ease-editorial); }
+.marklens-public :is(a, button):focus-visible .ml-image img { transform: scale(1.025); }
+.marklens-public :is(.ml-hero-caption a, .ml-main-copy h3 a, .ml-signal-list h3 a, .ml-latest-grid h3 a, .ml-editorial-copy h2 a) {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .18em;
+  transition: text-decoration-color var(--motion-fast) ease;
+}
+.marklens-public :is(.ml-hero-caption a, .ml-main-copy h3 a, .ml-signal-list h3 a, .ml-latest-grid h3 a, .ml-editorial-copy h2 a):is(:hover, :focus-visible) { text-decoration-color: var(--ml-blue-readable); }
+.marklens-public :is(.ml-button, .ml-text-link, .ml-header-subscribe) svg,
+.marklens-public :is(.ml-signal-arrow, .ml-editorial-arrow, .ml-collection-link) svg { transition: transform var(--motion-fast) var(--ease-editorial); }
+.marklens-public :is(.ml-button, .ml-text-link, .ml-header-subscribe, .ml-signal-arrow, .ml-editorial-arrow):is(:hover, :focus-visible) svg,
+.marklens-public .ml-collection-cover:is(:hover, :focus-visible) .ml-collection-link svg { transform: translateX(4px); }
+.marklens-public .ml-footer a { transition: color var(--motion-fast) ease; }
+.marklens-public .ml-footer a:focus-visible { color: #fff; }
+
+/* Entrance runs in CSS, independently of hydration or streaming. No route exit delay. */
+@media (prefers-reduced-motion: no-preference) {
+  .marklens-public .ml-hero-copy > .ml-eyebrow { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 100ms backwards; }
+  .marklens-public .ml-hero-line > span { animation: ml-line-open 650ms var(--ease-editorial) 160ms backwards; }
+  .marklens-public .ml-hero-line:nth-child(2) > span { animation-delay: 240ms; }
+  .marklens-public .ml-hero-korean { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 300ms backwards; }
+  .marklens-public .ml-hero-description { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 340ms backwards; }
+  .marklens-public :is(.ml-hero-ctas, .ml-hero-caption, .ml-hero-visual-top) { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 380ms backwards; }
+  .marklens-public .ml-hero-image-link img { animation: ml-photo-open var(--motion-slow) var(--ease-editorial) 180ms backwards; }
+  .marklens-public :is(.ml-feed-header h1, .ml-article-header h1, .ml-publication-hero h1) { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 100ms backwards; }
+  .marklens-public :is(.ml-hero-ctas, .ml-hero-caption):focus-within { animation: none; }
+  .marklens-public .ml-action-steps article { position: relative; }
+  .marklens-public .ml-action-steps article::before { content: ""; position: absolute; top: -1px; left: 0; width: 56px; height: 1px; background: #89a5ff; transform: scaleX(0); transform-origin: left; transition: transform var(--motion-base) var(--ease-editorial); }
+  .marklens-public .ml-action-steps article[data-motion-seen="true"]::before { transform: scaleX(1); }
+}
+@keyframes ml-editorial-enter { from { opacity: .35; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes ml-line-open { from { transform: translateY(36px); } to { transform: translateY(0); } }
+@keyframes ml-photo-open { from { transform: scale(1.045); } to { transform: scale(1); } }
+
+@media (min-width: 1024px) {
+  .marklens-public .ml-header-inner { position: relative; }
+  .marklens-public .ml-header-inner > :is(.ml-logo, .ml-desktop-nav, .ml-header-actions) { transition: transform var(--motion-fast) var(--ease-editorial); }
+  .marklens-public .ml-header-compact .ml-header-inner > .ml-logo { transform: scale(.96); transform-origin: left center; }
+  .marklens-public .ml-header-compact .ml-header-inner::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: var(--ml-line); pointer-events: none; }
+  .marklens-public .ml-header-home.ml-header-compact .ml-header-inner::after { background: #45464e; }
+  .marklens-public .ml-hero-image-link .ml-image { transform: translateY(var(--ml-depth, 0px)) scale(1.045); }
+  .marklens-public :is(.ml-main-story, .ml-collections) { padding-block: 96px; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .marklens-public .ml-collection-cover .ml-image img { transition-duration: 480ms; }
+  .marklens-public .ml-collection-cover:hover .ml-image img { transform: scale(1.035); }
+}
+@media (max-width: 1023px) {
+  .marklens-public .ml-image img { transition-duration: var(--motion-fast); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marklens-public *, .marklens-public *::before, .marklens-public *::after { animation: none !important; transition: none !important; }
+  .marklens-public :is(.ml-hero-image-link .ml-image, .ml-image img, .ml-header-inner > .ml-logo) { transform: none !important; }
+  .marklens-public :is(.ml-button, .ml-text-link, .ml-header-subscribe, .ml-signal-arrow, .ml-editorial-arrow, .ml-collection-link) svg { transform: none !important; }
+}

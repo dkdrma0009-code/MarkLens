@@ -12,7 +12,7 @@ export default function TrendToAction({ insight }: { insight?: HomeInsight }) {
   return (
     <section className="ml-section ml-action" aria-labelledby="action-title" data-reveal>
       <div className="ml-container"><div className="ml-section-heading"><div><p className="ml-eyebrow">WHERE INTELLIGENCE BECOMES ACTION</p><h2 id="action-title">From Trend to Action<span className="ml-blue">.</span></h2></div><p>읽는 것에서, 해내는 것으로.</p></div>
-        <div className="ml-action-steps">{steps.map(step => <article key={step.number}><div className="ml-action-label"><span>{step.number}</span><span>{step.label}</span></div><h3>{step.title}</h3><p>{step.copy}</p><Link href={step.href} className="ml-text-link">{step.action}<ArrowUpRight size={17} aria-hidden="true" /></Link></article>)}</div>
+        <div className="ml-action-steps">{steps.map(step => <article key={step.number}><div className="ml-action-label"><span>{step.number}</span><span>{step.label}</span><ArrowUpRight size={22} aria-hidden="true" /></div><h3>{step.title}</h3><p>{step.copy}</p><Link href={step.href} className="ml-text-link">{step.action}<ArrowUpRight size={17} aria-hidden="true" /></Link></article>)}</div>
       </div>
     </section>
   )

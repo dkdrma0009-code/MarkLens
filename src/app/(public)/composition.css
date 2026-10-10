@@ -1,0 +1,264 @@
+/* Composition-led public homepage. These rules never reach admin surfaces. */
+.marklens-public .ml-home { --motion-hover: 480ms; }
+.marklens-public .ml-home h2[id] { scroll-margin-top: 120px; }
+.marklens-public .ml-home .ml-section-heading h2 { font-size: clamp(40px, 4.8vw, 72px); line-height: 1; letter-spacing: -.065em; }
+.marklens-public .ml-home .ml-section-heading { margin-bottom: 44px; }
+.marklens-public .ml-home .ml-section-heading > p { max-width: 32ch; line-height: 1.8; }
+.marklens-public .ml-home .ml-image img { transition-duration: var(--motion-hover); }
+.marklens-public .ml-desktop-nav a { position: relative; transition: color var(--motion-fast) ease; }
+.marklens-public .ml-desktop-nav a::after { content: ""; position: absolute; height: 2px; bottom: 3px; left: 0; right: 0; background: var(--ml-blue-readable); transform: scaleX(0); transform-origin: left; transition: transform var(--motion-fast) var(--ease-editorial); }
+.marklens-public .ml-desktop-nav a:is(:hover, :focus-visible, [aria-current])::after { transform: scaleX(1); }
+
+/* Opening: typography / photography / radar, with Pulse inside the same surface. */
+.marklens-public .ml-home .ml-hero { padding-top: 40px; }
+.marklens-public .ml-home .ml-hero-grid { grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: start; }
+.marklens-public .ml-hero-grid:has(.ml-hero-radar) { grid-template-columns: 1.1fr 1fr 188px; }
+.marklens-public .ml-home .ml-hero-copy { padding-block: 4px 0; }
+.marklens-public .ml-home .ml-hero-copy > .ml-eyebrow { margin-bottom: 28px; }
+.marklens-public .ml-home .ml-hero h1 { font-size: clamp(64px, 6.1vw, 94px); line-height: .93; letter-spacing: -.075em; }
+.marklens-public .ml-home .ml-hero-korean { font-size: 23px; margin-top: 30px; }
+.marklens-public .ml-home .ml-hero-description { font-size: 13px; max-width: 34ch; }
+.marklens-public .ml-home .ml-hero-visual-top { padding-top: 4px; }
+.marklens-public .ml-home .ml-hero-image-link { aspect-ratio: 1.02; }
+.marklens-public .ml-home .ml-hero-caption { grid-template-columns: 1fr; gap: 8px; padding-top: 16px; }
+.marklens-public .ml-home .ml-hero-caption > .ml-eyebrow { font-size: 9px; }
+.marklens-public .ml-home .ml-hero-caption a { font-size: 15px; line-height: 1.6; }
+.marklens-public .ml-hero-radar { align-self: stretch; border-left: 1px solid #383a42; padding-left: 24px; position: relative; }
+.marklens-public .ml-radar-label { display: flex; align-items: center; gap: 8px; }
+.marklens-public .ml-radar-label .ml-eyebrow { font-size: 9px; color: #a9abb2; }
+.marklens-public .ml-signal-dot { width: 5px; height: 5px; flex-shrink: 0; background: #89a5ff; border-radius: 50%; }
+.marklens-public .ml-hero-radar h2 { font-size: 20px; font-weight: 600; letter-spacing: -.04em; line-height: 1.5; margin-top: 24px; }
+.marklens-public .ml-hero-radar article { padding: 24px 0; border-bottom: 1px solid #383a42; }
+.marklens-public .ml-hero-radar .ml-category { color: #89a5ff; font-size: 10px; margin-bottom: 10px; }
+.marklens-public .ml-hero-radar h3 { font-size: 14px; line-height: 1.65; letter-spacing: -.025em; font-weight: 600; }
+.marklens-public .ml-hero-radar h3 a svg { display: inline; margin-left: 6px; vertical-align: middle; }
+.marklens-public .ml-radar-meta { color: #9699a4; font-size: 10px; line-height: 1.7; margin-top: 12px; }
+.marklens-public .ml-hero-radar > .ml-text-link { font-size: 11px; margin-top: 24px; }
+.marklens-public .ml-home .ml-hero-bottom { margin-top: 32px; padding-block: 16px; }
+.marklens-public .ml-home .ml-pulse { color: #fff; border-block: 1px solid #34363e; padding: 22px 0 24px; }
+.marklens-public .ml-home .ml-pulse > .ml-container { display: grid; grid-template-columns: 160px 1fr; gap: 28px; }
+.marklens-public .ml-home .ml-pulse-label { display: block; margin: 0; }
+.marklens-public .ml-home .ml-pulse-label h2 { font-size: 18px; }
+.marklens-public .ml-home .ml-pulse-label p { color: #9699a4; font-size: 9px; line-height: 1.8; margin-top: 12px; max-width: 17ch; }
+.marklens-public .ml-home .ml-pulse-items { gap: 20px; }
+.marklens-public .ml-home .ml-pulse-items article { padding-left: 20px; border-color: #34363e; position: relative; }
+.marklens-public .ml-home .ml-pulse-items article:first-child { padding-left: 20px; border-left: 1px solid #34363e; }
+.marklens-public .ml-home .ml-pulse-items h3 { font-size: 13px; margin: 8px 0; }
+.marklens-public .ml-home .ml-pulse .ml-category { font-size: 10px; }
+.marklens-public .ml-home .ml-pulse :is(.ml-index, .ml-pulse-label h2 span) { color: #89a5ff; }
+.marklens-public .ml-home .ml-pulse .ml-meta { font-size: 9px; color: #9699a4; gap: 4px 8px; }
+.marklens-public .ml-home .ml-pulse a:is(:hover, :focus-visible) h3 { color: #a8baff; }
+
+/* Main Story: a full editorial spread with a dominant image and large copy. */
+.marklens-public .ml-home .ml-main-story { padding-block: 100px 112px; }
+.marklens-public .ml-home .ml-main-grid { grid-template-columns: 1.5fr 1fr; gap: 56px; align-items: center; }
+.marklens-public .ml-home .ml-main-image { position: relative; aspect-ratio: 1.12; }
+.marklens-public .ml-main-photo-label { position: absolute; bottom: 24px; left: 24px; right: 24px; padding: 10px 12px; background: #101113b3; border-top: 1px solid #ffffff80; color: #fff; font-family: var(--font-geist-mono), monospace; font-size: 10px; letter-spacing: .12em; display: flex; justify-content: space-between; }
+.marklens-public .ml-home .ml-main-copy h3 { font-size: clamp(36px, 3.7vw, 56px); line-height: 1.24; font-weight: 750; }
+.marklens-public .ml-home .ml-main-copy .ml-category { border-top: 1px solid var(--ml-ink); padding-top: 18px; margin-bottom: 28px; }
+.marklens-public .ml-home .ml-main-summary { font-size: 15px; line-height: 1.85; -webkit-line-clamp: 3; }
+.marklens-public .ml-home .ml-main-copy .ml-text-link { margin-top: 28px; }
+
+/* Signals: reading order, never a score or an invented chart. */
+.marklens-public .ml-home .ml-signals { background: #11161e; color: #fff; padding-block: 88px; }
+.marklens-public .ml-home .ml-signals .ml-section-heading { border-bottom: 1px solid #3a414d; padding-bottom: 32px; }
+.marklens-public .ml-home .ml-signals .ml-section-heading h2 { font-size: clamp(72px, 8vw, 120px); }
+.marklens-public .ml-signals .ml-blue { color: #89a5ff; }
+.marklens-public .ml-signals :is(.ml-section-heading .ml-eyebrow, .ml-section-heading > p, .ml-meta) { color: #a5abb6; }
+.marklens-public .ml-signals-layout { display: grid; grid-template-columns: .7fr 1.5fr; gap: 72px; }
+.marklens-public .ml-signals-intro { display: flex; flex-direction: column; align-items: start; }
+.marklens-public .ml-signal-mark { color: #89a5ff; font-size: 112px; font-weight: 300; line-height: 1; margin-bottom: 36px; }
+.marklens-public .ml-home .ml-signals .ml-section-deck { color: #fff; font-size: 25px; font-weight: 500; letter-spacing: -.045em; line-height: 1.6; margin: 0 0 24px; }
+.marklens-public .ml-signal-note { color: #a5abb6; font-size: 13px; line-height: 1.85; max-width: 26ch; }
+.marklens-public .ml-signals-intro > .ml-eyebrow { color: #89a5ff; font-size: 9px; margin-top: auto; padding-top: 40px; }
+.marklens-public .ml-home .ml-signal-list { border: 0; }
+.marklens-public .ml-home .ml-signal-list article { grid-template-columns: 70px 1fr 24px; gap: 24px; padding-block: 30px; border-color: #3a414d; position: relative; }
+.marklens-public .ml-home .ml-signal-list article:first-child { padding-top: 0; }
+.marklens-public .ml-home .ml-signal-list article > .ml-index { color: #89a5ff; font-size: 52px; letter-spacing: -.08em; line-height: 1; }
+.marklens-public .ml-home .ml-signal-list .ml-category { color: #a5abb6; font-size: 10px; margin-bottom: 12px; }
+.marklens-public .ml-home .ml-signal-list h3 { font-size: 25px; line-height: 1.45; }
+.marklens-public .ml-home .ml-signal-observation { color: #a5abb6; font-size: 13px; }
+.marklens-public .ml-home .ml-signal-arrow { color: #89a5ff; }
+.marklens-public .ml-signal-list article::after { content: ""; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px; background: #89a5ff; transform: scaleX(0); transform-origin: left; transition: transform var(--motion-hover) var(--ease-editorial); }
+.marklens-public .ml-signal-list article:is(:hover, :focus-within)::after { transform: scaleX(1); }
+
+/* Latest is an editorial shelf, with a dominant lead and compact supporting rows. */
+.marklens-public .ml-home .ml-latest { padding-block: 100px; }
+.marklens-public .ml-home .ml-latest-grid { grid-template-columns: 1.4fr 1fr; gap: 64px; }
+.marklens-public .ml-home .ml-latest-image { aspect-ratio: 1.35; }
+.marklens-public .ml-home .ml-latest-lead h3 { font-size: clamp(28px, 2.8vw, 42px); line-height: 1.35; }
+.marklens-public .ml-home .ml-latest-supporting article { grid-template-columns: 144px 1fr; padding-block: 28px; }
+.marklens-public .ml-home .ml-latest-supporting h3 { font-size: 21px; }
+
+/* The framework is one continuous progression, not three raised cards. */
+.marklens-public .ml-home .ml-action { padding-block: 88px; }
+.marklens-public .ml-home .ml-action-steps { gap: 0; }
+.marklens-public .ml-home .ml-action-steps article { padding: 28px 40px 0 0; }
+.marklens-public .ml-home .ml-action-steps article + article { padding-left: 40px; border-left: 1px solid #353740; }
+.marklens-public .ml-home .ml-action-label { align-items: center; }
+.marklens-public .ml-home .ml-action-label > span:first-child { font-size: 44px; letter-spacing: -.07em; }
+.marklens-public .ml-home .ml-action-label > svg { margin-left: auto; }
+.marklens-public .ml-home .ml-action-steps article::before { width: 100%; }
+.marklens-public .ml-home .ml-action-steps h3 { font-size: 27px; margin-top: 40px; }
+
+/* Collections is a topic index paired with one large, changing photograph. */
+.marklens-public .ml-home .ml-collections { padding-block: 100px; }
+.marklens-public .ml-home .ml-collections .ml-section-heading h2 { font-size: clamp(52px, 7vw, 104px); }
+.marklens-public .ml-collection-showcase { display: grid; grid-template-columns: .85fr 1.35fr; gap: 64px; align-items: stretch; }
+.marklens-public .ml-collection-topics { display: flex; flex-direction: column; }
+.marklens-public .ml-collection-topics > .ml-eyebrow { color: var(--ml-muted); font-size: 9px; margin-bottom: 40px; }
+.marklens-public .ml-collection-topic { display: grid; grid-template-columns: 36px 1fr 24px; align-items: center; gap: 16px; padding-block: 30px; border-top: 1px solid var(--ml-line); }
+.marklens-public .ml-collection-topic > span:nth-child(2) { font-size: clamp(28px, 3.1vw, 46px); line-height: 1.4; letter-spacing: -.055em; font-weight: 650; transition: transform var(--motion-hover) var(--ease-editorial), color var(--motion-fast) ease; }
+.marklens-public .ml-collection-topic svg { transition: transform var(--motion-hover) var(--ease-editorial); }
+.marklens-public .ml-collection-topic:is(:hover, :focus-visible, .ml-collection-active) > span:nth-child(2) { color: var(--ml-blue-readable); transform: translateX(6px); }
+.marklens-public .ml-collection-topic:is(:hover, :focus-visible) svg { transform: translate(3px, -3px); }
+.marklens-public .ml-collection-note { font-size: 13px; color: var(--ml-muted); line-height: 1.9; margin-top: auto; padding-top: 40px; }
+.marklens-public .ml-collection-visual { display: flex; flex-direction: column; min-width: 0; }
+.marklens-public .ml-collection-frames { position: relative; overflow: hidden; aspect-ratio: 1.12; background: #24262b; }
+.marklens-public .ml-collection-frame { position: absolute; inset: 0; opacity: 0; transform: scale(1.035); transition: opacity var(--motion-hover) ease, transform var(--motion-slow) var(--ease-editorial); }
+.marklens-public .ml-collection-frame.ml-frame-active { opacity: 1; transform: scale(1); }
+.marklens-public .ml-collection-visual-caption { display: flex; align-items: center; gap: 24px; border-bottom: 1px solid var(--ml-line); padding-block: 20px; }
+.marklens-public .ml-collection-visual-caption .ml-eyebrow { font-size: 9px; color: var(--ml-muted); }
+.marklens-public .ml-collection-visual-caption > span:nth-child(2) { font-size: 17px; font-weight: 600; }
+.marklens-public .ml-collection-visual-caption > svg { margin-left: auto; }
+
+/* Publication, not a fake issue: the cover expresses the format, with no invented edition. */
+.marklens-public .ml-home .ml-weekly { padding-block: 104px; background: #edeef2; color: #111114; border: 0; }
+.dark .marklens-public .ml-home .ml-weekly { background: #22252c; color: #fff; }
+.marklens-public .ml-home .ml-weekly-grid { grid-template-columns: .8fr 1.2fr; gap: 112px; align-items: center; }
+.marklens-public .ml-weekly-edition { position: relative; max-width: 400px; margin: 16px auto; width: 100%; }
+.marklens-public .ml-weekly-edition::before, .marklens-public .ml-weekly-edition::after { content: ""; position: absolute; inset: 0; border: 1px solid #bbbfc9; background: #f7f7f4; transform: rotate(-4deg) translate(-6px, 4px); }
+.marklens-public .ml-weekly-edition::after { transform: rotate(3deg) translate(8px, 4px); background: #dce2f0; }
+.marklens-public .ml-weekly-paper { position: relative; z-index: 1; padding: 32px; background: #fff; color: #101113; border: 1px solid #b6bac5; min-height: 480px; display: flex; flex-direction: column; }
+.marklens-public .ml-home .ml-weekly-paper > .ml-eyebrow { font-size: 9px; color: #686970; margin: 0 0 24px; }
+.marklens-public .ml-edition-masthead { font-size: 58px; font-weight: 800; letter-spacing: -.08em; line-height: .95; }
+.marklens-public .ml-edition-masthead span { color: #164bff; }
+.marklens-public .ml-edition-rule { width: 100%; height: 4px; background: #164bff; margin-block: 32px; transform-origin: left; }
+.marklens-public .ml-edition-line { font-size: 31px; letter-spacing: -.055em; font-weight: 650; line-height: 1.45; }
+.marklens-public .ml-edition-footer { border-top: 1px solid #dedee2; margin-top: auto; padding-top: 20px; display: flex; justify-content: space-between; font-size: 9px; color: #686970; }
+.marklens-public .ml-edition-footer > span:last-child { font-size: 28px; color: #164bff; line-height: .6; }
+.marklens-public .ml-home .ml-weekly h2 { font-size: clamp(36px, 3.6vw, 54px); font-weight: 700; line-height: 1.3; }
+.marklens-public .ml-weekly-body > .ml-weekly-subscribe { margin-top: 40px; padding-top: 28px; border-top: 1px solid #bfc2cc; }
+.marklens-public .ml-home .ml-weekly-input { background: transparent; border: 0; border-bottom: 1px solid #989ca9; padding-left: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .marklens-public .ml-home .ml-hero-line:nth-child(3) > span { animation-delay: 320ms; }
+  .marklens-public .ml-hero-radar { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 460ms backwards; }
+  .marklens-public .ml-hero-radar:focus-within { animation: none; }
+  .marklens-public .ml-signal-dot { animation: ml-signal-breathe 5s ease-in-out infinite; }
+  .marklens-public .ml-weekly-edition[data-motion-seen="true"] .ml-edition-rule { animation: ml-rule-open var(--motion-slow) var(--ease-editorial) both; }
+}
+@keyframes ml-signal-breathe { 50% { opacity: .4; } }
+@keyframes ml-rule-open { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@media (max-width: 1199px) {
+  .marklens-public .ml-hero-grid:has(.ml-hero-radar) { grid-template-columns: 1fr 1fr; }
+  .marklens-public .ml-hero-radar { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 24px; border: 0; border-top: 1px solid #383a42; padding: 20px 0 0; }
+  .marklens-public .ml-radar-label { grid-column: 1; grid-row: 1; }
+  .marklens-public .ml-hero-radar h2 { grid-column: 1; grid-row: 2; font-size: 18px; margin-top: 0; }
+  .marklens-public .ml-hero-radar article { grid-row: 1 / 3; padding: 0 0 0 24px; border: 0; border-left: 1px solid #383a42; }
+  .marklens-public .ml-hero-radar article:nth-of-type(1) { grid-column: 2; }
+  .marklens-public .ml-hero-radar article:nth-of-type(2) { grid-column: 3; }
+  .marklens-public .ml-hero-radar > .ml-text-link { display: none; }
+  .marklens-public .ml-home .ml-pulse > .ml-container { grid-template-columns: 1fr; gap: 20px; }
+  .marklens-public .ml-home .ml-pulse-label { display: flex; align-items: center; gap: 24px; }
+  .marklens-public .ml-home .ml-pulse-label p { max-width: none; margin: 0; }
+  .marklens-public .ml-signals-layout { gap: 40px; }
+  .marklens-public .ml-collection-showcase { gap: 40px; }
+  .marklens-public .ml-home .ml-weekly-grid { gap: 64px; }
+}
+@media (max-width: 1023px) {
+  .marklens-public .ml-home .ml-hero h1 { font-size: clamp(50px, 7vw, 64px); }
+  .marklens-public .ml-home .ml-hero-korean { font-size: 22px; }
+  .marklens-public .ml-home .ml-pulse-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .marklens-public .ml-home .ml-pulse-items article:nth-child(3) { border-left: 1px solid #34363e; }
+  .marklens-public .ml-home .ml-main-grid { gap: 32px; grid-template-columns: 1.1fr 1fr; }
+  .marklens-public .ml-home .ml-main-copy h3 { font-size: 34px; }
+  .marklens-public .ml-signals-layout { grid-template-columns: 1fr; gap: 40px; }
+  .marklens-public .ml-signals-intro { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 24px; align-items: center; }
+  .marklens-public .ml-signal-mark { font-size: 70px; margin: 0; }
+  .marklens-public .ml-home .ml-signals .ml-section-deck { margin: 0; font-size: 22px; }
+  .marklens-public .ml-signals-intro > .ml-eyebrow { display: none; }
+  .marklens-public .ml-home .ml-latest-grid { gap: 32px; }
+  .marklens-public .ml-home .ml-latest-supporting article { grid-template-columns: 100px 1fr; gap: 16px; }
+  .marklens-public .ml-home .ml-latest-supporting h3 { font-size: 18px; }
+  .marklens-public .ml-home .ml-action-steps article { padding-right: 24px; }
+  .marklens-public .ml-home .ml-action-steps article + article { padding-left: 24px; }
+  .marklens-public .ml-home .ml-action-steps h3 { font-size: 23px; }
+  .marklens-public .ml-collection-showcase { gap: 32px; grid-template-columns: 1fr 1.1fr; }
+  .marklens-public .ml-collection-topic { gap: 10px; grid-template-columns: 24px 1fr 20px; }
+  .marklens-public .ml-collection-topic > span:nth-child(2) { font-size: 29px; }
+  .marklens-public .ml-home .ml-weekly-grid { gap: 48px; grid-template-columns: .8fr 1.2fr; }
+  .marklens-public .ml-weekly-paper { padding: 24px; min-height: 380px; }
+  .marklens-public .ml-edition-masthead { font-size: 40px; }
+  .marklens-public .ml-edition-line { font-size: 26px; }
+  .marklens-public .ml-home .ml-weekly h2 { font-size: 34px; }
+}
+@media (max-width: 767px) {
+  .marklens-public .ml-home h2[id] { scroll-margin-top: 88px; }
+  .marklens-public .ml-home .ml-section-heading h2 { font-size: 40px; }
+  .marklens-public .ml-home .ml-section-heading { margin-bottom: 28px; }
+  .marklens-public .ml-home .ml-hero { padding-top: 28px; }
+  .marklens-public .ml-home .ml-hero-grid, .marklens-public .ml-hero-grid:has(.ml-hero-radar) { grid-template-columns: 1fr; gap: 28px; }
+  .marklens-public .ml-home .ml-hero h1 { font-size: clamp(48px, 13vw, 64px); }
+  .marklens-public .ml-home .ml-hero-copy > .ml-eyebrow { margin-bottom: 22px; }
+  .marklens-public .ml-home .ml-hero-korean { font-size: 21px; margin-top: 24px; }
+  .marklens-public .ml-home .ml-hero-ctas { margin-top: 20px; }
+  .marklens-public .ml-home .ml-hero-image-link { aspect-ratio: 1.45; }
+  .marklens-public .ml-home .ml-hero-caption { padding-top: 12px; }
+  .marklens-public .ml-home .ml-hero-caption a { font-size: 13px; }
+  .marklens-public .ml-hero-radar { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 20px; }
+  .marklens-public .ml-radar-label { grid-column: 1 / -1; }
+  .marklens-public .ml-hero-radar h2 { display: none; }
+  .marklens-public .ml-hero-radar article { grid-row: auto; padding: 0; border: 0; }
+  .marklens-public .ml-hero-radar article:nth-of-type(1) { grid-column: 1; grid-row: 2; }
+  .marklens-public .ml-hero-radar article:nth-of-type(2) { grid-column: 2; grid-row: 2; }
+  .marklens-public .ml-hero-radar h3 { font-size: 12px; }
+  .marklens-public .ml-radar-meta { font-size: 9px; }
+  .marklens-public .ml-home .ml-hero-bottom { margin-top: 24px; }
+  .marklens-public .ml-home .ml-pulse { padding-block: 20px; }
+  .marklens-public .ml-home .ml-pulse-label { display: block; }
+  .marklens-public .ml-home .ml-pulse-label p { margin-top: 6px; }
+  .marklens-public .ml-home .ml-pulse-items { grid-template-columns: 1fr; gap: 0; }
+  .marklens-public .ml-home .ml-pulse-items article, .marklens-public .ml-home .ml-pulse-items article:first-child, .marklens-public .ml-home .ml-pulse-items article:nth-child(3) { border: 0; border-top: 1px solid #34363e; padding: 12px 0; }
+  .marklens-public .ml-home :is(.ml-main-story, .ml-latest, .ml-action, .ml-collections, .ml-weekly, .ml-signals) { padding-block: 56px; }
+  .marklens-public .ml-home .ml-main-grid { grid-template-columns: 1fr; gap: 28px; }
+  .marklens-public .ml-home .ml-main-image { aspect-ratio: 1.2; }
+  .marklens-public .ml-main-photo-label { bottom: 16px; left: 16px; right: 16px; font-size: 8px; }
+  .marklens-public .ml-home .ml-main-copy h3 { font-size: 34px; line-height: 1.35; }
+  .marklens-public .ml-home .ml-main-copy .ml-category { padding-top: 14px; margin-bottom: 16px; }
+  .marklens-public .ml-home .ml-main-summary { font-size: 14px; }
+  .marklens-public .ml-home .ml-signals .ml-section-heading h2 { font-size: 68px; }
+  .marklens-public .ml-home .ml-signals .ml-section-heading { padding-bottom: 24px; }
+  .marklens-public .ml-signals-intro { grid-template-columns: 48px 1fr; gap: 20px; }
+  .marklens-public .ml-signal-mark { font-size: 56px; }
+  .marklens-public .ml-home .ml-signals .ml-section-deck { font-size: 21px; }
+  .marklens-public .ml-signal-note { display: none; }
+  .marklens-public .ml-home .ml-signal-list article { grid-template-columns: 44px 1fr 20px; gap: 12px; padding-block: 24px; }
+  .marklens-public .ml-home .ml-signal-list article > .ml-index { font-size: 36px; }
+  .marklens-public .ml-home .ml-signal-list article > div { grid-column: 2; grid-row: 1; }
+  .marklens-public .ml-home .ml-signal-list h3 { font-size: 21px; }
+  .marklens-public .ml-home .ml-latest-grid { grid-template-columns: 1fr; gap: 32px; }
+  .marklens-public .ml-home .ml-latest-lead h3 { font-size: 28px; }
+  .marklens-public .ml-home .ml-latest-supporting h3 { font-size: 18px; }
+  .marklens-public .ml-home .ml-action-steps { gap: 32px; }
+  .marklens-public .ml-home .ml-action-steps article, .marklens-public .ml-home .ml-action-steps article + article { border-left: 0; padding: 24px 0 0; }
+  .marklens-public .ml-home .ml-action-steps h3 { margin-top: 24px; font-size: 26px; }
+  .marklens-public .ml-home .ml-collections .ml-section-heading h2 { font-size: 52px; }
+  .marklens-public .ml-collection-showcase { grid-template-columns: 1fr; gap: 32px; }
+  .marklens-public .ml-collection-topics > .ml-eyebrow { margin-bottom: 24px; }
+  .marklens-public .ml-collection-topic { padding-block: 22px; }
+  .marklens-public .ml-collection-topic > span:nth-child(2) { font-size: 32px; }
+  .marklens-public .ml-collection-note { padding-top: 24px; }
+  .marklens-public .ml-collection-frames { aspect-ratio: 1.15; }
+  .marklens-public .ml-home .ml-weekly-grid { grid-template-columns: 1fr; gap: 44px; }
+  .marklens-public .ml-weekly-edition { max-width: 260px; margin-top: 8px; }
+  .marklens-public .ml-weekly-paper { min-height: 328px; padding: 24px; }
+  .marklens-public .ml-home .ml-weekly h2 { font-size: 33px; }
+  .marklens-public .ml-weekly-body > .ml-weekly-subscribe { margin-top: 28px; }
+  .marklens-public .ml-signal-dot { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marklens-public .ml-collection-frame { transform: none; }
+  .marklens-public .ml-collection-topic > span:nth-child(2), .marklens-public .ml-collection-topic svg { transform: none !important; }
+}

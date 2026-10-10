@@ -8,7 +8,6 @@ import LatestInsights from "@/components/home/LatestInsights"
 import TrendToAction from "@/components/home/TrendToAction"
 import Collections from "@/components/home/Collections"
 import Weekly from "@/components/home/Weekly"
-import HomeMotion from "@/components/home/HomeMotion"
 import { headline, hasImage, unusedStories, selectMainStory, selectCollections, selectSignals, type HomeInsight } from "@/components/home/data"
 
 export const metadata: Metadata = {
@@ -46,6 +45,7 @@ export default async function HomePage() {
   const signals = selectSignals([...weekly.filter(i => i.summary?.trim()), ...weekly.filter(i => !i.summary?.trim())], 3)
   const pulse = selectSignals(unusedStories(recent, [...anchors, ...signals]))
   const latest = unusedStories(recent, [...anchors, ...signals, ...pulse]).slice(0, 4)
+  const radar = selectSignals(unusedStories(recent, [...anchors, ...signals, ...pulse, ...latest]), 2)
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const orgJsonLd = {
     "@context": "https://schema.org",
@@ -72,17 +72,16 @@ export default async function HomePage() {
   const unavailable = !!(recentResult.error || featuredResult.error || signalsResult.error)
 
   return (
-    <HomeMotion>
+    <div className="ml-home">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
-      <Hero story={hero} />
+      <Hero story={hero} radar={radar}><Pulse insights={pulse} /></Hero>
       {unavailable ? <p className="ml-container ml-data-notice" role="status">일부 콘텐츠를 불러오지 못했습니다. 잠시 후 다시 방문해주세요.</p> : null}
-      <Pulse insights={pulse} />
       <MainStory insight={story} />
       <Signals insights={signals} since={since} until={until} />
       <LatestInsights insights={latest} />
       <TrendToAction insight={recent.find(i => i.framework_analysis || i.practical_applications) ?? story} />
-      <Collections collections={selectCollections(recent)} />
+      <Collections collections={selectCollections(unusedStories(recent, anchors))} />
       <Weekly />
-    </HomeMotion>
+    </div>
   )
 }
