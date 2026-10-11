@@ -12,7 +12,7 @@ async function sendWelcomeEmail(email: string): Promise<void> {
   <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
   <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
     <tr><td style="background:#0d0d0d;border-radius:16px 16px 0 0;padding:36px 32px;text-align:center;">
-      <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#7a7a7a;letter-spacing:0.18em;text-transform:uppercase;">MarkLens Weekly</p>
+      <p style="margin:0 0 16px;"><img src="https://marklens.site/brand/marklens-wordmark-reverse.png" alt="MarkLens" width="120" height="23" style="display:inline-block;width:120px;height:auto;border:0;"/></p>
       <h1 style="margin:0;font-size:24px;font-weight:900;color:#fff;">구독을 환영합니다 🎉</h1>
     </td></tr>
     <tr><td style="background:#fff;padding:30px 32px;">
@@ -24,8 +24,8 @@ async function sendWelcomeEmail(email: string): Promise<void> {
       <p style="margin:0 0 4px;font-size:14px;color:#444;line-height:1.7;">🔍 이번 주 최고의 마케팅 사례</p>
       <p style="margin:0 0 4px;font-size:14px;color:#444;line-height:1.7;">🎯 바로 써먹는 액션 + 포트폴리오·커리어 팁</p>
       <div style="margin-top:24px;padding:18px 20px;background:#f4f4ff;border:1px solid #e0e0ff;border-radius:12px;text-align:center;">
-        <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#4338ca;">🎁 구독 선물 — 마케팅 면접 질문 40선</p>
-        <a href="https://marklens.site/api/lead-magnet/interview" style="display:inline-block;padding:12px 28px;background:#6366f1;color:#fff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;">PDF 받기 →</a>
+        <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#164BFF;">🎁 구독 선물 — 마케팅 면접 질문 40선</p>
+        <a href="https://marklens.site/api/lead-magnet/interview" style="display:inline-block;padding:12px 28px;background:#164BFF;color:#fff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;">PDF 받기 →</a>
       </div>
       <div style="text-align:center;margin-top:18px;">
         <a href="https://marklens.site/insights" style="display:inline-block;padding:14px 32px;background:#0d0d0d;color:#fff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;">지금 인사이트 둘러보기 →</a>

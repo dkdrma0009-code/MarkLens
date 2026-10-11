@@ -15,7 +15,7 @@ export async function sendConfirmEmail(email, confirmUrl) {
 <head><meta charset="UTF-8"/></head>
 <body style="font-family:-apple-system,sans-serif;background:#f9f9f9;margin:0;padding:40px 20px;">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:40px;border:1px solid #e5e5e5;">
-    <p style="font-size:12px;color:#999;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.1em;">MarkLens Weekly</p>
+    <p style="margin:0 0 20px;"><img src="https://marklens.site/brand/marklens-wordmark.png" alt="MarkLens" width="120" height="23" style="display:block;width:120px;height:auto;border:0;"/></p>
     <h1 style="font-size:22px;font-weight:700;color:#0a0a0a;margin:0 0 16px;">구독을 확인해주세요</h1>
     <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 24px;">
       아래 버튼을 클릭하면 구독이 완료됩니다.<br/>

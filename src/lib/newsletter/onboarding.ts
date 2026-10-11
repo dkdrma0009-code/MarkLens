@@ -44,10 +44,10 @@ const STEPS: DripStep[] = [
       <p style="margin:0 0 4px;font-size:14px;color:#444;line-height:1.7;">🎤 <b>면접 연습</b> — 트렌드 기반 질문에 답해보고 피드백 받기</p>
       <p style="margin:0 0 18px;font-size:14px;color:#444;line-height:1.7;">✅ <b>퀴즈</b> — 이번 주 마케팅 상식 체크</p>
       <div style="text-align:center;margin-top:8px;">
-        <a href="${SITE}/insight-lab" style="display:inline-block;padding:13px 30px;background:#6366f1;color:#fff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;">인사이트 랩 시작 →</a>
+        <a href="${SITE}/insight-lab" style="display:inline-block;padding:13px 30px;background:#164BFF;color:#fff;border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;">인사이트 랩 시작 →</a>
       </div>
       <div style="text-align:center;margin-top:10px;">
-        <a href="${SITE}/practice" style="font-size:13px;color:#6366f1;text-decoration:none;">면접 연습·퀴즈 보러 가기 →</a>
+        <a href="${SITE}/practice" style="font-size:13px;color:#164BFF;text-decoration:none;">면접 연습·퀴즈 보러 가기 →</a>
       </div>`,
   },
 ]
