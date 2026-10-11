@@ -1,8 +1,9 @@
 import type { Slide } from "./types"
+import WordmarkSvg from "@/lib/brand/WordmarkSvg"
 import { categoryLabel, editorialLines, ROLE_LABELS, slideCopy, type EditorialContext } from "./editorial"
 
 const W = 1080, H = 1350
-const INK = "#101010", WHITE = "#FAFAF7", BLUE = "#0057FF"
+const INK = "#101010", WHITE = "#FAFAF7", BLUE = "#164BFF"
 
 function textLines(text: string, size: number, width: number, max: number, bold = false) {
   return <div style={{ display: "flex", flexDirection: "column", fontSize: size, fontWeight: bold ? 700 : 400, lineHeight: 1.2, letterSpacing: bold ? "-0.035em" : "-0.01em" }}>
@@ -32,7 +33,7 @@ export function renderEditorialSlide(slide: Slide, category: string, total: numb
   const color = dark ? WHITE : INK
   const metricSize = (ctx.metric?.value.length ?? 0) <= 5 ? 164 : (ctx.metric?.value.length ?? 0) <= 9 ? 104 : 80
   const footer = <div style={{ display: "flex", position: "absolute", bottom: 48, left: 64, right: 64, justifyContent: "space-between", fontSize: 25, letterSpacing: "0.06em", color: dark ? "#AAA" : "#646464" }}>
-    <span style={{ fontWeight: hook || end ? 700 : 400 }}>MARKLENS</span>{!hook ? <span>{String(page).padStart(2, "0")}/{String(total).padStart(2, "0")}</span> : null}
+    <WordmarkSvg reverse={dark} width={145} />{!hook ? <span>{String(page).padStart(2, "0")}/{String(total).padStart(2, "0")}</span> : null}
   </div>
   return <div style={{ width: W, height: H, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", background: dark ? INK : WHITE, color, fontFamily: "Pretendard" }}>
     {photo && ctx.image ? photograph(ctx.image, hook ? 910 : 760, ctx.photoCrop) : null}

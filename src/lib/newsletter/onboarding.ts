@@ -58,7 +58,7 @@ function wrap(body: string, unsubscribeUrl: string): string {
   <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
   <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
     <tr><td style="background:#0d0d0d;border-radius:16px 16px 0 0;padding:30px 32px;text-align:center;">
-      <p style="margin:0;font-size:13px;font-weight:800;color:#fff;letter-spacing:0.04em;">MarkLens</p>
+      <p style="margin:0;"><img src="https://marklens.site/brand/marklens-wordmark-reverse.png" alt="MarkLens" width="120" height="23" style="display:inline-block;width:120px;height:auto;border:0;"/></p>
     </td></tr>
     <tr><td style="background:#fff;padding:30px 32px;">${body}</td></tr>
     <tr><td style="background:#e8e5e0;border-radius:0 0 16px 16px;border-top:1px solid #d8d5d0;padding:18px;text-align:center;">

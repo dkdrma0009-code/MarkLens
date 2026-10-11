@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Wordmark from "@/components/brand/Wordmark"
 
 const groups = [
   { title: "Explore", links: [["Insights", "/insights"], ["Trends", "/#signals"], ["Collections", "/#collections"], ["Dictionary", "/glossary"]] },
@@ -12,7 +13,7 @@ export default function Footer() {
       <div className="ml-container">
         <div className="ml-footer-top">
           <div className="ml-footer-brand">
-            <Link href="/#main-content" className="ml-logo">MarkLens<span className="ml-logo-dot">.</span></Link>
+            <Link href="/#main-content" className="ml-logo" aria-label="MarkLens 홈"><Wordmark reverse /></Link>
             <p>Where Marketing Trends<br />Become Action</p>
             <div className="ml-footer-social"><a href="https://www.instagram.com/marklens.site" target="_blank" rel="noopener noreferrer">Instagram ↗</a><a href="https://www.threads.com/@marklens.site" target="_blank" rel="noopener noreferrer">Threads ↗</a></div>
           </div>

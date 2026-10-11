@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og"
+import WordmarkSvg from "@/lib/brand/WordmarkSvg"
 
 export const runtime = "edge"
 export const alt = "MarkLens — Where Marketing Trends Become Action"
@@ -21,7 +22,7 @@ export default function OgImage() {
           position: "relative",
         }}
       >
-        {/* 그라디언트 상단 바 */}
+        {/* 브랜드 상단 바 */}
         <div
           style={{
             position: "absolute",
@@ -29,7 +30,7 @@ export default function OgImage() {
             left: 0,
             right: 0,
             height: 6,
-            background: "linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899)",
+            background: "#164BFF",
           }}
         />
 
@@ -42,29 +43,15 @@ export default function OgImage() {
             marginBottom: 32,
           }}
         >
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
-              background: "#1a1a1a",
-              border: "2px solid #333",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-            }}
-          >
-            🔍
-          </div>
-          <span style={{ fontSize: 42, fontWeight: 900, color: "#ffffff", letterSpacing: -1 }}>
-            MarkLens
-          </span>
+          <WordmarkSvg reverse width={290} />
         </div>
 
         {/* 메인 카피 */}
         <div
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             fontSize: 52,
             fontWeight: 800,
             color: "#ffffff",
@@ -75,9 +62,8 @@ export default function OgImage() {
             marginBottom: 24,
           }}
         >
-          Where Marketing Trends
-          <br />
-          Become Action
+          <div>Where Marketing Trends</div>
+          <div>Become Action</div>
         </div>
 
         {/* 서브 카피 */}

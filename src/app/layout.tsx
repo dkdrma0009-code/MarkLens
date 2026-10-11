@@ -58,7 +58,7 @@ export const metadata: Metadata = {
       { url: "/favicon.ico", sizes: "48x48" },
     ],
     shortcut: "/favicon.ico",
-    apple: "/icon.svg",
+    apple: { url: "/brand/marklens-mark-180.png", sizes: "180x180", type: "image/png" },
   },
   openGraph: {
     title: "MarkLens — 마케팅 트렌드를 읽고, 실무를 준비하다",

@@ -2,8 +2,8 @@ import type { NewsletterIssue, NewsletterVisual } from "@/types"
 import { isHotlinkBlocked } from "@/lib/images"
 
 const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;"
-// 포인트 컬러는 단 1개만 — 흑백 기조에 절제된 인디고. 인용구·소제목·링크·정리박스·버튼에 일관 사용.
-const ACCENT = "#4f46e5"
+// Canonical MarkLens Electric Blue. Email layout and delivery contracts are unchanged.
+const ACCENT = "#164BFF"
 const SITE = "https://marklens.site"
 
 // 이메일 호환 이미지 URL. Unsplash CDN은 직접 핫링크(라이선스 권장) + imgix 사이즈,
@@ -138,7 +138,7 @@ export function buildNewsletterHtml(
 
   <!-- 헤더: 검정 배경 + 강렬한 워드마크 -->
   <tr><td style="background:#0d0d0d;padding:40px 32px 32px;text-align:center;">
-    <p style="margin:0 0 14px;font-size:32px;font-weight:900;color:#ffffff;letter-spacing:-1px;${F}">MarkLens<span style="color:${ACCENT};">.</span></p>
+    <p style="margin:0 0 14px;"><img src="${SITE}/brand/marklens-wordmark-reverse.png" alt="MarkLens" width="180" height="35" style="display:inline-block;width:180px;height:auto;border:0;"/></p>
     <p style="margin:0;font-size:11px;font-weight:600;color:#777;letter-spacing:0.18em;text-transform:uppercase;${F}">Weekly${issueNum ? ` · Issue #${issueNum}` : ""} &nbsp;·&nbsp; ${today} &nbsp;·&nbsp; ${mins}분</p>
   </td></tr>
 
@@ -171,7 +171,7 @@ export function buildNewsletterHtml(
 
   <!-- 푸터 -->
   <tr><td style="background:#ffffff;border-top:1px solid #f0f0f0;padding:22px 24px 28px;text-align:center;">
-    <p style="margin:0 0 4px;font-size:13px;font-weight:800;color:#0d0d0d;${F}">MarkLens<span style="color:${ACCENT};">.</span></p>
+    <p style="margin:0 0 4px;"><img src="${SITE}/brand/marklens-wordmark.png" alt="MarkLens" width="120" height="23" style="display:inline-block;width:120px;height:auto;border:0;"/></p>
     <p style="margin:0 0 12px;font-size:11px;color:#aaa;${F}">홈페이지보다 메일로 먼저 받아보세요</p>
     <p style="margin:0;font-size:11px;${F}">
       <a href="https://marklens.site" style="color:#888;text-decoration:none;">marklens.site</a>

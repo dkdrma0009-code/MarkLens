@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 import { Sun, Moon, ArrowUpRight } from "lucide-react"
 import PublicNavigation from "./PublicNavigation"
 import MobileBottomNav from "./MobileBottomNav"
+import Wordmark from "@/components/brand/Wordmark"
 
 export default function Header() {
   const pathname = usePathname()
@@ -16,11 +17,8 @@ export default function Header() {
       <a className="ml-skip" href="#main-content">본문으로 건너뛰기</a>
       <div className="ml-container ml-header-inner">
         <Link href="/#main-content" className="ml-logo" aria-label="MarkLens 홈">
-          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-            <path d="M6 26V8l10 4 10-4v18" />
-            <circle cx="16" cy="18" r="5" />
-          </svg>
-          MarkLens<span className="ml-logo-dot">.</span>
+          <Wordmark className="ml-wordmark-primary" />
+          <Wordmark reverse className="ml-wordmark-reverse" />
         </Link>
         <PublicNavigation className="ml-desktop-nav" />
         <div className="ml-header-actions">

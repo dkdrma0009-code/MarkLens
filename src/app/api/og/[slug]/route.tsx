@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og"
+import WordmarkSvg from "@/lib/brand/WordmarkSvg"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const runtime = "edge"
@@ -51,6 +52,7 @@ export async function GET(
           <div
             style={{
               background: "rgba(255,255,255,0.2)",
+              display: "flex",
               borderRadius: "999px",
               padding: "9px 21px",
               fontSize: "20px",
@@ -59,7 +61,7 @@ export async function GET(
               letterSpacing: "0.05em",
             }}
           >
-            MARKLENS
+            <WordmarkSvg reverse width={145} />
           </div>
           <div
             style={{

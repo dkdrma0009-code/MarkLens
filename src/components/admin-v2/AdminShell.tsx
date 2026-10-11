@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Wordmark from "@/components/brand/Wordmark"
 import { usePathname } from "next/navigation"
 import { Dialog } from "@base-ui/react/dialog"
 import {
@@ -39,7 +40,7 @@ function activePath(pathname: string, href: string) {
 
 function AdminWordmark({ onNavigate }: { onNavigate?: () => void }) {
   return <Link href="/admin" onClick={onNavigate} className="admin-wordmark" aria-label="MarkLens Admin Overview">
-    <span>MarkLens<span className="admin-wordmark-dot">.</span></span>
+    <span><Wordmark reverse width={130} /></span>
     <small>ADMIN / CONTROL ROOM</small>
   </Link>
 }

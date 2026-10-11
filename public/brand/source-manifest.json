@@ -1,0 +1,16 @@
+{
+  "system": "A2 Editorial Hybrid",
+  "canonical": "v3",
+  "approved": "2026-10-10",
+  "electricBlue": "#164BFF",
+  "minimumWordmarkWidth": 120,
+  "minimumCompactSize": 16,
+  "sha256": {
+    "marklens-wordmark.svg": "997938c148440cd4055cd0a31aee01a618274b176b81a42b07558ca848968337",
+    "marklens-wordmark-reverse.svg": "ec0cf30319d93fedb54039875a37169d1dc73e3920cbd56b5edfb8382849495b",
+    "marklens-wordmark-signal.svg": "4cf339ed57020737e01a26d7e3dde209808ba55508218217413ba60425590c10",
+    "marklens-mark.svg": "da15d096492b3164ffeff46a9aa1f7bb237a0f019a384f99dec8fdb28781ad0e"
+  },
+  "weeklyDescriptor": "Fixed Pretendard Regular outlines; master wordmark geometry unchanged",
+  "reference": "v2 reconstruction and approved raster retained outside product assets"
+}

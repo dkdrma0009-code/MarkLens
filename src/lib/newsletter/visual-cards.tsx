@@ -1,4 +1,5 @@
 import { TOKENS } from "@/lib/cardnews/templates"
+import WordmarkSvg from "@/lib/brand/WordmarkSvg"
 
 // 뉴스레터 본문 삽입용 가로형(16:9) 타이포 비주얼 카드.
 // 카드뉴스 토큰(다크 배경·인디고 ACCENT·Pretendard)을 그대로 재사용. 새 렌더 엔진 만들지 않음.
@@ -19,7 +20,7 @@ export function renderQuoteCard(text: string) {
         {text.slice(0, 80)}
       </div>
       <div style={{ display: "flex", fontSize: 26, fontWeight: 600, color: T.SUB, letterSpacing: "0.1em", marginTop: 40 }}>
-        MARKLENS
+        <WordmarkSvg reverse width={145} />
       </div>
     </div>
   )
