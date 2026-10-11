@@ -1,16 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-async function makeConfirmToken(email: string): Promise<string> {
-  const secret = process.env.N8N_WEBHOOK_SECRET ?? ""
-  const data = new TextEncoder().encode(`confirm:${email}:${secret}`)
-  const hash = await crypto.subtle.digest("SHA-256", data)
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("")
-    .slice(0, 32)
-}
-
 const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;"
 
 // 구독 확인 직후 보내는 웰컴 이메일 (첫인상 + 기대치 설정 + 사이트 유도)
@@ -72,44 +62,52 @@ const html = (msg: string, sub: string) => `<!DOCTYPE html>
 </body>
 </html>`
 
-export async function GET(req: Request) {
-  // 웰컴 메일 중복 발송·링크 반복 호출 방지 — IP당 분당 10회
-  const limited = checkRateLimit(req, { key: "confirm-subscription", limit: 10, windowMs: 60_000 })
-  if (limited) return new Response(html("요청이 많습니다", "잠시 후 다시 시도해주세요."), {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-    status: 429,
-  })
+type ConfirmationResult = "confirmed" | "invalid_or_consumed" | "expired" | "failure"
 
+function confirmationResponse(result: ConfirmationResult) {
+  const messages = {
+    confirmed: ["구독 확인이 완료되었습니다.", "이제 MarkLens Weekly를 받아보실 수 있습니다."],
+    invalid_or_consumed: ["유효하지 않거나 이미 사용된 확인 링크입니다.", "필요하면 새 확인 메일을 요청해주세요."],
+    expired: ["확인 링크가 만료되었습니다.", "새 확인 메일을 요청해주세요."],
+    failure: ["구독 확인 중 문제가 발생했습니다.", "잠시 후 다시 시도해주세요."],
+  }
+  const [title, description] = messages[result]
+  return new Response(html(title, description), {
+    status: result === "confirmed" ? 200 : result === "failure" ? 500 : result === "expired" ? 410 : 400,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow",
+    },
+  })
+}
+
+// HEAD/link-scanner probes must not consume a token.
+export async function HEAD() {
+  return new Response(null, { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" } })
+}
+
+export async function GET(req: Request) {
+  const limited = checkRateLimit(req, { key: "confirm-subscription", limit: 10, windowMs: 60_000 })
+  if (limited) return limited
   const { searchParams } = new URL(req.url)
   const email = searchParams.get("email")
   const token = searchParams.get("token")
-
-  if (!email || !token) {
-    return new Response(html("잘못된 링크입니다", "다시 구독 신청해주세요."), {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-      status: 400,
-    })
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !token || !/^[a-f0-9]{64}$/.test(token)) {
+    return confirmationResponse("invalid_or_consumed")
   }
-
-  const expected = await makeConfirmToken(email)
-  if (token !== expected) {
-    return new Response(html("유효하지 않은 링크입니다", "다시 구독 신청해주세요."), {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-      status: 400,
+  try {
+    const { data, error } = await createAdminClient().rpc("confirm_subscription", {
+      p_email: email, p_token: token,
     })
+    const result = Array.isArray(data) && data.length === 1 ? data[0] : null
+    if (error || !result || !["confirmed", "invalid_or_consumed", "expired"].includes(result.result)) {
+      console.error("[confirm-subscription] transition failed")
+      return confirmationResponse("failure")
+    }
+    if (result.result === "confirmed") await sendWelcomeEmail(email)
+    return confirmationResponse(result.result)
+  } catch {
+    console.error("[confirm-subscription] transition failed")
+    return confirmationResponse("failure")
   }
-
-  const supabase = createAdminClient()
-  const { data: existing } = await supabase.from("subscribers").select("status").eq("email", email).single()
-  await supabase
-    .from("subscribers")
-    .update({ status: "active", subscribed_at: new Date().toISOString() })
-    .eq("email", email)
-
-  // 신규 활성화만 웰컴 메일 (재클릭 시 중복 발송 방지)
-  if (existing?.status !== "active") await sendWelcomeEmail(email)
-
-  return new Response(html("구독이 완료됐습니다! 🎉", "매주 월요일 7:30 AM, 마케팅 인사이트를 보내드립니다."), {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  })
 }

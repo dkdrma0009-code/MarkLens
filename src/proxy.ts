@@ -101,6 +101,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Boolean analytics opt-out, never an authentication credential. Persists across logout.
+  if (isAdmin && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
+    response.cookies.set("marklens_internal", "1", {
+      path: "/", sameSite: "lax", secure: request.nextUrl.protocol === "https:",
+      httpOnly: false, maxAge: 365 * 24 * 60 * 60,
+    })
+  }
+
   return response
 }
 

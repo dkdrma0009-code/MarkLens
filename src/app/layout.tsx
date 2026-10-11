@@ -3,7 +3,8 @@ import { Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/sonner";
 import ThemeProvider from "@/components/ThemeProvider";
-import Script from "next/script";
+import AudienceAnalytics from "@/components/AudienceAnalytics";
+import { PRODUCTION_SITE_URL } from "@/lib/tracked-url";
 import "./globals.css";
 
 // 한글 본문 — Pretendard (self-host woff2)
@@ -35,11 +36,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 프로덕션에서만 GA 활성화 — 로컬/프리뷰 배포가 프로덕션 GA 데이터를 오염시키는 것 방지
-const GA_ID = process.env.NODE_ENV === "production"
-  ? (process.env.NEXT_PUBLIC_GA_ID ?? "G-9NCMJC4V6L")
-  : null;
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? PRODUCTION_SITE_URL;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -81,15 +78,7 @@ export default function RootLayout({
       className={`${pretendard.variable} ${gmarketSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {GA_ID && <>
-          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-          <Script id="ga4" strategy="afterInteractive">{`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_ID}');
-          `}</Script>
-        </>}
+        <AudienceAnalytics deployment={process.env.VERCEL_ENV ?? process.env.NEXT_PUBLIC_VERCEL_ENV} />
         <ThemeProvider>
           {children}
           <Toaster />

@@ -19,6 +19,17 @@ Supabase는 마이그레이션 CLI 없이 **대시보드 → SQL Editor에 직�
 | 012 | `012_insight_legacy_slug.sql` | insights.legacy_slug 추가 — 슬러그 ASCII 마이그레이션 시 옛 한글 URL 리다이렉트/폴백용 | 001 |
 | 013 | `013_subscribers_source.sql` | subscribers.source 추가 — 구독 유입 경로. 컬럼 누락으로 2026-06-17 이후 구독이 조용히 실패하던 버그 복구 | 001 |
 
+## Subscription confirmation hardening
+
+`016_subscription_confirmation.sql` — token, 48-hour expiry, confirmed_at and
+service-role-only atomic signup/confirmation and legacy recovery claim/release RPCs. Requires 001 and 013.
+Apply before deploying the matching subscribe/confirmation handlers. This pass
+only writes the migration; it does not apply it to production. Existing pending
+links become invalid. After hardened app deployment and smoke, run the legacy
+recovery utility in DRY RUN; separately approved EXECUTE reissues fresh confirmation
+mail to eligible legacy pending only. No automatic data backfill or batch email. Existing active subscribers remain unchanged. Keep 005/006 privilege
+sweeps before 016 (do not grant these functions to anon/authenticated).
+
 ## 주의
 
 - **005 → 006 순서 필수**: 005가 광범위하게 GRANT ALL 한 뒤, 006이 anon/authenticated만 최소 권한으로 좁힌다. 005 없이 006만 돌리면 의도와 다르게 동작한다.

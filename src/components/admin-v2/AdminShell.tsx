@@ -59,7 +59,7 @@ function Sidebar({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
     </nav>
     <div className="admin-sidebar-footer">
       <Link href="/" onClick={onNavigate}>Public site <ArrowUpRight size={15} aria-hidden="true" /></Link>
-      <span>Admin workspace</span>
+      <span>Internal analytics: EXCLUDED</span>
     </div>
   </>
 }

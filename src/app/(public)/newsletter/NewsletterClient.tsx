@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "sonner"
 import { trackEvent } from "@/lib/analytics"
+import { subscriptionResult } from "@/lib/newsletter/subscription-result"
+import { useNewsletterView } from "@/components/useNewsletterView"
 
 export default function NewsletterClient() {
   const [email, setEmail] = useState("")
@@ -10,10 +12,14 @@ export default function NewsletterClient() {
   const [subscribed, setSubscribed] = useState(false)
   const [message, setMessage] = useState("")
   const [failed, setFailed] = useState(false)
+  const formRef = useNewsletterView("newsletter_page")
+  const pending = useRef(false)
+  const converted = useRef(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (loading) return
+    if (pending.current || converted.current) return
+    pending.current = true
     setLoading(true)
     setMessage("")
     setFailed(false)
@@ -26,24 +32,28 @@ export default function NewsletterClient() {
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      if (data.alreadySubscribed) {
+      const result = subscriptionResult(data)
+      if (result === "failure") throw new Error()
+      if (result === "already") {
         setMessage("이미 구독 중이에요!")
         toast.info("이미 구독 중이에요!")
         trackEvent("newsletter_already", { location: "newsletter_page" })
-      } else if (data.emailFailed) {
+      } else if (result === "emailFailed") {
         setFailed(true)
         setMessage("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
         toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
       } else {
+        converted.current = true
         setSubscribed(true)
         toast.success("확인 이메일을 보냈습니다!")
-        trackEvent("newsletter_subscribe", { location: "newsletter_page" })
+        if (result === "new") trackEvent("newsletter_subscribe", { location: "newsletter_page" })
       }
     } catch {
       setFailed(true)
       setMessage("오류가 발생했습니다. 다시 시도해주세요.")
       toast.error("오류가 발생했습니다. 다시 시도해주세요.")
     } finally {
+      pending.current = false
       setLoading(false)
     }
   }
@@ -57,7 +67,7 @@ export default function NewsletterClient() {
             <h1>한 주의 변화를,<br />하나의 관점으로.</h1>
             <p className="ml-page-intro">가장 의미 있는 마케팅 주제 하나를 깊게 읽습니다. 무슨 일이 있었는지부터, 내 일과 커리어에 어떤 의미가 있는지까지.</p>
           </div>
-          <div id="weekly-subscribe" className="ml-publication-form">
+          <div ref={formRef} id="weekly-subscribe" className="ml-publication-form">
             <p className="ml-publication-schedule">매주 월요일 아침을 위한 브리핑<br />7:30 초안 준비 · 에디터 검토 후 발송</p>
             {subscribed ? (
               <div className="ml-confirmation" role="status">

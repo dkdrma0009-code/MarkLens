@@ -1,52 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
-
-async function makeConfirmToken(email: string): Promise<string> {
-  const secret = process.env.N8N_WEBHOOK_SECRET ?? ""
-  const data = new TextEncoder().encode(`confirm:${email}:${secret}`)
-  const hash = await crypto.subtle.digest("SHA-256", data)
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("")
-    .slice(0, 32)
-}
-
-async function sendConfirmEmail(email: string, confirmUrl: string) {
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "api-key": process.env.BREVO_API_KEY!,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sender: { name: "MarkLens", email: "newsletter@marklens.site" },
-      to: [{ email }],
-      subject: "MarkLens 뉴스레터 구독 확인",
-      htmlContent: `<!DOCTYPE html>
-<html lang="ko">
-<head><meta charset="UTF-8"/></head>
-<body style="font-family:-apple-system,sans-serif;background:#f9f9f9;margin:0;padding:40px 20px;">
-  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:40px;border:1px solid #e5e5e5;">
-    <p style="font-size:12px;color:#999;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.1em;">MarkLens Weekly</p>
-    <h1 style="font-size:22px;font-weight:700;color:#0a0a0a;margin:0 0 16px;">구독을 확인해주세요</h1>
-    <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 24px;">
-      아래 버튼을 클릭하면 구독이 완료됩니다.<br/>
-      매주 월요일 7:30 AM, 마케팅 인사이트를 보내드립니다.
-    </p>
-    <a href="${confirmUrl}" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;border-radius:100px;font-size:15px;font-weight:600;text-decoration:none;">
-      구독 확인하기 →
-    </a>
-    <p style="font-size:12px;color:#aaa;margin:24px 0 0;">
-      본인이 신청하지 않았다면 이 메일을 무시하세요.
-    </p>
-  </div>
-</body>
-</html>`,
-    }),
-  })
-  if (!res.ok) throw new Error(`Brevo error: ${await res.text()}`)
-}
+import { confirmationUrl, sendConfirmEmail } from "@/lib/newsletter/confirmation-mail.mjs"
 
 export async function POST(req: Request) {
   // 이메일 발송 비용·스팸 방지 — 정상 사용자는 1회로 충분, IP당 분당 3회
@@ -59,44 +14,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "유효하지 않은 이메일입니다" }, { status: 400 })
   }
 
-  const supabase = createAdminClient()
+  try {
+    const supabase = createAdminClient()
 
-  // 이미 active 구독자면 바로 성공 반환
-  const { data: existing } = await supabase
-    .from("subscribers")
-    .select("status")
-    .eq("email", email)
-    .single()
+    // Serialize signup/resend against confirmation; active rows never regress.
+    const token = crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "")
+    const { data, error } = await supabase.rpc("issue_subscription_confirmation", {
+      p_email: email, p_token: token,
+      p_source: typeof source === "string" ? source.slice(0, 80) : null,
+    })
+    const result = Array.isArray(data) && data.length === 1 ? data[0] : null
+    if (error || !result || !["issued", "already_active"].includes(result.result)) {
+      console.error("[subscribe] token issue failed")
+      return NextResponse.json({ error: "구독 저장에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 })
+    }
+    if (result.result === "already_active") {
+      return NextResponse.json({ success: true, alreadySubscribed: true })
+    }
+    const confirmUrl = confirmationUrl(email, token)
 
-  if (existing?.status === "active") {
-    return NextResponse.json({ success: true, alreadySubscribed: true })
-  }
+    try {
+      await sendConfirmEmail(email, confirmUrl)
+    } catch {
+      // 이메일 발송 실패해도 구독은 유지, 재시도 안내
+      return NextResponse.json({ success: true, emailFailed: true })
+    }
 
-  // pending 상태로 저장 (source는 최초 구독 시만 기록, 재구독 시 덮어쓰지 않음)
-  const row: Record<string, string> = { email, status: "pending" }
-  if (source && typeof source === "string") row.source = source.slice(0, 80)
-  const { error: saveError } = await supabase
-    .from("subscribers")
-    .upsert(row, { onConflict: "email" })
-
-  // DB 저장 실패는 실패로 처리한다 — 저장 안 됐는데 성공(확인메일)으로 넘어가면
-  // 구독자가 유령이 된다(과거 source 컬럼 누락 사고). 여기서 끊고 에러를 반환.
-  if (saveError) {
-    console.error("[subscribe] 저장 실패:", saveError.message)
+    return NextResponse.json({ success: true, subscriptionCreated: result.subscription_created === true })
+  } catch {
+    console.error("[subscribe] token issue failed")
     return NextResponse.json({ error: "구독 저장에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 })
   }
-
-  // 확인 이메일 발송
-  const token = await makeConfirmToken(email)
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
-  const confirmUrl = `${base}/api/confirm-subscription?email=${encodeURIComponent(email)}&token=${token}`
-
-  try {
-    await sendConfirmEmail(email, confirmUrl)
-  } catch {
-    // 이메일 발송 실패해도 구독은 유지, 재시도 안내
-    return NextResponse.json({ success: true, emailFailed: true })
-  }
-
-  return NextResponse.json({ success: true })
 }

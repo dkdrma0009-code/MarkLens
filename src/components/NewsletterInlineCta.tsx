@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "sonner"
 import { trackEvent } from "@/lib/analytics"
+import { subscriptionResult } from "@/lib/newsletter/subscription-result"
+import { useNewsletterView } from "@/components/useNewsletterView"
 
 // 인사이트 본문 하단/중간 등에 삽입하는 구독 CTA (따뜻한 리드 전환)
 // location: 폼의 논리적 위치(home_inline, insight_bottom, insight_mid 등) — 기존 값 유지.
@@ -30,29 +32,14 @@ export default function NewsletterInlineCta({
   const [done, setDone] = useState(false)
 
   // 노출(impression) — 페이지 로드가 아니라 폼이 실제 뷰포트에 들어왔을 때 1회만.
-  const rootRef = useRef<HTMLDivElement>(null)
-  const viewed = useRef(false)
-  useEffect(() => {
-    const el = rootRef.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting && !viewed.current) {
-            viewed.current = true
-            trackEvent("newsletter_view", { location, position: pos })
-            io.disconnect()
-          }
-        }
-      },
-      { threshold: 0.5 },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [location, pos])
+  const rootRef = useNewsletterView(location, pos)
+  const pending = useRef(false)
+  const converted = useRef(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (pending.current || converted.current) return
+    pending.current = true
     setLoading(true)
     trackEvent("newsletter_submit", { location, position: pos })
     try {
@@ -62,13 +49,20 @@ export default function NewsletterInlineCta({
         body: JSON.stringify({ email, source: location }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error()
-      if (data.alreadySubscribed) { toast.info("이미 구독 중이에요!"); trackEvent("newsletter_already", { location, position: pos }) }
-      else if (data.emailFailed) toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
-      else { setDone(true); toast.success("확인 이메일을 보냈어요!"); trackEvent("newsletter_subscribe", { location, position: pos }) }
+      const result = subscriptionResult(data)
+      if (!res.ok || result === "failure") throw new Error()
+      if (result === "already") { toast.info("이미 구독 중이에요!"); trackEvent("newsletter_already", { location, position: pos }) }
+      else if (result === "emailFailed") toast.error("확인 메일 발송에 실패했어요. 잠시 후 다시 시도해주세요.")
+      else {
+        converted.current = true
+        setDone(true)
+        toast.success("확인 이메일을 보냈어요!")
+        if (result === "new") trackEvent("newsletter_subscribe", { location, position: pos })
+      }
     } catch {
       toast.error("오류가 발생했습니다. 다시 시도해주세요.")
     } finally {
+      pending.current = false
       setLoading(false)
     }
   }
