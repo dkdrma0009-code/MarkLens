@@ -2,8 +2,8 @@
 
 Baseline date: **2026-10-11**. Status: **Pre-Relaunch**.
 Production base: `4f9525fcb12a3337334e400a5cc3478c3d84c7e2`.
-Measurement clean start: **PENDING — record the actual production deployment date
-after this change and completion of the manual GA4 checklist.** This work is not deployed.
+Application measurement clean start: **2026-10-11 14:44 KST**.
+Production commit: `342c59c2385a81bf1b460bcc454a8ff2959b5025`.
 
 ## Historical baseline — user-provided GA4 observations
 
@@ -309,3 +309,15 @@ warning); diff PASS. Confirmation/recovery tests 8 PASS with SQL suites enabled;
 analytics regression 116 assertions PASS. Shared mail template unchanged. The
 recovery script has a narrow .gitignore exception; unrelated local scripts/reels
 remain ignored. No staging/commit/push/deploy/production recovery was performed.
+
+## Production Stage 2 completion — 2026-10-11
+
+Legacy recovery completed and verified at **2026-10-11 20:21:03 KST**.
+Preflight legacy candidates: **2**. One execution used `--execute --expect-count 2`.
+Confirmation emails reissued and accepted by the provider: **2**; failures: **0**.
+Post-execution: total **11**, pending **2**, active **9**. Both recovered pending
+rows have a token set, future expiry and NULL confirmed_at. Follow-up DRY RUN
+legacy candidates: **0**. No automatic activation or legacy active backfill.
+Historical raw baseline remains preserved and is not clean external audience.
+Confirmed KPI source of truth remains DB: `status = active AND confirmed_at IS NOT NULL`.
+No broadcast, social publish, GA settings change or application redeployment.
