@@ -8,8 +8,10 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
+    deviceSizes: [640, 768, 1024, 1440, 1920, 2560],
+    imageSizes: [128, 256, 384],
     remotePatterns: [
-      { protocol: "https", hostname: "**" },
+      { protocol: "https", hostname: "images.weserv.nl" },
     ],
   },
   // Remotion(번들러·렌더러)은 네이티브 바이너리 포함 — 서버 번들에서 제외(로컬 렌더 시 node_modules에서 직접 require)

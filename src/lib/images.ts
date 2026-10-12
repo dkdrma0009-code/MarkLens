@@ -15,3 +15,12 @@ export function weservThumb(url: string, width = 440): string {
   const stripped = url.replace(/^https?:\/\//, "")
   return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}&w=${width}&output=webp&q=75&maxage=7d`
 }
+
+// Public responsive images use the CDN as the only transformer. Preserve source
+// query parameters (including signed URLs); unwrap our existing CDN URL once.
+export function editorialImageLoader({ src, width }: { src: string; width: number; quality?: number }): string {
+  const url = new URL(src, "https://marklens.site")
+  const original = (url.hostname === "images.weserv.nl" || url.hostname === "wsrv.nl")
+    ? url.searchParams.get("url") || src : src
+  return weservThumb(original, width)
+}

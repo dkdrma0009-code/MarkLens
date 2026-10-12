@@ -8,7 +8,7 @@ export default function EditorialInsight({ insight, variant = "row" }: { insight
   const featured = variant === "featured"
   return <article className={`ml-editorial-insight ml-editorial-${variant}`}>
     <Link href={`/insights/${insight.slug}`} className="ml-editorial-image" aria-label={headline(insight)}>
-      <EditorialImage key={insight.id} insight={insight} sizes={featured ? "(max-width: 767px) 100vw, 60vw" : "(max-width: 767px) 96px, 300px"} eager={featured} />
+      <EditorialImage key={insight.id} insight={insight} sizes={featured ? "(max-width: 767px) 100vw, 60vw" : "(max-width: 767px) 96px, (max-width: 1023px) 200px, 280px"} eager={featured} />
     </Link>
     <div className="ml-editorial-copy">
       <p className="ml-category">{insight.category}</p>

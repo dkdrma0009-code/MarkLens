@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useState } from "react"
-import { isHotlinkBlocked, weservThumb } from "@/lib/images"
+import { isHotlinkBlocked, editorialImageLoader } from "@/lib/images"
 import type { HomeInsight } from "./data"
 
 export default function EditorialImage({ insight, sizes, eager = false }: { insight?: HomeInsight; sizes: string; eager?: boolean }) {
@@ -17,7 +17,8 @@ export default function EditorialImage({ insight, sizes, eager = false }: { insi
     <div className="ml-image">
       {source ? <Image
         key={source}
-        src={weservThumb(source, eager ? 1600 : 1440)}
+        src={source}
+        loader={editorialImageLoader}
         alt=""
         fill
         sizes={sizes}
