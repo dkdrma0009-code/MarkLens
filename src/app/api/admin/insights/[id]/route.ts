@@ -19,10 +19,10 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient()
-  const { error } = await supabase.from("insights").update(updates).eq("id", id)
+  const { data: edited, error } = await supabase.from("insights").update(updates).eq("id", id).select("slug")
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  revalidatePublicContent() // 편집 내용이 캐시된 공개 페이지에 즉시 반영되게
+  revalidatePublicContent({ slugs: (edited ?? []).map((r) => r.slug) }) // 편집한 글의 상세만 + 홈·목록
   return NextResponse.json({ success: true })
 }
 
@@ -37,7 +37,7 @@ export async function DELETE(
 
   const { data: insight } = await supabase
     .from("insights")
-    .select("article_id")
+    .select("article_id, slug") // 삭제 후엔 slug를 조회할 수 없으므로 미리 확보
     .eq("id", id)
     .single()
 
@@ -51,6 +51,6 @@ export async function DELETE(
     .update({ status: "pending" })
     .eq("id", insight.article_id)
 
-  revalidatePublicContent() // 삭제·비공개 전환이 캐시된 공개 페이지에 즉시 반영되게
+  revalidatePublicContent({ slugs: [insight.slug] }) // 삭제한 글의 상세만 + 홈·목록
   return NextResponse.json({ success: true })
 }

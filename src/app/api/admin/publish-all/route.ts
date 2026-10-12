@@ -16,12 +16,12 @@ export async function POST() {
   // 인사이트(hook+summary)가 있는 ready 아티클만 발행
   const { data: readyArticles } = await db
     .from("articles")
-    .select("id, insights(hook, summary)")
+    .select("id, insights(hook, summary, slug)")
     .eq("status", "ready")
 
-  const validIds = (readyArticles ?? [])
+  const validArticles = (readyArticles ?? [])
     .filter(a => a.insights?.[0]?.hook && a.insights?.[0]?.summary)
-    .map(a => a.id)
+  const validIds = validArticles.map(a => a.id)
 
   if (validIds.length === 0) {
     return NextResponse.json({ published: 0 })
@@ -29,6 +29,7 @@ export async function POST() {
 
   await db.from("articles").update({ status: "published" }).in("id", validIds)
 
-  revalidatePublicContent() // 대량 발행을 공개 페이지에 즉시 반영 (ISR 캐시 무효화)
+  // 이번에 발행한 글의 상세만 + 홈·목록 (ISR 캐시 무효화)
+  revalidatePublicContent({ slugs: validArticles.map(a => a.insights?.[0]?.slug) })
   return NextResponse.json({ success: true, published: validIds.length })
 }
