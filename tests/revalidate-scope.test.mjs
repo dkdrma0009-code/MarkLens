@@ -80,3 +80,64 @@ test("cron/collect: 새로 공개한 글이 0건이면 무효화를 호출하지
   const call = src.indexOf("revalidatePublicContent({ slugs:")
   assert.ok(guard > 0 && call > guard, "revalidate 호출이 ids.length > 0 가드 안에 있어야 한다")
 })
+
+// ── 관리자 article DELETE 라우트: 삭제 전 확보한 slug만 무효화 ──
+// next/cache·인증·Supabase admin·next/server를 스텁으로 바꿔 실제 라우트 코드를 실행한다.
+const STUBS = {
+  "next/cache": "exports.revalidatePath = (p, type) => { (globalThis.__revalidateCalls ??= []).push(type ? [p, type] : [p]) }",
+  "@/lib/api-auth": "exports.isAdmin = async () => true",
+  "@/lib/supabase/admin": "exports.createAdminClient = () => globalThis.__mockDb",
+  "next/server": "exports.NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) }",
+}
+const routeFile = path.join(out, "article-delete-route.cjs")
+await esbuild.build({
+  entryPoints: ["src/app/api/admin/articles/[id]/route.ts"],
+  outfile: routeFile,
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  plugins: [{
+    name: "stubs",
+    setup(build) {
+      build.onResolve({ filter: /^(next\/cache|next\/server|@\/lib\/api-auth|@\/lib\/supabase\/admin)$/ }, (a) => ({ path: a.path, namespace: "stub" }))
+      build.onLoad({ filter: /.*/, namespace: "stub" }, (a) => ({ contents: STUBS[a.path], loader: "js" }))
+    },
+  }],
+})
+const { DELETE } = createRequire(import.meta.url)(routeFile)
+
+// insights select / insights delete / articles delete 결과를 지정하는 최소 mock
+function mockDb({ slugs = [], slugError = false, articleError = null }) {
+  return {
+    from(table) {
+      return {
+        select() { return { eq: async () => (slugError ? { data: null, error: { message: "x" } } : { data: slugs.map((slug) => ({ slug })), error: null }) } },
+        delete() { return { eq: async () => (table === "articles" ? { error: articleError } : { error: null }) } },
+      }
+    },
+  }
+}
+async function runDelete(db) {
+  globalThis.__mockDb = db
+  globalThis.__revalidateCalls = []
+  const res = await DELETE(new Request("http://x/api/admin/articles/a1", { method: "DELETE" }), { params: Promise.resolve({ id: "a1" }) })
+  return { res, calls: globalThis.__revalidateCalls }
+}
+
+test("article DELETE: 삭제한 글 slug만 + 홈·목록 무효화", async () => {
+  const { res, calls } = await runDelete(mockDb({ slugs: ["foo"] }))
+  assert.equal(res.status, 200)
+  assert.deepEqual(calls, [...COMMON, ["/insights/foo"]])
+  assert.ok(!calls.some(([p, type]) => p.includes("[slug]") || type === "page"))
+})
+
+test("article DELETE: slug 확보 실패·연결 insight 없음이어도 상세 전체 무효화는 없다", async () => {
+  assert.deepEqual((await runDelete(mockDb({ slugError: true }))).calls, COMMON)
+  assert.deepEqual((await runDelete(mockDb({ slugs: [] }))).calls, COMMON)
+})
+
+test("article DELETE: 삭제 실패 시 500, 무효화 없음", async () => {
+  const { res, calls } = await runDelete(mockDb({ slugs: ["foo"], articleError: { message: "fk" } }))
+  assert.equal(res.status, 500)
+  assert.deepEqual(calls, [])
+})
