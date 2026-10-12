@@ -1,3 +1,4 @@
+import { PUBLIC_HOME_SELECT } from "@/lib/insights/public-select"
 import type { Metadata } from "next"
 import { createPublicClient } from "@/lib/supabase/server"
 import Hero from "@/components/home/Hero"
@@ -26,16 +27,15 @@ export const metadata: Metadata = {
 export const revalidate = 3600
 
 // 발행된 공개 콘텐츠만 조회. raw_content 등 본문 전체를 홈으로 전달하지 않는다.
-const HOME_SELECT = "id, slug, hook, summary, category, is_featured, created_at, practical_applications, framework_analysis, portfolio_usage, article:articles!inner(title, source_name, image_url, fallback_image, site_published_at)"
 
 export default async function HomePage() {
   const supabase = createPublicClient()
   const until = new Date().toISOString()
   const since = new Date(new Date(until).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const [recentResult, featuredResult, signalsResult] = await Promise.all([
-    supabase.from("insights").select(HOME_SELECT).eq("articles.status", "published").order("created_at", { ascending: false }).limit(60).returns<HomeInsight[]>(),
-    supabase.from("insights").select(HOME_SELECT).eq("articles.status", "published").eq("is_featured", true).order("created_at", { ascending: false }).limit(5).returns<HomeInsight[]>(),
-    supabase.from("insights").select(HOME_SELECT).eq("articles.status", "published").gte("created_at", since).lte("created_at", until).order("created_at", { ascending: false }).limit(20).returns<HomeInsight[]>(),
+    supabase.from("insights").select(PUBLIC_HOME_SELECT).eq("articles.status", "published").order("created_at", { ascending: false }).limit(60).returns<HomeInsight[]>(),
+    supabase.from("insights").select(PUBLIC_HOME_SELECT).eq("articles.status", "published").eq("is_featured", true).order("created_at", { ascending: false }).limit(5).returns<HomeInsight[]>(),
+    supabase.from("insights").select(PUBLIC_HOME_SELECT).eq("articles.status", "published").gte("created_at", since).lte("created_at", until).order("created_at", { ascending: false }).limit(20).returns<HomeInsight[]>(),
   ])
   const recent = (recentResult.data ?? []).filter(i => i.slug && headline(i))
   const story = selectMainStory(recent, featuredResult.data ?? [])

@@ -43,7 +43,8 @@ export async function PATCH(
   }
 
   // 발행/비발행 변경은 공개 페이지(홈·목록·상세)에 즉시 반영되어야 한다 (ISR 캐시 무효화)
-  revalidatePublicContent()
+  const { data: changedInsights } = await supabase.from("insights").select("slug").eq("article_id", id)
+  revalidatePublicContent((changedInsights ?? []).map(i => i.slug))
 
   return NextResponse.json({ success: true })
 }

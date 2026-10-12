@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { createPublicClient } from "@/lib/supabase/server"
+import { PUBLIC_INSIGHT_CARD_SELECT, publicCard, type PublicInsightCard } from "@/lib/insights/public-select"
 import InsightsClient from "./InsightsClient"
 
 export const metadata: Metadata = {
@@ -17,10 +18,10 @@ export default async function InsightsPage() {
   const supabase = createPublicClient()
   const { data: insights } = await supabase
     .from("insights")
-    .select("*, article:articles!inner(*)")
+    .select(PUBLIC_INSIGHT_CARD_SELECT)
     .eq("articles.status", "published")
     .order("created_at", { ascending: false })
-    .limit(200)
+    .limit(200).returns<PublicInsightCard[]>()
 
   return (
     <div className="ml-insights">
@@ -32,7 +33,7 @@ export default async function InsightsPage() {
       </header>
       {/* useSearchParams를 쓰는 클라이언트 컴포넌트는 정적 렌더 시 Suspense 경계 필요 */}
       <Suspense fallback={null}>
-        <InsightsClient allInsights={insights ?? []} />
+        <InsightsClient allInsights={(insights ?? []).map(publicCard)} />
       </Suspense>
       </div>
     </div>

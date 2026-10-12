@@ -85,7 +85,7 @@ export async function GET(req: Request) {
       const freshCutoff = new Date(Date.now() - 36 * 3600 * 1000).toISOString()
       const { data: fresh } = await sb
         .from("insights")
-        .select("article_id, article:articles!inner(status)")
+        .select("article_id, slug, article:articles!inner(status)")
         .eq("article.status", "ready")
         .gte("created_at", freshCutoff)
         .limit(50) // 안전캡 — 정상적으론 하루 ~15건
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
         await sb.from("articles").update({ status: "published", site_published_at: now }).in("id", ids)
         try {
           const { revalidatePublicContent } = await import("@/lib/revalidate")
-          revalidatePublicContent()
+          revalidatePublicContent((fresh ?? []).map(i => i.slug))
         } catch { /* 무효화 실패는 공개에 영향 없음 */ }
         sitePublished = ids.length
       }

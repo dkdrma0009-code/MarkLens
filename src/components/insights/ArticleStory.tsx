@@ -36,7 +36,7 @@ export default function ArticleStory({ insight, title, terms, toc, color, midCta
             <div className="ml-article-sharing">{article?.url ? <a href={article.url} target="_blank" rel="noopener noreferrer">원문 보기 <ExternalLink size={14} aria-hidden="true" /></a> : null}{!preview && <ShareButtons slug={insight.slug} title={title} />}</div>
           </div>
         </header>
-        <ArticleVisual key={insight.id} article={article} />
+        <ArticleVisual key={insight.id} article={article ? { image_url: article.image_url, fallback_image: article.fallback_image ? { url: article.fallback_image.url, credit: article.fallback_image.credit, creditLink: article.fallback_image.creditLink } : null } : null} />
         <div className="ml-article-reading">
           {toc.length >= 3 ? <nav aria-label="목차" className="ml-article-toc"><details><summary>IN THIS STORY <span>목차</span></summary><ol>{toc.map(t => <li key={t.id}><a href={`#${t.id}`}>{t.label}</a></li>)}</ol></details></nav> : null}
           <div className="ml-article-body">

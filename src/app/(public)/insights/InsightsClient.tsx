@@ -5,12 +5,12 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Search, X, ArrowDown } from "lucide-react"
 import EditorialInsight from "@/components/insights/EditorialInsight"
-import type { Insight } from "@/types"
+import type { PublicInsightCard } from "@/lib/insights/public-select"
 
 const CATEGORIES = ["브랜딩", "퍼포먼스 마케팅", "SEO", "콘텐츠 마케팅", "소셜 미디어", "AI 마케팅", "CRM", "소비자 심리"]
 const PAGE_SIZE = 12
 
-export default function InsightsClient({ allInsights }: { allInsights: Insight[] }) {
+export default function InsightsClient({ allInsights }: { allInsights: PublicInsightCard[] }) {
   const searchParams = useSearchParams()
   const category = searchParams.get("category") ?? ""
   const [query, setQuery] = useState("")
@@ -38,7 +38,7 @@ export default function InsightsClient({ allInsights }: { allInsights: Insight[]
 }
 
 // Filter changes remount only pagination; search remains in the parent.
-function InsightResults({ insights, query }: { insights: Insight[]; query: string }) {
+function InsightResults({ insights, query }: { insights: PublicInsightCard[]; query: string }) {
   const [page, setPage] = useState(1)
   const [pending, startTransition] = useTransition()
   const shown = insights.slice(0, page * PAGE_SIZE)

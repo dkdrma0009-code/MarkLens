@@ -16,7 +16,7 @@ export async function POST() {
   // 인사이트(hook+summary)가 있는 ready 아티클만 발행
   const { data: readyArticles } = await db
     .from("articles")
-    .select("id, insights(hook, summary)")
+    .select("id, insights(slug, hook, summary)")
     .eq("status", "ready")
 
   const validIds = (readyArticles ?? [])
@@ -29,6 +29,7 @@ export async function POST() {
 
   await db.from("articles").update({ status: "published" }).in("id", validIds)
 
-  revalidatePublicContent() // 대량 발행을 공개 페이지에 즉시 반영 (ISR 캐시 무효화)
+  const slugs = (readyArticles ?? []).filter(a => validIds.includes(a.id)).flatMap(a => a.insights.map(i => i.slug))
+  revalidatePublicContent(slugs) // 대량 발행을 공개 페이지에 즉시 반영 (ISR 캐시 무효화)
   return NextResponse.json({ success: true, published: validIds.length })
 }

@@ -155,7 +155,7 @@ export async function GET(req: Request) {
   const dripStart = Date.now()
   const { data: readyRows } = await supabase
     .from("insights")
-    .select("article_id, hook, summary, created_at, article:articles!inner(status)")
+    .select("article_id, slug, hook, summary, created_at, article:articles!inner(status)")
     .eq("article.status", "ready")
     .order("created_at", { ascending: false })
     .limit(5)
@@ -174,7 +174,7 @@ export async function GET(req: Request) {
   const t1 = Date.now()
   console.log("[drip] step1 시작: article → published")
   await supabase.from("articles").update({ status: "published" }).eq("id", articleId)
-  try { revalidatePublicContent() } catch { /* 무효화 실패는 발행에 영향 없음 */ }
+  try { revalidatePublicContent([pick.slug]) } catch { /* 무효화 실패는 발행에 영향 없음 */ }
   console.log(`[drip] step1 완료 (${Date.now() - t1}ms)`)
 
   // 2) 카드뉴스 생성 (발행 전 반드시 존재해야 함 — 이미 있으면 재생성/갱신)

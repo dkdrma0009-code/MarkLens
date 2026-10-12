@@ -1,3 +1,4 @@
+import { PUBLIC_INSIGHT_DETAIL_SELECT, PUBLIC_INSIGHT_CARD_SELECT, publicCard, type PublicInsightDetail, type PublicInsightCard } from "@/lib/insights/public-select"
 import ArticleStory from "@/components/insights/ArticleStory"
 import { createPublicClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
@@ -14,7 +15,8 @@ import type { Metadata } from "next"
 
 // ISR 복구. 모든 발행 슬러그를 ASCII 로 마이그레이션(Phase 2)해서 x-next-cache-tags 헤더
 // (Latin1) 500 위험이 사라졌다. 옛 한글 URL 은 proxy.ts 가 301 로 새 ASCII 로 보낸다.
-export const revalidate = 3600
+// Exact-slug invalidation handles edits; related recommendations have a six-hour safety TTL.
+export const revalidate = 21600
 
 // 발행된 인사이트 슬러그를 빌드 시 prerender + ISR 캐시. 목록에 없는 신규 슬러그는
 // dynamicParams 기본값(true)으로 첫 요청 시 on-demand 생성 후 캐시된다.
@@ -97,8 +99,7 @@ export default async function InsightDetailPage({ params }: Props) {
   const supabase = createPublicClient()
 
   // slug → 없으면 legacy_slug 폴백(옛 한글 URL 보존). decodeURIComponent 로 %EB.. 도 매칭.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const insight = await resolveInsight(supabase, slug, "*, article:articles(*)") as any
+  const insight = await resolveInsight(supabase, slug, PUBLIC_INSIGHT_DETAIL_SELECT) as PublicInsightDetail | null
 
   if (!insight) notFound()
 
@@ -107,11 +108,11 @@ export default async function InsightDetailPage({ params }: Props) {
   // ISR 캐시라 이 연산은 빌드/재검증 시점에만 돈다.
   const { data: relatedPool } = await supabase
     .from("insights")
-    .select("*, article:articles!inner(*)")
+    .select(PUBLIC_INSIGHT_CARD_SELECT)
     .eq("articles.status", "published")
     .neq("id", insight.id)
     .order("created_at", { ascending: false })
-    .limit(60)
+    .limit(60).returns<PublicInsightCard[]>()
 
   const myTags = new Set(
     [...(insight.tags ?? []), ...(insight.keywords ?? [])].map((s: string) => String(s).toLowerCase())
@@ -124,7 +125,7 @@ export default async function InsightDetailPage({ params }: Props) {
     })
     .sort((a, b) => b.score - a.score) // 동점은 최신순(쿼리 정렬 + 안정 정렬)
     .slice(0, 3)
-    .map((s) => s.c)
+    .map((s) => publicCard(s.c))
 
   const article = insight.article
   const color = "#164bff"
