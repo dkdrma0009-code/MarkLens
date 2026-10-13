@@ -1,5 +1,7 @@
 import type { z } from "zod"
-import type { EvidenceAIRequest } from "./prompts"
+
+// Shared by Evidence (evidence-v1) and Pattern (pattern-v1) requests.
+export interface BrandWatchAIRequest { system: string; trustedContext: unknown; sourceData: string; responseSchema: unknown; maxOutputTokens: number }
 
 export type FailureCode = "NETWORK" | "TIMEOUT" | "RATE_LIMIT" | "MALFORMED_OUTPUT" | "SCHEMA_FAILURE" | "SAFETY_REFUSAL" | "NO_PROVIDER" | "PROVIDER_ERROR"
 export class BrandWatchAIError extends Error {
@@ -9,7 +11,7 @@ export class BrandWatchAIError extends Error {
 // A real transport must honor AbortSignal and separate system/trustedContext/sourceData messages.
 export interface BrandWatchAITransport {
   provider: string; model: string
-  generate(request: EvidenceAIRequest, signal: AbortSignal): Promise<{ kind: "text"; text: string } | { kind: "refusal" }>
+  generate(request: BrandWatchAIRequest, signal: AbortSignal): Promise<{ kind: "text"; text: string } | { kind: "refusal" }>
 }
 export interface AIAttempt { provider: string; model: string; result: "SUCCESS" | FailureCode }
 function classifyFailure(error: unknown): FailureCode {
@@ -23,7 +25,7 @@ function classifyFailure(error: unknown): FailureCode {
   }
   return "PROVIDER_ERROR"
 }
-export async function runStructuredAI<T>(request: EvidenceAIRequest, schema: z.ZodType<T>, providers: readonly BrandWatchAITransport[], options: { maxAttempts?: number; timeoutMs?: number } = {}) {
+export async function runStructuredAI<T>(request: BrandWatchAIRequest, schema: z.ZodType<T>, providers: readonly BrandWatchAITransport[], options: { maxAttempts?: number; timeoutMs?: number } = {}) {
   const maxAttempts = options.maxAttempts ?? 2, timeoutMs = options.timeoutMs ?? 20000
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 2 || !Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) throw new Error("Invalid AI policy")
   const attempts: AIAttempt[] = []
