@@ -11,10 +11,12 @@ export const lineageSnapshotInputSchema = z.strictObject({
   id: z.uuid(), entityId: z.uuid(), status: z.enum(publishStatuses), revision: z.number().int().positive(), asOf: z.iso.datetime({ offset: true }),
   takeIds: z.array(z.uuid()).max(20), evidenceCount: z.number().int().min(0), sourceCount: z.number().int().min(0),
 })
+// Link minimums are relaxed so broken stored lineage (0-1 links) can be loaded and reported as BROKEN.
 export const lineageGraphSchema = z.strictObject({
-  movements: z.array(patternMovementInputSchema).max(500), patterns: z.array(takePatternInputSchema).max(200),
-  takes: z.array(snapshotTakeInputSchema).max(200), snapshots: z.array(lineageSnapshotInputSchema).max(200),
+  movements: z.array(patternMovementInputSchema).max(500), patterns: z.array(takePatternInputSchema.extend({ movementIds: z.array(z.uuid()).max(50) })).max(200),
+  takes: z.array(snapshotTakeInputSchema.extend({ evidenceIds: z.array(z.uuid()).max(40) })).max(200), snapshots: z.array(lineageSnapshotInputSchema).max(200),
 })
+export type LineageGraph = z.infer<typeof lineageGraphSchema>
 
 export type LineageHealth = "HEALTHY" | "STALE" | "REVIEW_REQUIRED" | "BROKEN"
 export interface HealthResult {

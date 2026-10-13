@@ -231,6 +231,24 @@ The synthetic end-to-end test runs Source → Evidence → 4A review → Movemen
 - **Snapshot:** `watch_next` is stored separately (the body separator was ambiguous for UI). Key Pattern IDs, Movement lineage, coverage window, independence counts and publish readiness are recomputed from `snapshot_takes` → Take → Pattern → Movement → Evidence. The model's choice of highlighted movements outside cited Patterns is not persisted; add a link table only if the review UI needs it.
 - **Merge vs supersede:** `merged_into_id` remains the single successor pointer for both. Health treats any retired movement identically and the review event action distinguishes the operation, so no schema change was needed.
 
+### Analysis review: Candidate → Human Review → Published Revision
+
+`021_brand_watch_analysis_review_commands.sql` (LOCAL ONLY) adds `brand_watch_publish_{pattern,take,snapshot}` and `brand_watch_reject_{pattern,take,snapshot}`, executable by `service_role` only and exposed through `executeReviewCommand` as `pattern.publish/reject`, `take.publish/reject` and `snapshot.publish/reject`. Each requires a non-blank actor and reason, locks its rows, refuses invalid transitions (only drafts can be published or rejected; reject sets `withdrawn`), and writes state, relations and review events in one transaction.
+
+- **Pattern publish:** every supporting movement is published, unmerged and same-entity; at least two distinct event keys (the 018 independence floor); every movement's evidence approved, active and backed by an approved primary actor match.
+- **Take publish:** Pattern published; every take evidence approved, active and reachable through the Pattern's movements; only the declared predecessor may currently be published for that Pattern (`REVISION_REQUIRED`).
+- **Snapshot publish:** at least one Take, all published and same-entity; each Take's Pattern published and evidence approved and active; stored evidence/source counts equal to lineage; only the declared predecessor may currently be published for the entity. The publishing actor is recorded as `reviewed_by` with `reviewed_at`.
+
+Publishing a draft that has `supersedes_id` is a revision publish: the new revision becomes `published`, the predecessor (which must still be published) becomes `superseded`, and both get review events (`publish`, `supersede`); predecessor rows and links are never deleted. 021 also narrows the 018 one-successor indexes to non-withdrawn rows, so a rejected revision draft no longer blocks a new revision of the same predecessor.
+
+### Snapshot publish → current_snapshot_id
+
+In the same transaction as Snapshot publish, the entity's `brand_watch_profiles.current_snapshot_id` is set to the new Snapshot (a missing profile is created with the default private/noindex/paused statuses; no other profile field changes). The previous current Snapshot stays as `superseded` history and is returned as `previousCurrentSnapshotId`. Any failure, including after the pointer switch, rolls back the pointer, the supersession and the publication.
+
+### Lineage loader
+
+`lifecycle/load.ts` separates read-only DB queries from transformation. `loadLineageRows(client, entityId)` uses only `from().select().in()` (the supabase-js query builder subset) to read one entity's movements, movement/pattern/take/snapshot links, evidence, source items, providers and source-entity matches; database errors surface only as `LINEAGE_LOAD_FAILED`. `buildLineageGraph(entityId, rows)` is pure, keeps only that entity's rows and returns the graph `evaluateLineageHealth` consumes; the graph schema accepts broken stored lineage (0–1 links) so it is reported as `BROKEN` rather than rejected.
+
 ### Remaining backend work
 
-Pattern/Take/Snapshot review commands (approve/reject/publish with predecessor supersession) and the reviewed profile `current_snapshot_id` switch do not exist yet; tests simulate that human step in SQL. A database loader for the lineage graph, live provider binding, provider activation, rights/retention purge, and public DTOs/eligibility remain deferred. Production application of 018–020 requires separate approval.
+Live provider binding and provider activation, rights/retention purge, the profile's public/SEO status and `last_meaningful_update_at` workflow, and public DTOs/eligibility remain deferred. Production application of 018–021 requires separate approval.

@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { datePrecisions, matchRoles, movementTypes } from "../taxonomy"
 
-// Human review commands. Each maps to one atomic 019 function; the client is injected
+// Human review commands. Each maps to one atomic 019 (facts) or 021 (analysis) function; the client is injected
 // (an authorized service-role client) and this module performs no environment lookup.
 // actor must come from the server-side admin identity, never from client input.
 const provenance = { actor: z.string().trim().min(1).max(200), reason: z.string().trim().min(1).max(1000) }
@@ -22,10 +22,17 @@ export const reviewCommandSchema = z.discriminatedUnion("command", [
     successor: z.strictObject({ eventKey: text(200), title: text(300), summary: text(600), movementType: z.enum(movementTypes), scope: z.enum(["local", "national", "global"]), market: z.array(text(50)), channel: z.array(z.enum(["online", "offline", "social", "retail"])), startedAt: z.iso.datetime({ offset: true }).nullable(), lastObservedAt: z.iso.datetime({ offset: true }).nullable(), importance: z.number().int().min(1).max(3), evidenceIds: ids }),
   }),
   z.strictObject({ command: z.literal("movement.merge"), sourceMovementId: z.uuid(), targetMovementId: z.uuid(), ...provenance }).refine(value => value.sourceMovementId !== value.targetMovementId, "Self merge"),
+  // Publishing a revision draft also supersedes its published predecessor; Snapshot publish switches the current snapshot.
+  z.strictObject({ command: z.literal("pattern.publish"), patternId: z.uuid(), ...provenance }),
+  z.strictObject({ command: z.literal("pattern.reject"), patternId: z.uuid(), ...provenance }),
+  z.strictObject({ command: z.literal("take.publish"), takeId: z.uuid(), ...provenance }),
+  z.strictObject({ command: z.literal("take.reject"), takeId: z.uuid(), ...provenance }),
+  z.strictObject({ command: z.literal("snapshot.publish"), snapshotId: z.uuid(), ...provenance }),
+  z.strictObject({ command: z.literal("snapshot.reject"), snapshotId: z.uuid(), ...provenance }),
 ])
 export type ReviewCommand = z.infer<typeof reviewCommandSchema>
 
-export const reviewErrorCodes = ["PROVENANCE_REQUIRED", "INVALID_MATCH_ROLE", "NOT_FOUND", "INVALID_TRANSITION", "MATCH_NOT_FOUND", "MATCH_REJECTED", "MATCH_ROLE_CONFLICT", "SUCCESSOR_EVIDENCE_REQUIRED", "SUCCESSOR_EVIDENCE_INVALID", "SELF_MERGE", "ENTITY_MISMATCH", "INVALID_MERGE_TARGET"] as const
+export const reviewErrorCodes = ["PROVENANCE_REQUIRED", "INVALID_MATCH_ROLE", "NOT_FOUND", "INVALID_TRANSITION", "MATCH_NOT_FOUND", "MATCH_REJECTED", "MATCH_ROLE_CONFLICT", "SUCCESSOR_EVIDENCE_REQUIRED", "SUCCESSOR_EVIDENCE_INVALID", "SELF_MERGE", "ENTITY_MISMATCH", "INVALID_MERGE_TARGET", "INELIGIBLE_LINEAGE", "BROKEN_LINEAGE", "INSUFFICIENT_INDEPENDENT_MOVEMENTS", "INVALID_PREDECESSOR", "REVISION_REQUIRED", "COVERAGE_COUNT_MISMATCH"] as const
 export type ReviewErrorCode = (typeof reviewErrorCodes)[number] | "INVALID_COMMAND" | "PUBLICATION_REQUIREMENTS_UNMET" | "EVENT_KEY_CONFLICT" | "DATABASE_ERROR"
 
 export interface ReviewRpcClient {
@@ -48,6 +55,12 @@ function toRpc(command: ReviewCommand): [string, Record<string, unknown>] {
       return ["brand_watch_supersede_movement", { p_movement_id: command.movementId, p_event_key: s.eventKey, p_title: s.title, p_summary: s.summary, p_movement_type: s.movementType, p_scope: s.scope, p_market: s.market, p_channel: s.channel, p_started_at: s.startedAt, p_last_observed_at: s.lastObservedAt, p_importance: s.importance, p_evidence_ids: s.evidenceIds, ...who }]
     }
     case "movement.merge": return ["brand_watch_merge_movement", { p_source_id: command.sourceMovementId, p_target_id: command.targetMovementId, ...who }]
+    case "pattern.publish": return ["brand_watch_publish_pattern", { p_pattern_id: command.patternId, ...who }]
+    case "pattern.reject": return ["brand_watch_reject_pattern", { p_pattern_id: command.patternId, ...who }]
+    case "take.publish": return ["brand_watch_publish_take", { p_take_id: command.takeId, ...who }]
+    case "take.reject": return ["brand_watch_reject_take", { p_take_id: command.takeId, ...who }]
+    case "snapshot.publish": return ["brand_watch_publish_snapshot", { p_snapshot_id: command.snapshotId, ...who }]
+    case "snapshot.reject": return ["brand_watch_reject_snapshot", { p_snapshot_id: command.snapshotId, ...who }]
   }
 }
 
@@ -55,7 +68,8 @@ function toRpc(command: ReviewCommand): [string, Record<string, unknown>] {
 function classify(error: { message: string; code?: string }): ReviewErrorCode {
   const code = /BW_REVIEW:([A-Z_]+)/.exec(error.message)?.[1]
   if (code && (reviewErrorCodes as readonly string[]).includes(code)) return code as ReviewErrorCode
-  if (/approved primary-action evidence/.test(error.message)) return "PUBLICATION_REQUIREMENTS_UNMET"
+  // 018 deferred publication checks (commit time).
+  if (/approved primary-action evidence|requires two independent|requires reachable|requires reviewed published|coverage counts must match/.test(error.message)) return "PUBLICATION_REQUIREMENTS_UNMET"
   if (error.code === "23505" && /event_key/.test(error.message)) return "EVENT_KEY_CONFLICT"
   return "DATABASE_ERROR"
 }
