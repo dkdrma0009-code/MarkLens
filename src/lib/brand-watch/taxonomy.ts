@@ -1,0 +1,9 @@
+export const entityTypes = ["company", "brand", "service", "sub_brand"] as const
+export const relationTypes = ["parent_of", "owned_by", "service_of", "sub_brand_of", "related_brand"] as const
+export const movementTypes = ["campaign", "creator", "partnership", "product", "promotion", "platform", "brand"] as const
+export const providerTypes = ["official_newsroom", "official_blog", "industry_media", "business_media", "official_social", "other_media"] as const
+export const reviewStatuses = ["pending", "approved", "rejected"] as const
+export const publishStatuses = ["draft", "published", "superseded", "withdrawn"] as const
+export const matchRoles = ["primary", "secondary", "mentioned"] as const
+export const datePrecisions = ["day", "month", "year", "unknown"] as const
+export const auditActions = ["approve", "edit", "reject", "merge", "split", "supersede", "publish", "unpublish"] as const
