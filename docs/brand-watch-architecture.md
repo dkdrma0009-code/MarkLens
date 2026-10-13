@@ -139,3 +139,19 @@ Source independence is a separate review-required signal. Same provider/domain/c
 Provider/model, prompt/pipeline versions and trusted generation time map to generation columns/created_at. The text `support_locator` stores a JSON locator envelope including validation method and extraction metadata (provider/model/time/fact type/movement type/event name/role/relevance candidates/confidence basis). Relevance numeric storage values 1/0.5/0 encode relevant/uncertain/irrelevant categories; they are internal weights, not measured probabilities. No migration or API contract is changed. The actual 018 SQL fixture verifies pending rows and draft junctions, and rejects publication without approved primary-action review.
 
 Phase 4 remains responsible for authorized atomic storage/review commands, role approval, source-independence adjudication, merge/split/correction audit transactions, live caller/credential binding, Pattern/Take/Snapshot, admin review UI and public eligibility. All provider verification states from Phase 2 remain unchanged. See `brand-watch-evidence-sample.md` for the exercised synthetic fact-to-source trace.
+
+## Phase 4A: human review commands
+
+Migration `019_brand_watch_review_commands.sql` (LOCAL ONLY, not applied to production) adds seven review functions and no tables, columns or triggers. Each function locks its target rows, validates the transition, changes state and relations, and appends one `brand_watch_review_events` row in the caller's transaction; any failure, including 018's deferred publication check at commit, rolls back everything. Execution is granted to `service_role` only. `src/lib/brand-watch/review/commands.ts` validates strict command schemas (non-blank actor ≤200 and reason ≤1000, also enforced in SQL), calls the matching RPC through an injected client and returns typed error codes only, never database messages. Actor must come from the server-side admin identity. No route, UI or automatic caller invokes these commands yet.
+
+| Command | Allowed transition | Relations |
+| --- | --- | --- |
+| evidence approve | pending/active → approved | Reviewer sets the source×entity match role and approves it; a different already-approved role fails (`MATCH_ROLE_CONFLICT`) |
+| evidence reject | pending/active → rejected | — (approved evidence is corrected by supersede, never rejected) |
+| evidence supersede | approved/active → superseded | New pending manual successor with `supersedes_id` and correction reason; one successor only |
+| movement approve | draft → published | 018 trigger requires approved primary-action evidence (`PUBLICATION_REQUIREMENTS_UNMET`) |
+| movement reject | draft → withdrawn | — |
+| movement supersede | published → superseded | New draft successor with a new `event_key` and given same-entity, active, non-rejected evidence |
+| movement merge | draft/published source → superseded | `merged_into_id` = target. Source links are never removed. A draft target gains the source's active, non-rejected evidence links; a published target's links are frozen, so its merged lineage is reached through `merged_into_id` |
+
+018 has no movement `supersedes_id`, so `merged_into_id` is the successor pointer for both supersede and merge; the review event action distinguishes them. Repeating a merge into the same target is an idempotent no-op with no second event; merging an already-merged source elsewhere, into a superseded/withdrawn target, across entities or into itself fails. Both rows are locked in id order. Downstream impact of superseded evidence/movements on published analyses, withdraw/unpublish, split, Pattern/Take/Snapshot and admin UI remain Phase 4B–5.
