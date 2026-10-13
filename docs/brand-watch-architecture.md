@@ -1,6 +1,6 @@
 # Brand Watch foundation
 
-Brand Watch explains a brand's recent marketing direction in five minutes. It is an intelligence layer beside Articles/Insights, not a news feed. Phase 1 defines domain/schema contracts; Phase 2 adds manual source ingestion; Phase 3 adds an injected-transport Evidence/Movement candidate pipeline. No live AI calls were performed. There are no ingestion jobs, routes, admin UI, public queries, or production migration.
+Brand Watch explains a brand's recent marketing direction in five minutes. It is an intelligence layer beside Articles/Insights, not a news feed. Phase 1 defines domain/schema contracts; Phase 2 adds manual source ingestion; Phase 3 adds an injected-transport Evidence/Movement candidate pipeline; Chapter 4 adds human review commands, Pattern/Take/Snapshot engines, atomic draft persistence, correction impact and freshness (see "Chapter 4 final state"). No live AI calls were performed. There are no ingestion jobs, routes, admin UI, public queries, or production migration.
 
 ## Existing architecture boundary
 
@@ -166,7 +166,7 @@ Layers: **Movement = FACT layer** (Source → Evidence → Movement, human-appro
 
 The `pattern-v1` prompt (pipeline `pattern-engine-v1`) reuses the Phase 3 bounded `runStructuredAI`/`BrandWatchAITransport`; the transport request type was widened to a shared `BrandWatchAIRequest` without behavior change. Input is eligible Movements, their approved Evidence facts and source metadata only, never source bodies; eligible IDs are trusted context, the data is an escaped untrusted envelope. The strict schema rejects unknown fields and allows at most three patterns. A pattern citing a non-existent or ineligible Movement, unreachable Evidence, fewer than the minimum independent events, or strategy/intent/forecast wording is rejected individually. Candidates are always `needs_review` with confidence capped at 0.75, computed counts, `windowStart`/`windowEnd` from reviewed event days, `lastSupportingMovementAt` from the latest observation, deterministic plus AI uncertainties and full provenance. Only mock transports were used.
 
-`classifyPatternCandidate` compares Movement-set overlap and title similarity with same-entity draft/published patterns: `NEW`, `POSSIBLE_DUPLICATE` (identical or ambiguous overlap, or overlap with a draft), or `REVISION_CANDIDATE` (unambiguous strict extension of one published pattern). `preparePatternDraft` prepares 018 `brand_patterns` + `pattern_movements` rows with `status=draft` only. A revision is a new successor with `supersedes_id` and `revision+1`; 018 guards keep the predecessor untouched and reject a competing successor. Possible duplicates cannot be prepared. No migration was added. 018 has no columns for counts, uncertainties or `lastSupportingMovementAt`; they are recomputed from lineage. Atomic persistence/review of patterns, stale propagation, Take, Snapshot and admin UI remain later phases.
+`classifyPatternCandidate` compares Movement-set overlap and title similarity with same-entity draft/published patterns: `NEW`, `POSSIBLE_DUPLICATE` (identical or ambiguous overlap, or overlap with a draft), or `REVISION_CANDIDATE` (unambiguous strict extension of one published pattern). `preparePatternDraft` prepares 018 `brand_patterns` + `pattern_movements` rows with `status=draft` only. A revision is a new successor with `supersedes_id` and `revision+1`; 018 guards keep the predecessor untouched and reject a competing successor. Possible duplicates cannot be prepared. Counts and `lastSupportingMovementAt` are recomputed from lineage. Chapter 4 finalization (020) added stored `uncertainties` and the atomic save; see "Chapter 4 final state".
 
 ## Phase 4C-1: MarkLens Take engine
 
@@ -178,7 +178,7 @@ The `take-v1` prompt (pipeline `take-engine-v1`) reuses the Phase 3 bounded tran
 
 Interpretation is allowed; certainty and unsupported specifics are not. `validateTakeClaims` is a lexical guard that rejects numbers absent from the reviewed input, asserted strategic intent, consumer psychology or future outcomes, revenue/sales, market-rank/share and competitor claims (including other registry brands) absent from the input, and a `whyItMayMatter` not phrased as a possibility. It is heuristic; human review remains mandatory. Candidates are always `needs_review`, confidence is capped at 0.75 (Brand Watch policy), and each records Pattern → Movement → Evidence → source item IDs and provenance. Only mock transports were used.
 
-`prepareTakeDraft` prepares 018 `brand_takes` + `take_evidence` rows with `status=draft` only. An existing published Take for the same Pattern yields a successor with `supersedes_id` and `revision+1`; an existing draft or ambiguity is a possible duplicate and cannot be prepared. 018 guards keep the predecessor untouched and reject a competing successor; a PGlite test confirms the prepared lineage satisfies 018's reachability check. No migration was added. 018 has no Take confidence/uncertainty columns. Snapshot, Take/Pattern review commands, correction/freshness propagation and UI remain later phases.
+`prepareTakeDraft` prepares 018 `brand_takes` + `take_evidence` rows with `status=draft` only. An existing published Take for the same Pattern yields a successor with `supersedes_id` and `revision+1`; an existing draft or ambiguity is a possible duplicate and cannot be prepared. 018 guards keep the predecessor untouched and reject a competing successor; a PGlite test confirms the prepared lineage satisfies 018's reachability check. Chapter 4 finalization (020) added stored Take `confidence`/`uncertainties` and the atomic save; see "Chapter 4 final state".
 
 ## Phase 4C-2: Brand Snapshot engine
 
@@ -190,4 +190,47 @@ The `snapshot-v1` prompt (pipeline `snapshot-engine-v1`) reuses the Phase 3 boun
 
 The engine derives `asOf` (latest supporting observation, generation time only as a flagged fallback), `coverageWindowStart/End` (lineage event days and cited Pattern windows), `movementCount`/`sourceCount` (4B independence semantics), `sourceItemCount`, `patternCount`, `takeCount` and full Movement → Evidence → source lineage. `storedCoverage` separately computes 018's publication counts (distinct take Evidence and their source documents). Candidates are `needs_review` with confidence capped at 0.75.
 
-`prepareSnapshotDraft` prepares `brand_snapshots` (status draft, no reviewer, `valid_from = asOf`, body = currentDirection + "Watch next:" + watchNext) and `snapshot_takes` rows only. A single published predecessor yields a successor with `supersedes_id` and `revision+1`; an existing draft or several published snapshots require duplicate review and cannot be prepared. 018 keeps the predecessor immutable and rejects competing successors. Not stored in 018: key Movement/Pattern IDs, coverage window, independent counts, confidence, uncertainties and publish readiness. No migration was added. Snapshot/Take/Pattern review commands, profile switching, correction/freshness propagation and UI remain later phases.
+`prepareSnapshotDraft` prepares `brand_snapshots` (status draft, no reviewer, `valid_from = asOf`, body = currentDirection; 020 adds a separate `watch_next` column) and `snapshot_takes` rows only. A single published predecessor yields a successor with `supersedes_id` and `revision+1`; an existing draft or several published snapshots require duplicate review and cannot be prepared. 018 keeps the predecessor immutable and rejects competing successors. Chapter 4 finalization (020) added stored `confidence`, `uncertainties`, `watch_next` and the atomic save; remaining derived fields are listed in "Chapter 4 final state".
+
+## Chapter 4 final state: intelligence backend
+
+Final backend flow: **Source → Evidence → Human Review → Movement → Human Review → Pattern → Take → Snapshot**, plus **Correction → Impact Analysis → Human Review** and **Freshness → Policy-driven evaluation**. Layer boundaries: **FACT** = Source / Evidence / Movement; **OBSERVED PATTERN** = Pattern; **MARKLENS INTERPRETATION** = Take; **CURRENT SYNTHESIS** = Snapshot. Every analysis object is created as a `draft` (needs review). Nothing in the backend approves, publishes, unpublishes, deletes or regenerates automatically, and no live model call exists.
+
+### Migration 020 (LOCAL ONLY)
+
+`020_brand_watch_analysis_lifecycle.sql` is transactional and repeat-safe. It adds review-facing candidate fields (`brand_patterns.uncertainties`; `brand_takes.confidence/uncertainties`; `brand_snapshots.confidence/uncertainties/watch_next`, all frozen with the rest of a published payload by the 018 guards), a one-successor unique index on `brand_evidence.supersedes_id`, a `brand_movements.merged_into_id` lookup index, and three atomic draft-save functions executable by `service_role` only (PUBLIC/anon/authenticated revoked). PGlite tests cover apply, re-apply, rolled-back and failing apply, RLS, table privileges and function grants.
+
+### Persistence paths
+
+| Path | Mechanism | Guarantees |
+| --- | --- | --- |
+| Evidence review | 019 `brand_watch_*_evidence` | Atomic state + match role + audit event; invalid transitions refused |
+| Movement review | 019 `brand_watch_*_movement` | Atomic; merge preserves evidence lineage; repeat merge is a no-op |
+| Pattern draft | 020 `brand_watch_save_pattern_draft` via `savePatternDraft` | Row + movement links + revision relation in one transaction; only published same-entity movements with two distinct event keys; same movement set as an existing draft/published pattern is `DUPLICATE`; retry with the same ID is a no-op; a competing successor is `SUCCESSOR_EXISTS` |
+| Take draft | 020 `brand_watch_save_take_draft` via `saveTakeDraft` | Row + evidence links atomic; Pattern must be published; every evidence approved, active and reachable through the Pattern; one draft per Pattern; a published Take requires an explicit successor (`REVISION_REQUIRED`) |
+| Snapshot draft | 020 `brand_watch_save_snapshot_draft` via `saveSnapshotDraft` | Row + take links atomic; at least one published same-entity Take (`LINEAGE_REQUIRED`); stored counts must equal 018 lineage counts; one draft per entity; a published predecessor requires an explicit successor |
+
+Draft saves record generation provenance (model, prompt/pipeline versions, generation time); review events are recorded by review commands, not by draft creation. Save errors are typed codes; database messages are never returned.
+
+### Correction impact, lineage health and freshness
+
+`src/lib/brand-watch/lifecycle/health.ts` evaluates a loaded lineage graph purely and deterministically.
+
+- Movement: `BROKEN` for missing or cross-entity evidence or, when published, unapproved evidence or actor role; `REVIEW_REQUIRED` when linked evidence was superseded, withdrawn or rejected.
+- Pattern, Take, Snapshot: `BROKEN` for structural breaks (missing or cross-entity links, fewer than the minimum independent movements, take evidence unreachable through its Pattern, snapshot stored counts no longer equal to lineage, no take lineage); `REVIEW_REQUIRED` when a dependency is `BROKEN`; `STALE` when a dependency is retired (superseded/withdrawn, including merged movements) or impacted, when directly linked evidence was corrected, or when freshness expired.
+
+Each result carries reasons, transitive `causes` (for example `evidence:<id>`) and an advisory action: `HUMAN_REVIEW` for facts and broken/review-required analyses, `REGENERATION_CANDIDATE` for stale analyses, `NONE` for healthy objects or retired history. `correctionImpact(report, "evidence:<id>")` lists everything downstream of one correction; unrelated objects and other entities are unaffected.
+
+Freshness uses one policy (`lifecycle/policy.ts`: `patternFreshnessDays` and `snapshotFreshnessDays`, both default 90, on top of the pattern policy's `recencyDays` and independence thresholds) and an explicit clock. A Pattern is stale when its latest supporting movement day or window end is older than its window, a Take follows its Pattern, and a Snapshot is stale when `valid_from` (asOf) is older than its window.
+
+The synthetic end-to-end test runs Source → Evidence → 4A review → Movement → 4A review → Pattern/Take/Snapshot engines → atomic saves, supersedes one evidence through 4A, and verifies Movement `REVIEW_REQUIRED` → Pattern/Take/Snapshot `STALE`, unrelated movements and another entity's chain `HEALTHY`, no rows deleted or unpublished, and no model calls.
+
+### Schema decisions
+
+- **Take:** the single `pattern_id` is kept (018 reachability rule; no v1 product need for multi-pattern Takes). Confidence and uncertainties are now stored because reviewers need them on drafts.
+- **Snapshot:** `watch_next` is stored separately (the body separator was ambiguous for UI). Key Pattern IDs, Movement lineage, coverage window, independence counts and publish readiness are recomputed from `snapshot_takes` → Take → Pattern → Movement → Evidence. The model's choice of highlighted movements outside cited Patterns is not persisted; add a link table only if the review UI needs it.
+- **Merge vs supersede:** `merged_into_id` remains the single successor pointer for both. Health treats any retired movement identically and the review event action distinguishes the operation, so no schema change was needed.
+
+### Remaining backend work
+
+Pattern/Take/Snapshot review commands (approve/reject/publish with predecessor supersession) and the reviewed profile `current_snapshot_id` switch do not exist yet; tests simulate that human step in SQL. A database loader for the lineage graph, live provider binding, provider activation, rights/retention purge, and public DTOs/eligibility remain deferred. Production application of 018–020 requires separate approval.

@@ -184,6 +184,7 @@ test('actual 018 accepts the prepared take lineage as draft and a successor neve
   try {
     await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE TABLE articles(id uuid PRIMARY KEY);')
     await db.exec(readFileSync('supabase/migrations/018_brand_watch_foundation.sql', 'utf8'))
+    for (const file of ['019_brand_watch_review_commands', '020_brand_watch_analysis_lifecycle']) await db.exec(readFileSync(`supabase/migrations/${file}.sql`, 'utf8'))
     const insert = async (table, row) => { const keys = Object.keys(row); await db.query(`INSERT INTO ${table}(${keys.join(',')}) VALUES(${keys.map((key, index) => '$' + (index + 1)).join(',')})`, Object.values(row)) }
     const entity = launchRegistry.find(row => row.slug === 'musinsa').entity
     await insert('brand_entities', { id: entity.id, slug: entity.slug, name: entity.name, name_ko: entity.nameKo, entity_type: entity.entityType, category: entity.category })

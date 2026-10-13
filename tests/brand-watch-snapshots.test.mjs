@@ -168,7 +168,7 @@ test('13/14: prepared storage is an unreviewed draft and the engine exposes no a
   const { result } = await run()
   const plan = prepareSnapshotDraft(result.candidate)
   assert.deepEqual([plan.snapshot.status, plan.snapshot.reviewed_by, plan.snapshot.reviewed_at, plan.snapshot.revision, plan.snapshot.supersedes_id], ['draft', null, null, 1, null])
-  assert.equal(plan.snapshot.body, `${result.candidate.currentDirection}\n\nWatch next: ${result.candidate.watchNext}`)
+  assert.deepEqual([plan.snapshot.body, plan.snapshot.watch_next], [result.candidate.currentDirection, result.candidate.watchNext])
   assert.deepEqual([plan.snapshot.valid_from, plan.snapshot.evidence_count, plan.snapshot.source_count], ['2026-10-01T09:00:00Z', 3, 3])
   assert.deepEqual(plan.links.map(row => row.take_id), [id(60)])
   assert.throws(() => prepareSnapshotDraft({ ...result.candidate, reviewState: 'approved' }))
@@ -181,6 +181,7 @@ test('actual 018 accepts the prepared snapshot counts and keeps the published pr
   try {
     await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE TABLE articles(id uuid PRIMARY KEY);')
     await db.exec(readFileSync('supabase/migrations/018_brand_watch_foundation.sql', 'utf8'))
+    for (const file of ['019_brand_watch_review_commands', '020_brand_watch_analysis_lifecycle']) await db.exec(readFileSync(`supabase/migrations/${file}.sql`, 'utf8'))
     const insert = async (table, row) => { const keys = Object.keys(row); await db.query(`INSERT INTO ${table}(${keys.join(',')}) VALUES(${keys.map((key, index) => '$' + (index + 1)).join(',')})`, Object.values(row)) }
     const entity = launchRegistry.find(row => row.slug === 'musinsa').entity
     await insert('brand_entities', { id: entity.id, slug: entity.slug, name: entity.name, name_ko: entity.nameKo, entity_type: entity.entityType, category: entity.category })
