@@ -1,6 +1,6 @@
 # Brand Watch foundation
 
-Brand Watch explains a brand's recent marketing direction in five minutes. It is an intelligence layer beside Articles/Insights, not a news feed. This phase defines contracts only: no ingestion, AI calls, routes, admin UI, public queries, or production migration.
+Brand Watch explains a brand's recent marketing direction in five minutes. It is an intelligence layer beside Articles/Insights, not a news feed. Phase 1 defines domain/schema contracts; Phase 2 adds manual source ingestion functions described below. There are no ingestion jobs, AI calls, routes, admin UI, public queries, or production migration.
 
 ## Existing architecture boundary
 
@@ -56,4 +56,44 @@ RLS is enabled on every new table, with no anon/authenticated policies or grants
 
 018 is transactional and repeat-safe for its own unchanged schema (CREATE IF NOT EXISTS tables/indexes, replace functions/triggers, guarded profile FK). It does not reconcile arbitrary schema drift and must not be used to repair manually changed tables. No existing trigger/function is replaced. No data backfill or live seed is executed. Tests run the actual SQL twice in isolated PGlite PostgreSQL with local roles and an Article FK fixture.
 
-Production application, rollback approval, registry seeding, ingestion adapters, source rights/retention, event identity review, atomic audit commands, downstream correction handling, public DTOs/eligibility counts, cache budgets and SEO/UI are deferred. Opportunity, MKTI, Video Engine and newsletter changes are out of scope.
+Production application, rollback approval, registry seeding, source rights/retention policy approval, event identity review, atomic audit commands, downstream correction handling, public DTOs/eligibility counts, cache budgets and SEO/UI are deferred. Opportunity, MKTI, Video Engine and newsletter changes are out of scope.
+
+## Phase 2: source ingestion foundation
+
+Implemented flow: **Source Registry → Adapter → Normalization / Canonicalization → Idempotency → Entity Candidate → Relevance Candidate → [NEXT: Evidence Extraction]**. The modules under `src/lib/brand-watch/sources/` expose manual, dependency-injected functions only. No route, cron, existing RSS collector or AI queue invokes them. The current `articles` collector retains its URL uniqueness, title-token similarity checks, enclosure/OG lookup, fallback image behavior and cron/analyze integration unchanged.
+
+`BrandWatchSourceAdapter` returns collected editorial documents, never database rows. RSS uses the existing `rss-parser` dependency's `parseString` after bounded fetching; XML DTD/entity declarations are rejected. HTML uses Cheerio with a provider-specific listing path pattern, title/body/date selectors and optional next-page selector. Missing title/body fails closed. Detail failure is isolated; listing failure propagates. There are no retries. A 429 aborts the collection immediately. Defaults: 10s timeout, 1 listing page, 10 items, 2MB response limit; ceilings: 30s, 3 pages, 25 items, 2MB and 3 same-domain redirects. Requests require HTTPS, exact configured hostname, default port and no credentials. Validation applies to every redirect and pagination link. Image URLs are metadata only and are never fetched by this layer.
+
+Provider configuration is trusted, code-owned registry data, not accepted from user/client requests. `VERIFIED` means the specific robots/listing/detail structure was checked; it does not grant reproduction rights. Runtime collection requires `VERIFIED` plus confirmed robots. No anti-bot bypass, browser emulation or hidden JSON API discovery is implemented. Verified selectors still need future re-verification when a publisher changes its site.
+
+### Read-only verification: 2026-10-13
+
+| Provider | Status | Actual observation |
+| --- | --- | --- |
+| MUSINSA | NEEDS_VERIFICATION | Candidate `/newsroom/press` exists; server output has zero articles and robots endpoint returns HTML. No selector guessed. |
+| OLIVE YOUNG | VERIFIED | `/ko/news` redirects to editorial. Official `/ko/newsroom/press` listing links and `/press/288` detail selectors verified; robots permits newsroom. Actual adapter read one detail and normalized title/text/date/image without issues. |
+| TOSS | VERIFIED | `/newsroom` Korean HTTP listing and detail verified; robots permits newsroom. Actual adapter read one detail without issues. Generated body/date CSS classes are explicitly recorded in config and may drift. |
+| BAEMIN / WOOWA | NEEDS_VERIFICATION | Official `/newsroom` responds, robots permits it, but server HTML has no article links. Client-rendered discovery remains unimplemented. Corporate-only stories remain relevance review candidates, not BAEMIN actions. |
+| DANGGEUN | NEEDS_VERIFICATION | Official `/company/pr/` and `/company/pr/archive/.../` discovered from the company homepage. Listing has unusually large embedded content; a bounded clean extraction strategy is not verified. No parser activated. |
+
+Verification used read-only HTTP, inspecting structure without storing official page bodies or writing database rows. Offline tests use original synthetic fixtures rather than copied publisher articles. No 429 was encountered in the live verification. The simulated 429 test proves immediate stop.
+
+### URL identity, normalization and storage
+
+Canonicalization removes fragments and known tracking keys (`utm_*`, `fbclid`, `gclid`, `dclid`, `msclkid`, `igshid`), normalizes hostname/default port through URL parsing and sorts query keys while preserving meaningful values and repeated-value order. Trailing slash is preserved by default; removal, extra tracking keys and explicitly known equivalent hosts are provider policies. No unknown www/subdomain equivalence is inferred. Original requested URL is retained across same-domain redirects; canonical/relative image resolution uses the final document URL. Credentials and non-HTTP protocols are rejected.
+
+Hash v1 is SHA-256 of the JSON array `["bw-source-v1", NFKC/whitespace-normalized title, NFKC/whitespace-normalized meaningful text]`. HTML, layout, metadata and collection time are excluded. Missing/invalid dates become unknown, not collection time; day-only official Korean dates use explicit +09:00. Datetimes without explicit timezone are not inferred from the server environment.
+
+Same canonical URL/hash is NO_OP; same URL with changed hash is REVISION_CANDIDATE; different URL with exact same hash is DUPLICATE_CANDIDATE. Changed versions and duplicate-source attribution are new rows, never upserts over prior documents. Similar-content/semantic/event clustering is deferred, and candidates do not merge events automatically.
+
+`persistSourceDocument` validates normalized/domain contracts and takes a repository dependency. The Supabase implementation takes an explicitly supplied service-role client; importing it creates no client and performs no writes. Existing 018 provider FKs and URL/hash uniqueness provide race-safe insertion. A concurrent unique conflict resolves via exact row lookup. Candidate classification is advisory and can race with another version insertion; it is not an authoritative revision chain. No SQL RPC or new migration is introduced. Provider seed definitions remain inactive and are not inserted by this phase.
+
+Raw text/HTML are not persisted by default. Explicit rights basis and future retention deadline are required to store text; HTML storage is opt-in. This makes retention/rights a caller obligation, not implied permission from an official URL. Normalized externalId/metadata remain in-memory domain fields because 018 has no corresponding columns; adding persisted operational metadata is deferred rather than silently repurposing fields. Article linking is optional and cannot change an existing exact-retry row. Image provenance stores its source document attribution, not a reuse license.
+
+### Candidate and untrusted-content boundaries
+
+Launch names/aliases create deterministic **mentioned** candidates with title/body location and `deterministic_alias` basis only; no primary/secondary action or truth score is inferred. Latin word boundaries prevent `TOSS` matching `tossed`; Korean names support following particles and may produce ambiguous candidates requiring review. Related-entity terms (e.g. Toss Bank) can mention the core alias but never resolve as a core marketing action. Title/body relevance signals require multiple independent keyword groups, with conflicting/single signals UNCERTAIN. All results require review; they cannot decide inclusion, generate Evidence or publish.
+
+Normalized title, text, HTML, metadata, author and URLs are explicitly `UNTRUSTED_SOURCE_DATA`. Instructions such as “ignore previous instructions” stay article data; they are neither executed nor promoted to configuration/system prompts. Stored HTML is raw archival data and must never be rendered as trusted HTML. No LLM call exists here; a future Evidence pipeline must place source content only inside data delimiters and validate its output separately.
+
+Phase 3 remains responsible for Evidence extraction/review, provider activation and rights/retention policy approval, entity boundary decisions, similar-content/event clustering, downstream corrections and atomic review events. Production seeding/migrations/scraping jobs, cron, UI, public SEO, newsletter, Opportunity and MKTI remain out of scope.

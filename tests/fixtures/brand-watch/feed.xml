@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel>
+<title>Synthetic Official Feed</title><link>https://source.test/</link><description>Adapter fixture</description>
+<item><title>OLIVE YOUNG campaign launch</title><link>https://source.test/news/one?utm_source=rss</link>
+<pubDate>Thu, 01 Oct 2026 09:00:00 +0900</pubDate><dc:creator>Newsroom</dc:creator>
+<description><![CDATA[<p>OLIVE YOUNG launched a synthetic campaign.</p>]]></description>
+<guid>fixture-one</guid><enclosure url="https://source.test/images/one.jpg" type="image/jpeg" length="123"/></item>
+<item><title>Duplicate</title><link>https://source.test/news/one</link><description>Duplicate URL</description></item>
+<item><title>TOSS partnership</title><link>https://source.test/news/two</link><description>TOSS mentioned DANGGEUN in a synthetic partnership article.</description></item>
+<item><title>Escaped domain</title><link>https://external.test/news/three</link><description>Not allowed.</description></item>
+</channel></rss>
