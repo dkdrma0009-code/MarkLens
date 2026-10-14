@@ -252,3 +252,16 @@ In the same transaction as Snapshot publish, the entity's `brand_watch_profiles.
 ### Remaining backend work
 
 Live provider binding and provider activation, rights/retention purge, the profile's public/SEO status and `last_meaningful_update_at` workflow, and public DTOs/eligibility remain deferred. Production application of 018–021 requires separate approval.
+
+## Chapter 5: Admin Review Console
+
+`/admin/brand-watch` (navigation: Intelligence → Brand Watch) is an Intelligence Console inside the existing Admin V2 shell; the rest of Admin is unchanged. The page is a Server Component that calls `requireAdmin()`, reads with the service-role client through `src/lib/brand-watch/admin/queries.ts` and builds a pure read model in `admin/view.ts`; only that derived model reaches the client. Tabs, filters, dialogs and selection live in client components under `src/components/admin-v2/brand-watch/`, with URL state (`tab`, `kind`, `brand`, `id`, all validated) kept via native history updates.
+
+- **Inbox:** review queue (brand, review state, source type, relevance, search), source detail with extracted Evidence (fact, support span, entity, role, relevance, confidence, validation, review state) and Evidence approve (with role) / reject / supersede; brand context and linked Movements on the right.
+- **Movements:** list with lineage health, detail with Evidence, sources, roles and same-entity clustering candidates; approve / reject / supersede / merge (targets limited to the same entity).
+- **Analysis:** Patterns, Takes and Snapshots with lineage health, revision comparison against the previous version, publish / reject. Takes are labelled MARKLENS INTERPRETATION and separated from their FACT evidence; Snapshots show CURRENT status and a non-public preview panel.
+- **Entities / Sources:** read-only operating status from stored rows plus the code-owned launch and provider registries; no collection error log exists, so none is shown.
+
+KPIs (new sources in the last 7 days, items needing review, published Movements, published Snapshots that are not healthy) and every list are computed from loaded rows; with no data the console shows zeros and empty states, and a failed load shows an error state without numbers. Lineage health uses the Chapter 4 checker per entity; non-healthy badges expand to reasons and causes, and there is no regenerate action. Review history is the read-only `brand_watch_review_events` trail.
+
+Mutations go only through `POST /api/admin/brand-watch/review`: the route derives the actor (`admin:<email>`) from the admin session, rejects client-supplied actors and malformed or non-UUID input, and executes the existing 019/021 commands through `executeReviewCommand`. Responses carry typed codes only; the UI maps them to operator messages, requires a reason for every action, confirms each action, and locks against double submission. Queries chunk ID lists and close lineage over loaded analysis rows so list limits never fabricate missing links.

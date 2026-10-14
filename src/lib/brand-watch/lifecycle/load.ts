@@ -50,10 +50,14 @@ export interface LineageQueryClient {
 // Read-only DB queries for one entity; database messages never leave this function.
 export async function loadLineageRows(client: LineageQueryClient, entityId: Id): Promise<LineageRows> {
   const query = async <T>(table: string, columns: string, column: string, values: readonly Id[]) => {
-    if (!values.length) return [] as T[]
-    const { data, error } = await client.from(table).select(columns).in(column, sortedIds(values))
-    if (error) throw new Error("LINEAGE_LOAD_FAILED")
-    return (data ?? []) as T[]
+    const ids = sortedIds(values), rows: T[] = []
+    // Chunked so long ID lists stay within PostgREST URL limits.
+    for (let start = 0; start < ids.length; start += 100) {
+      const { data, error } = await client.from(table).select(columns).in(column, ids.slice(start, start + 100))
+      if (error) throw new Error("LINEAGE_LOAD_FAILED")
+      rows.push(...(data ?? []) as T[])
+    }
+    return rows
   }
   type R = LineageRows
   const [movements, patterns, takes, snapshots] = await Promise.all([

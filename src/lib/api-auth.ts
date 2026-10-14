@@ -8,3 +8,12 @@ export async function isAdmin(): Promise<boolean> {
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
   return !!user && user.email?.trim().toLowerCase() === adminEmail
 }
+
+// Same check as isAdmin, returning the admin email for server-side audit attribution (null otherwise).
+export async function getAdminEmail(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  const email = user?.email?.trim().toLowerCase()
+  return email && adminEmail && email === adminEmail ? email : null
+}

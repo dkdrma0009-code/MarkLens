@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import { Dialog } from "@base-ui/react/dialog"
 import {
   Activity, ArrowUpRight, BarChart2, CalendarDays, Clapperboard, FileText,
-  Image as ImageIcon, Lightbulb, Mail, Menu, MessageSquare, Rss, Users, X,
+  Image as ImageIcon, Lightbulb, Mail, Menu, MessageSquare, Radar, Rss, Users, X,
 } from "lucide-react"
 
 const groups = [
@@ -28,6 +28,7 @@ const groups = [
   ] },
   { label: "Intelligence", items: [
     { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
+    { href: "/admin/brand-watch", label: "Brand Watch", icon: Radar },
     { href: "/admin/sources", label: "Sources", icon: Rss },
     { href: "/admin/insight-lab", label: "Challenges", icon: Lightbulb },
   ] },

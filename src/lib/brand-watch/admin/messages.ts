@@ -1,0 +1,28 @@
+// Client-safe operator messages for typed command codes. Raw database errors are never shown.
+const messages: Record<string, string> = {
+  UNAUTHORIZED: "관리자 인증이 만료되었습니다. 다시 로그인해 주세요.",
+  INVALID_COMMAND: "요청 값이 올바르지 않습니다. 사유와 선택 항목을 확인해 주세요.",
+  PROVENANCE_REQUIRED: "검수 사유가 필요합니다.",
+  NOT_FOUND: "대상을 찾을 수 없습니다. 화면을 새로고침해 주세요.",
+  INVALID_TRANSITION: "현재 상태에서는 이 작업을 할 수 없습니다. 이미 처리되었을 수 있습니다.",
+  INVALID_MATCH_ROLE: "역할 선택이 올바르지 않습니다.",
+  MATCH_NOT_FOUND: "이 소스의 브랜드 매칭 기록이 없어 승인할 수 없습니다.",
+  MATCH_REJECTED: "이 소스의 브랜드 매칭이 거절되어 승인할 수 없습니다.",
+  MATCH_ROLE_CONFLICT: "같은 소스에 이미 다른 역할이 승인되어 있습니다.",
+  SUCCESSOR_EVIDENCE_REQUIRED: "새 Movement에 연결할 Evidence를 하나 이상 선택해 주세요.",
+  SUCCESSOR_EVIDENCE_INVALID: "선택한 Evidence 중 사용할 수 없는 항목이 있습니다.",
+  SELF_MERGE: "같은 Movement로는 병합할 수 없습니다.",
+  ENTITY_MISMATCH: "다른 브랜드의 Movement와는 병합할 수 없습니다.",
+  INVALID_MERGE_TARGET: "병합 대상이 이미 대체되었거나 철회되었습니다.",
+  INELIGIBLE_LINEAGE: "연결된 근거 중 아직 게시되지 않았거나 다른 브랜드의 항목이 있습니다.",
+  BROKEN_LINEAGE: "근거 계보가 손상되었습니다. 정정되었거나 미승인 Evidence가 포함되어 있습니다.",
+  INSUFFICIENT_INDEPENDENT_MOVEMENTS: "서로 다른 Movement가 최소 2개 필요합니다.",
+  INVALID_PREDECESSOR: "이전 버전이 더 이상 게시 상태가 아닙니다.",
+  REVISION_REQUIRED: "이미 게시된 버전이 있습니다. 이전 버전을 대체하는 revision으로만 게시할 수 있습니다.",
+  COVERAGE_COUNT_MISMATCH: "저장된 근거·출처 수가 실제 계보와 일치하지 않습니다.",
+  PUBLICATION_REQUIREMENTS_UNMET: "게시 조건(승인된 근거 계보)을 충족하지 않습니다.",
+  EVENT_KEY_CONFLICT: "같은 event key를 가진 Movement가 이미 있습니다.",
+  DATABASE_ERROR: "처리 중 오류가 발생했습니다. 변경 사항은 저장되지 않았습니다.",
+  NETWORK_ERROR: "서버에 연결하지 못했습니다. 변경 사항은 확인되지 않았습니다.",
+}
+export function reviewMessage(code: string) { return messages[code] ?? messages.DATABASE_ERROR }
