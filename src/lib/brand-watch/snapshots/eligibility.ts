@@ -1,4 +1,5 @@
 import { assessPatternEligibility } from "../patterns/eligibility"
+import { businessDateDaysBefore } from "../dates"
 import type { PatternMovementInput, PatternPolicy } from "../patterns/schemas"
 import { assessTakeEligibility, type EligiblePattern } from "../takes/eligibility"
 import type { TakePatternInput } from "../takes/schemas"
@@ -12,7 +13,7 @@ export interface EligibleTake { take: SnapshotTakeInput; pattern: EligiblePatter
 export function assessSnapshotEligibility(entityId: string, input: { movements: readonly PatternMovementInput[]; patterns: readonly TakePatternInput[]; takes: readonly SnapshotTakeInput[] }, asOf: string, policy: PatternPolicy) {
   const movementGate = assessPatternEligibility(entityId, input.movements, asOf, policy)
   const patternGate = assessTakeEligibility(entityId, input.patterns, input.movements, asOf, policy)
-  const cutoff = new Date(Date.parse(asOf) - policy.recencyDays * 86400000).toISOString().slice(0, 10)
+  const cutoff = businessDateDaysBefore(asOf, policy.recencyDays)
   const patterns = patternGate.eligible.filter(row => row.pattern.windowEnd >= cutoff)
   const patternExcluded = [...patternGate.excluded.map(row => ({ patternId: row.patternId, reasons: row.reasons as string[] })),
     ...patternGate.eligible.filter(row => row.pattern.windowEnd < cutoff).map(row => ({ patternId: row.pattern.id, reasons: ["OUTSIDE_RECENCY_WINDOW"] }))]

@@ -1,3 +1,4 @@
+import { businessDate } from "../dates"
 import { launchRegistry } from "../registry"
 import { buildLineageGraph, type LineageRows } from "../lifecycle/load"
 import { evaluateLineageHealth } from "../lifecycle/health"
@@ -132,13 +133,13 @@ export function buildPublicBrandState(slug: string, rows: PublicRows, now: strin
 // Event day first (reviewed start or evidence event date), then report date, then observation; the basis is always shown.
 function movementDate(row: PublicRows["movements"][number], evidence: PublicRows["evidence"], sources: Map<Id, PublicRows["sources"][number]>): PublicDate | null {
   const events = [
-    ...(row.started_at ? [{ date: row.started_at.slice(0, 10), precision: "day" as PublicDatePrecision }] : []),
+    ...(row.started_at ? [{ date: businessDate(row.started_at), precision: "day" as PublicDatePrecision }] : []),
     ...evidence.flatMap(item => item.event_date && precisionOf(item.date_precision) ? [{ date: item.event_date, precision: precisionOf(item.date_precision)! }] : []),
   ].sort((a, b) => a.date.localeCompare(b.date))
   if (events.length) return { ...events[0], basis: "event" }
-  const reported = evidence.flatMap(item => { const source = sources.get(item.source_item_id); const precision = source && precisionOf(source.date_precision); return source?.published_at && precision ? [{ date: source.published_at.slice(0, 10), precision }] : [] }).sort((a, b) => a.date.localeCompare(b.date))
+  const reported = evidence.flatMap(item => { const source = sources.get(item.source_item_id); const precision = source && precisionOf(source.date_precision); return source?.published_at && precision ? [{ date: businessDate(source.published_at), precision }] : [] }).sort((a, b) => a.date.localeCompare(b.date))
   if (reported.length) return { ...reported[0], basis: "reported" }
-  return row.last_observed_at ? { date: row.last_observed_at.slice(0, 10), precision: "day", basis: "observed" } : null
+  return row.last_observed_at ? { date: businessDate(row.last_observed_at), precision: "day", basis: "observed" } : null
 }
 
 function lineageRows(rows: PublicRows, movements: PublicRows["movements"], patterns: PublicRows["patterns"], takes: PublicRows["takes"], snapshots: PublicRows["snapshots"], evidence: Map<Id, PublicRows["evidence"][number]>): LineageRows {

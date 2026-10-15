@@ -7,6 +7,7 @@ import { useSyncExternalStore } from "react"
 const items = [
   { href: "/insights", label: "Insights" },
   { href: "/#signals", label: "Trends" },
+  { href: "/brands", label: "Brand Watch" },
   { href: "/#collections", label: "Collections" },
   { href: "/practice", label: "Career Lab" },
   { href: "/glossary", label: "Dictionary" },

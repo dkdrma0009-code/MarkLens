@@ -8,13 +8,29 @@ export const BRANDS_INDEX_DESCRIPTION = "최근 공개 자료와 마케팅 움�
 
 export function brandsIndexMetadata(states: readonly PublicBrandState[]): Metadata {
   const title = "Brand Watch — 브랜드는 지금 어떻게 움직이는가 | MarkLens"
-  const indexable = states.some(state => state.kind === "available" && state.indexable)
   return {
     title, description: BRANDS_INDEX_DESCRIPTION,
     alternates: { canonical: "/brands" },
     openGraph: { title, description: BRANDS_INDEX_DESCRIPTION, url: "/brands", siteName: "MarkLens", type: "website" },
-    ...(indexable ? {} : { robots: { index: false, follow: true } }),
+    ...(brandsIndexLoaded(states) ? {} : { robots: { index: false, follow: true } }),
   }
+}
+
+// /brands is the Brand Watch directory: indexable and listed whenever Brand Watch data loads. Only a failed load
+// (every brand in the error state) makes it noindex and unlisted, so an error page is never submitted.
+export const brandsIndexLoaded = (states: readonly PublicBrandState[]) => states.some(state => state.kind !== "error")
+
+// Sitemap mirrors indexing: /brands when loaded, and brand pages only when SEO-indexable. Private, unavailable,
+// Snapshot-less or noindex brand pages are never listed; no URL is invented.
+export function brandWatchSitemapEntries(states: readonly PublicBrandState[], base: string) {
+  if (!brandsIndexLoaded(states)) return []
+  const indexable = states.filter((state): state is Extract<PublicBrandState, { kind: "available" }> => state.kind === "available" && state.indexable)
+  const lastModified = (value: string | null) => (value ? new Date(value) : undefined)
+  const newest = indexable.map(state => state.lastUpdate).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null
+  return [
+    { url: `${base}/brands`, lastModified: lastModified(newest), changeFrequency: "weekly" as const, priority: 0.7 },
+    ...indexable.map(state => ({ url: `${base}/brands/${state.brand.slug}`, lastModified: lastModified(state.lastUpdate), changeFrequency: "weekly" as const, priority: 0.7 })),
+  ]
 }
 
 export function brandMetadata(state: PublicBrandState): Metadata {

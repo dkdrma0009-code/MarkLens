@@ -305,7 +305,10 @@ test('8: metadata — snapshot-based description only when a Snapshot exists, ca
     assert.deepEqual([shell.title, shell.alternates.canonical, shell.robots], ['당근 Brand Watch | MarkLens', '/brands/danggeun', { index: false, follow: true }])
     const indexMeta = brandsIndexMetadata(states)
     assert.deepEqual([indexMeta.alternates.canonical, indexMeta.robots], ['/brands', undefined])
-    assert.deepEqual(brandsIndexMetadata(states.filter(state => state.brand.slug !== 'musinsa')).robots, { index: false, follow: true })
+    // Chapter 7 (§16): the /brands directory stays indexable whenever data loads, even with no indexable brand page;
+    // only a failed load (every brand in the error state) makes it noindex.
+    assert.equal(brandsIndexMetadata(states.filter(state => state.brand.slug !== 'musinsa')).robots, undefined)
+    assert.deepEqual(brandsIndexMetadata(states.map(state => ({ kind: 'error', brand: state.brand }))).robots, { index: false, follow: true })
   } finally { await db.close() }
 })
 

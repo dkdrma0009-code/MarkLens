@@ -5,6 +5,7 @@ import { patternMovementInputSchema, type PatternMovementInput } from "../patter
 import { takePatternInputSchema } from "../takes/schemas"
 import { snapshotTakeInputSchema } from "../snapshots/schemas"
 import { lifecyclePolicySchema } from "./policy"
+import { businessDate, businessDateDaysBefore } from "../dates"
 
 // Rows as loaded from 018/020 (camelCase). Pure input: health evaluation never reads or writes a database.
 export const lineageSnapshotInputSchema = z.strictObject({
@@ -53,7 +54,7 @@ export function evaluateLineageHealth(input: unknown, asOf: string, policyInput:
   const graph = lineageGraphSchema.parse(input), policy = lifecyclePolicySchema.parse(policyInput)
   z.iso.datetime({ offset: true }).parse(asOf)
   for (const rows of [graph.movements, graph.patterns, graph.takes, graph.snapshots]) if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error("DUPLICATE_GRAPH_ID")
-  const cutoff = (days: number) => new Date(Date.parse(asOf) - days * 86400000).toISOString().slice(0, 10)
+  const cutoff = (days: number) => businessDateDaysBefore(asOf, days)
   const evidenceIndex = new Map(graph.movements.flatMap(movement => movement.evidence.map(row => [row.id, row] as const)))
   const results = new Map<string, HealthResult>()
 
@@ -123,8 +124,8 @@ export function evaluateLineageHealth(input: unknown, asOf: string, policyInput:
     // Stored 018 coverage counts must still equal the lineage they summarize.
     const sources = new Set([...evidenceIds].map(id => evidenceIndex.get(id)?.sourceItemId))
     if (snapshot.takeIds.length && (snapshot.evidenceCount !== evidenceIds.size || snapshot.sourceCount !== sources.size)) t.flag("BROKEN", "COVERAGE_COUNT_MISMATCH")
-    t.result.latestSupportingDate = snapshot.asOf.slice(0, 10)
-    if (snapshot.asOf.slice(0, 10) < cutoff(policy.snapshotFreshnessDays)) t.flag("STALE", "FRESHNESS_EXPIRED", ["policy:snapshotFreshnessDays"])
+    t.result.latestSupportingDate = businessDate(snapshot.asOf)
+    if (businessDate(snapshot.asOf) < cutoff(policy.snapshotFreshnessDays)) t.flag("STALE", "FRESHNESS_EXPIRED", ["policy:snapshotFreshnessDays"])
     results.set(`snapshot:${snapshot.id}`, t.finish(false))
   }
   const list = [...results.values()]

@@ -1,4 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { loadPublicBrandStates } from "@/lib/brand-watch/public/load"
+import { brandWatchSitemapEntries } from "@/lib/brand-watch/public/metadata"
+import type { PublicQueryClient } from "@/lib/brand-watch/public/queries"
+import { PUBLIC_BRAND_SLUGS } from "@/lib/brand-watch/public/view"
 import type { MetadataRoute } from "next"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -30,5 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/newsletter`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     ...insightUrls,
+    // Brand Watch: /brands when data loads, brand pages only when SEO-indexable; a failed load adds nothing.
+    ...brandWatchSitemapEntries(await loadPublicBrandStates(() => supabase as unknown as PublicQueryClient, PUBLIC_BRAND_SLUGS, new Date().toISOString()), base),
   ]
 }

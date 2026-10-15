@@ -1,21 +1,27 @@
 import { normalizeSupport } from "../evidence/support"
 import { textSimilarity } from "../movements/independence"
 import type { PatternMovementInput, PatternPolicy } from "./schemas"
+import { businessDate, businessDateDaysBefore } from "../dates"
 
-export interface EligibleMovement { movement: PatternMovementInput; occurredOn: string; dateBasis: "event" | "observed" }
+export type DateBasis = "event" | "reported" | "observed"
+export interface EligibleMovement { movement: PatternMovementInput; occurredOn: string; dateBasis: DateBasis }
 export type ExclusionReason = "OTHER_ENTITY" | "NOT_APPROVED" | "REJECTED" | "SUPERSEDED" | "NO_EVIDENCE_LINEAGE" | "BROKEN_EVIDENCE_LINEAGE" | "UNAPPROVED_ACTOR_ROLE" | "NOT_MARKETING_RELEVANT" | "NO_DATE" | "OUTSIDE_RECENCY_WINDOW"
 
-// Earliest reviewed event day; collection time is only a flagged fallback, never an event date.
-export function movementOccurrence(movement: PatternMovementInput): { occurredOn: string; dateBasis: "event" | "observed" } | null {
-  const days = [movement.startedAt?.slice(0, 10), ...movement.evidence.map(row => row.eventDate)].filter((day): day is string => Boolean(day)).sort()
-  if (days.length) return { occurredOn: days[0], dateBasis: "event" }
-  return movement.lastObservedAt ? { occurredOn: movement.lastObservedAt.slice(0, 10), dateBasis: "observed" } : null
+// Date priority: explicit event day (reviewed start or evidence event date) → source report date →
+// collection time as a flagged fallback. All are business-local dates; nothing is shifted by UTC.
+export function movementOccurrence(movement: Pick<PatternMovementInput, "startedAt" | "lastObservedAt"> & { evidence: readonly { eventDate: string | null; source?: { publishedAt: string | null } }[] }): { occurredOn: string; dateBasis: DateBasis } | null {
+  const earliest = (values: (string | null | undefined)[]) => values.filter((value): value is string => Boolean(value)).map(businessDate).sort()[0]
+  const event = earliest([movement.startedAt, ...movement.evidence.map(row => row.eventDate)])
+  if (event) return { occurredOn: event, dateBasis: "event" }
+  const reported = earliest(movement.evidence.map(row => row.source?.publishedAt))
+  if (reported) return { occurredOn: reported, dateBasis: "reported" }
+  return movement.lastObservedAt ? { occurredOn: businessDate(movement.lastObservedAt), dateBasis: "observed" } : null
 }
 
 // Pure gate: only approved (published), unmerged, same-entity movements with intact reviewed lineage.
 export function assessPatternEligibility(entityId: string, movements: readonly PatternMovementInput[], asOf: string, policy: PatternPolicy) {
   if (new Set(movements.map(row => row.id)).size !== movements.length) throw new Error("DUPLICATE_MOVEMENT_INPUT")
-  const cutoff = new Date(Date.parse(asOf) - policy.recencyDays * 86400000).toISOString().slice(0, 10)
+  const cutoff = businessDateDaysBefore(asOf, policy.recencyDays)
   const eligible: EligibleMovement[] = [], excluded: { movementId: string; reasons: ExclusionReason[] }[] = []
   for (const movement of movements) {
     const reasons: ExclusionReason[] = []

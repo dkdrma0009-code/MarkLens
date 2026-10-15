@@ -53,7 +53,7 @@ export function buildAdminView(rows: AdminRows, now: string, options: { truncate
   const providerById = new Map(rows.providers.map(row => [row.id, row]))
   const matchesBySource = group(rows.matches, row => row.source_item_id), evidenceBySource = group(rows.evidence, row => row.source_item_id)
   const movementsByEvidence = group(rows.movementEvidence, row => row.evidence_id), evidenceByMovement = group(rows.movementEvidence, row => row.movement_id)
-  const evidenceById = new Map(rows.evidence.map(row => [row.id, row]))
+  const evidenceById = new Map(rows.evidence.map(row => [row.id, row])), sourceById = new Map(rows.sources.map(row => [row.id, row]))
 
   const evidence: EvidenceView[] = rows.evidence.map(row => {
     const match = matchesBySource.get(row.source_item_id)?.find(m => m.entity_id === row.entity_id), meta = locator(row.support_locator)
@@ -71,7 +71,7 @@ export function buildAdminView(rows: AdminRows, now: string, options: { truncate
       evidenceIds: own.map(e => e.id), reviewState: pending ? "needs_review" : own.length ? "reviewed" : "no_evidence", relevance }
   }).sort((a, b) => byDesc(a.collectedAt, b.collectedAt))
 
-  const occurrence = (row: AdminRows["movements"][number]) => movementOccurrence({ startedAt: row.started_at, lastObservedAt: row.last_observed_at, evidence: (evidenceByMovement.get(row.id) ?? []).map(link => ({ eventDate: evidenceById.get(link.evidence_id)?.event_date ?? null })) } as never)
+  const occurrence = (row: AdminRows["movements"][number]) => movementOccurrence({ startedAt: row.started_at, lastObservedAt: row.last_observed_at, evidence: (evidenceByMovement.get(row.id) ?? []).map(link => { const item = evidenceById.get(link.evidence_id); return { eventDate: item?.event_date ?? null, source: { publishedAt: (item && sourceById.get(item.source_item_id)?.published_at) ?? null } } }) })
   const movements: MovementView[] = rows.movements.map(row => {
     const evidenceIds = (evidenceByMovement.get(row.id) ?? []).map(link => link.evidence_id), occurredOn = occurrence(row)?.occurredOn ?? null
     const graph = graphMovement.get(row.id)
