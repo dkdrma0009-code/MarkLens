@@ -19,7 +19,9 @@
 .marklens-public :is(.bw-hero-frame, .bw-key-frame, .bw-reveal-frame, .bw-move-thumb, .bw-dir-visual) { position: relative; display: block; overflow: hidden; background: var(--ml-soft); }
 .marklens-public .bw-visual { position: absolute; inset: 0; display: block; }
 .marklens-public .bw-visual img { object-fit: cover; transition: transform var(--motion-slow) var(--ease-editorial); }
-.marklens-public .bw-visual[data-fit="contain"] img { object-fit: contain; }
+.marklens-public .bw-visual[data-fit="contain"] img { object-fit: contain; filter: drop-shadow(0 14px 28px rgba(16, 17, 19, .32)); }
+.marklens-public .bw-visual[data-fit="contain"] { overflow: hidden; }
+.marklens-public .bw-visual[data-fit="contain"]::before { content: ""; position: absolute; inset: -40px; background: var(--bw-backdrop) center / cover no-repeat; filter: blur(26px) saturate(1.15); opacity: .9; }
 .marklens-public .bw-visual img::before { content: attr(data-fallback); position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: var(--ml-soft); color: var(--ml-muted); font-size: 12px; font-weight: 600; line-height: 1.5; text-align: center; }
 .marklens-public .bw-visual-credit { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; font-size: 11px; line-height: 1.5; color: var(--ml-muted); }
 .marklens-public .bw-visual-credit > span { font-weight: 700; }
@@ -41,8 +43,7 @@
 .marklens-public .bw-hero-signal-pattern .bw-hero-signal-label { display: inline-block; padding: 2px 6px; border: 1px solid currentColor; }
 .marklens-public .bw-hero-signal-movement .bw-hero-signal-label { display: inline-block; padding: 3px 7px; background: #fff; color: #101113; }
 .marklens-public .bw-hero-signal-text { font-size: clamp(22px, 2.2vw, 32px); font-weight: 650; line-height: 1.4; letter-spacing: -.05em; margin-top: 14px; }
-.marklens-public .bw-hero-signal-text a { border-bottom: 1px solid #6388ff; }
-.marklens-public .bw-hero-signal-text a:hover { color: #89a5ff; }
+.marklens-public .bw-hero-signal-text a:is(:hover, :focus-visible) { color: #89a5ff; text-decoration: underline 1px #6388ff; text-underline-offset: 6px; }
 .marklens-public .bw-hero-signal-note { font-size: 12px; line-height: 1.6; color: #a9abb2; margin-top: 12px; }
 .marklens-public .bw-hero-evidence { display: grid; gap: 16px; }
 .marklens-public .bw-hero-frame { aspect-ratio: 16 / 10; background: #1b1d22; }
@@ -164,7 +165,9 @@
 
 /* 04 Pattern reveal — the signature moment: the moves' own evidence, gathered by one bracket into a direction. */
 .marklens-public .bw-patterns { background: var(--ml-paper); --bw-frame: 320px; --bw-gap: 32px; }
-.marklens-public .bw-section.bw-patterns { padding-bottom: 0; }
+.marklens-public .bw-section.bw-patterns { padding-top: 76px; padding-bottom: 0; }
+.marklens-public .bw-section.bw-key { padding-bottom: 76px; }
+.marklens-public .bw-section.bw-moves { padding-bottom: 72px; }
 .marklens-public .bw-pattern { padding-block: 56px 72px; border-top: 1px solid var(--ml-line); scroll-margin-top: 96px; }
 .marklens-public .bw-pattern:first-child { border-top: 2px solid var(--ml-ink); }
 .marklens-public .bw-pattern-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
@@ -328,6 +331,9 @@
   .marklens-public .bw-snapshot-grid { gap: 48px; }
   .marklens-public .bw-key-grid { gap: 40px; }
   .marklens-public .bw-patterns { --bw-frame: 212px; --bw-gap: 22px; }
+  .marklens-public .bw-section.bw-key { padding-bottom: 64px; }
+  .marklens-public .bw-section.bw-patterns { padding-top: 64px; }
+  .marklens-public .bw-section.bw-moves { padding-bottom: 60px; }
   .marklens-public .bw-move { grid-template-columns: 128px 136px minmax(0, 1fr); gap: 24px; }
   .marklens-public :is(.bw-directory-head, .bw-dir-row) { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.4fr) 64px 72px 104px 20px; gap: 20px; }
   .marklens-public .bw-dir-name { font-size: 24px; }
@@ -382,6 +388,9 @@
   .marklens-public .bw-section { padding-block: 56px; }
   .marklens-public .bw-heading { margin-bottom: 32px; }
   .marklens-public .bw-heading h2 { font-size: 28px; }
+  .marklens-public .bw-section.bw-key { padding-bottom: 44px; }
+  .marklens-public .bw-section.bw-patterns { padding-top: 44px; }
+  .marklens-public .bw-section.bw-moves { padding-bottom: 32px; }
   .marklens-public .bw-snapshot { padding-block: 48px 56px; }
   .marklens-public .bw-snapshot-direction p { font-size: 18px; }
   .marklens-public .bw-snapshot-watch { padding-left: 18px; }
