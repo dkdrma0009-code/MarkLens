@@ -15,3 +15,6 @@ export function formatPublicDate(date: PublicDate): string {
 }
 export const DATE_BASIS_LABELS: Record<PublicDate["basis"], string> = { event: "", reported: "보도일", observed: "확인일" }
 export const isoDay = (value: string) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : kst.format(new Date(value)))
+// Keeps a middle dot glued to its neighbours (U+2060 word joiners) so "장보기·쇼핑" never wraps with "·" opening a
+// line. Rendering only: the visible text is unchanged.
+export const keepDots = (text: string) => text.replace(/(\S)·(?=\S)/g, "$1\u2060·\u2060")

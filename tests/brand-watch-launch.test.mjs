@@ -281,7 +281,9 @@ test('9/10: a real correction propagates — review-required facts, stale analys
     const t0 = await stamp()
     assert.ok(t0, 'publishing set the timestamp')
     // Non-meaningful activity: reads, source collection, a pending Evidence and its approval, a draft and its rejection.
-    await states(db)
+    const club = row => row.title === "포인트 적립형 '배민클럽 에디션2' 출시"
+    // Visual evidence follows lineage: the club Movement shows the HuffPost-carried official image before correction.
+    assert.match(bySlug(await states(db), 'baemin').movements.find(club).visual.src, /huffingtonpost\.kr\/news\/photo/)
     await seedClient(db).insert('source_items', { id: lid(299), provider_id: lid(107), canonical_url: 'https://www.newspim.com/news/view/0', original_url: 'https://www.newspim.com/news/view/0', title: '수집만 된 소스', date_precision: 'unknown', content_hash: 'f'.repeat(64) })
     await seedClient(db).insert('source_entity_matches', { source_item_id: lid(299), entity_id: baemin, role: 'mentioned', confidence: 0.5, method: 'manual', review_status: 'pending' })
     await seedClient(db).insert('brand_evidence', { id: lid(399), entity_id: baemin, source_item_id: lid(299), fact: '검수 대기 사실', support_text: '검수 대기', date_precision: 'unknown', marketing_relevance: 1, confidence: 0.5, extraction_method: 'manual' })
@@ -302,6 +304,9 @@ test('9/10: a real correction propagates — review-required facts, stale analys
     assert.equal(admin.movements.find(row => row.id === lid(431)).health.health, 'REVIEW_REQUIRED')
     let state = bySlug(await states(db), 'baemin')
     assert.deepEqual([state.movements.map(row => row.title).sort(), state.patterns, state.takes], [['서울시와 \'9월말 투아웃\' 픽업 캠페인', '장보기·쇼핑에 뷰티 판매점 오프뷰티 입점'], [], []])
+    // The corrected Movement's image is withheld with it; unaffected Movements keep theirs.
+    assert.doesNotMatch(JSON.stringify(state), /huffingtonpost\.kr\/news\/photo|img\.newspim\.com/)
+    assert.ok(state.movements.every(row => row.visual))
 
     // Human remediation — nothing regenerates automatically.
     const successor = corrected.result.successorId ?? (await one(db, 'SELECT id FROM brand_evidence WHERE supersedes_id=$1', [lid(331)])).id
@@ -320,6 +325,9 @@ test('9/10: a real correction propagates — review-required facts, stale analys
     assert.deepEqual([state.patterns.length, state.takes.length, state.movements.length], [1, 1, 3])
     assert.match(JSON.stringify(state), /2026년 10월 1일 배민클럽 에디션2를 출시했다/)
     assert.doesNotMatch(JSON.stringify(state), /출시한다고 밝혔다/)
+    // After human remediation the image returns only through the re-reviewed lineage (HuffPost), never the superseded announcement.
+    assert.match(state.movements.find(club).visual.src, /huffingtonpost\.kr\/news\/photo/)
+    assert.doesNotMatch(JSON.stringify(state), /img\.newspim\.com/)
     // History stays: the superseded rows and their events remain.
     assert.deepEqual((await one(db, 'SELECT status FROM brand_movements WHERE id=$1', [lid(431)])).status, 'superseded')
     assert.deepEqual((await one(db, 'SELECT status FROM brand_patterns WHERE id=$1', [lid(531)])).status, 'superseded')

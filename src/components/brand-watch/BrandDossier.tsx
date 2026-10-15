@@ -1,38 +1,101 @@
+import type { CSSProperties } from "react"
 import Link from "next/link"
 import { ArrowLeft, ArrowUpRight } from "lucide-react"
-import type { PublicBrandState, PublicMovement, PublicPattern, PublicSnapshot, PublicSource, PublicTake, PublicDate } from "@/lib/brand-watch/public/types"
-import { DATE_BASIS_LABELS, MOVEMENT_TYPE_LABELS, PROVIDER_TYPE_LABELS, formatDay, formatPublicDate, isoDay } from "./format"
+import { keyMovements, publicSignal } from "@/lib/brand-watch/public/view"
+import type { PublicBrandState, PublicMovement, PublicPattern, PublicSignal, PublicSnapshot, PublicSource, PublicTake, PublicDate } from "@/lib/brand-watch/public/types"
+import { EvidenceImage, VisualCredit } from "./EvidenceImage"
+import { DATE_BASIS_LABELS, MOVEMENT_TYPE_LABELS, PROVIDER_TYPE_LABELS, formatDay, formatPublicDate, isoDay, keepDots } from "./format"
 
 type Available = Extract<PublicBrandState, { kind: "available" }>
 
-// Server-rendered research dossier: Snapshot → Recent Moves (FACT) → Observed Patterns → MarkLens Take → Sources.
-// Each layer carries its own text label; colour is never the only signal.
+// Editorial brand page: Hero → Current signal → Key moves → Pattern reveal → MarkLens Take → Timeline → Sources.
+// FACT / OBSERVED PATTERN / MARKLENS TAKE stay text-labelled layers; images are the sources' own visual evidence.
+// Nothing here adds, merges or rewrites data.
 export default function BrandDossier({ state }: { state: PublicBrandState }) {
   const { brand } = state
   const available = state.kind === "available" ? state : null
+  const signal = available ? publicSignal(available) : null
+  // Hero evidence: the most recent public fact with its own image (Key Moves then leads with the strongest-supported).
+  const lead = available?.movements.find(row => row.visual) ?? null
   const sections = available ? [
-    { id: "snapshot", label: "Snapshot" },
-    { id: "moves", label: "Recent Moves" },
+    { id: "snapshot", label: "Overview" },
+    { id: "key-moves", label: "Moves" },
     { id: "patterns", label: "Patterns" },
-    { id: "take", label: "MarkLens Take" },
+    { id: "take", label: "Take" },
     { id: "sources", label: "Sources" },
   ] : []
   return (
     <article className="bw-public" aria-labelledby="bw-title">
-      <header className="bw-hero">
+      <header className={`bw-hero${lead ? " bw-hero-has-visual" : ""}`}>
         <div className="ml-container">
           <nav className="bw-crumb" aria-label="이동 경로"><Link href="/brands"><ArrowLeft size={14} aria-hidden="true" /> Brand Watch</Link></nav>
-          <p className="ml-eyebrow bw-hero-eyebrow">BRAND WATCH · <span className="bw-hero-category">{brand.category}</span></p>
-          <h1 id="bw-title">{brand.name}<span className="ml-blue">.</span></h1>
-          <p className="bw-hero-ko">{brand.nameKo}</p>
-          {available?.lastUpdate ? <p className="bw-hero-update">최근 확인된 움직임 · <time dateTime={isoDay(available.lastUpdate)}>{formatDay(available.lastUpdate)}</time> 기준</p> : null}
-          {sections.length ? <nav className="bw-toc" aria-label="이 페이지의 구성"><ol>{sections.map((section, index) => <li key={section.id}><a href={`#${section.id}`}><span className="ml-index">{String(index + 1).padStart(2, "0")}</span>{section.label}</a></li>)}</ol></nav> : null}
+          <div className="bw-hero-grid">
+            <div className="bw-hero-brand">
+              <p className="ml-eyebrow bw-hero-eyebrow">BRAND WATCH / <span className="bw-hero-category">{brand.category}</span></p>
+              <h1 id="bw-title">{brand.displayName}<span className="ml-blue">.</span></h1>
+              <p className="bw-hero-secondary">{brand.displayNameSecondary}</p>
+              {signal ? <HeroSignal signal={signal} /> : null}
+            </div>
+            {lead?.visual ? (
+              <figure className="bw-hero-evidence">
+                <div className="bw-hero-frame"><EvidenceImage visual={lead.visual} width={1200} eager /></div>
+                <figcaption>
+                  <span className="bw-hero-evidence-meta"><span className="bw-label bw-label-fact">FACT</span><span>{typeLabel(lead)}</span>{lead.date ? <span>{formatPublicDate(lead.date)}</span> : null}</span>
+                  <a href={`#${lead.anchor}`} className="bw-hero-evidence-title">{keepDots(lead.title)}</a>
+                  <VisualCredit visual={lead.visual} />
+                </figcaption>
+              </figure>
+            ) : null}
+          </div>
+          {available ? <HeroStats state={available} /> : null}
+          {sections.length ? (
+            <div className="bw-hero-foot">
+              <nav className="bw-toc" aria-label="이 페이지의 구성"><ol>{sections.map((section, index) => <li key={section.id}><a href={`#${section.id}`}><span className="ml-index">{String(index + 1).padStart(2, "0")}</span>{section.label}</a></li>)}</ol></nav>
+              <ol className="bw-legend" aria-label="이 페이지를 읽는 법">
+                <li><span className="bw-label bw-label-fact">FACT</span>공개 자료로 확인된 사실</li>
+                <li><span className="bw-label bw-label-pattern">OBSERVED PATTERN</span>반복해서 관찰된 방향</li>
+                <li><span className="bw-label bw-label-take">MARKLENS TAKE</span>MarkLens의 해석 · 사실이 아님</li>
+              </ol>
+            </div>
+          ) : null}
         </div>
       </header>
       {state.kind === "error" ? <Notice title="Brand Watch 데이터를 불러오지 못했습니다." body="잠시 후 다시 확인해 주세요. 불러오지 못한 동안에는 어떤 요약이나 수치도 표시하지 않습니다." /> : null}
       {state.kind === "unavailable" ? <Notice title="아직 공개된 Brand Watch 데이터가 없습니다." body={`${brand.nameKo}의 움직임은 검수를 거쳐 공개됩니다. 공개 전에는 요약이나 해석을 미리 보여주지 않습니다.`} /> : null}
-      {available ? <Body state={available} /> : null}
+      {available ? <Body state={available} hero={lead} /> : null}
     </article>
+  )
+}
+
+// Three different claims, three different labels: a Pattern is never presented as a Snapshot.
+const SIGNAL_LABELS: Record<PublicSignal["kind"], { label: string; note: string | null }> = {
+  snapshot: { label: "Current signal", note: null },
+  pattern: { label: "Observed direction", note: "공개된 Snapshot이 없어, 반복 관찰된 Observed Pattern을 표시합니다." },
+  movement: { label: "Latest move", note: "공개된 Snapshot과 Pattern이 없어, 가장 최근 확인된 움직임을 표시합니다." },
+}
+function HeroSignal({ signal }: { signal: PublicSignal }) {
+  const { label, note } = SIGNAL_LABELS[signal.kind]
+  return (
+    <div className={`bw-hero-signal bw-hero-signal-${signal.kind}`}>
+      <p className="bw-hero-signal-label">{label}</p>
+      <p className="bw-hero-signal-text">{signal.kind === "snapshot" ? keepDots(signal.text) : <a href={`#${signal.anchor}`}>{keepDots(signal.text)}</a>}</p>
+      {note ? <p className="bw-hero-signal-note">{note}</p> : null}
+    </div>
+  )
+}
+
+// Real counts from the published read model only; never a score.
+function HeroStats({ state }: { state: Available }) {
+  const stats = [
+    { label: "Moves", value: String(state.movements.length) },
+    { label: "Patterns", value: String(state.patterns.length) },
+    { label: "Sources", value: String(state.sources.length) },
+  ]
+  return (
+    <dl className="bw-hero-stats">
+      {stats.map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
+      {state.lastUpdate ? <div className="bw-hero-asof"><dt>As of</dt><dd><time dateTime={isoDay(state.lastUpdate)}>{formatDay(state.lastUpdate)}</time></dd></div> : null}
+    </dl>
   )
 }
 
@@ -40,15 +103,21 @@ function Notice({ title, body }: { title: string; body: string }) {
   return <section className="bw-notice" role="status"><div className="ml-container"><h2>{title}</h2><p>{body}</p><Link className="ml-text-link" href="/brands">다른 브랜드 보기 <ArrowUpRight size={15} aria-hidden="true" /></Link></div></section>
 }
 
-function Body({ state }: { state: Available }) {
+// One visual, at most two appearances in the reading flow. The hero's Movement is already featured with its evidence,
+// so Key Moves ranks the remaining Movements (it is not hidden: the hero caption and the timeline still list it).
+// The timeline is the archive, not a replay: it shows an image only for a Movement not pictured above.
+function Body({ state, hero }: { state: Available; hero: PublicMovement | null }) {
+  const pool = state.movements.filter(row => row.id !== hero?.id)
+  const key = keyMovements(pool.length ? pool : state.movements, state.patterns)
+  const pictured = new Set([...(hero ? [hero.id] : []), ...key.filter(row => row.visual).map(row => row.id)])
   return (
     <>
-      <ReadingGuide />
       <SnapshotSection snapshot={state.snapshot} hasMoves={state.movements.length > 0} />
-      <MovesSection movements={state.movements} themes={state.themes} />
-      <PatternsSection patterns={state.patterns} />
+      <KeyMovesSection keyMoves={key} />
+      <PatternsSection patterns={state.patterns} movements={state.movements} />
       <TakesSection takes={state.takes} />
-      <SourcesSection sources={state.sources} />
+      <TimelineSection movements={state.movements} themes={state.themes} pictured={pictured} />
+      <SourcesSection sources={state.sources} imageRefs={new Set(state.movements.flatMap(row => row.visual ? [row.visual.sourceRef] : []))} />
       {state.relatedInsights.length ? (
         <section className="bw-section bw-related" aria-labelledby="related-title">
           <div className="ml-container">
@@ -65,21 +134,6 @@ function Heading({ eyebrow, id, title, deck }: { eyebrow: string; id: string; ti
   return <div className="bw-heading"><p className="ml-eyebrow">{eyebrow}</p><h2 id={id}>{title}<span className="ml-blue">.</span></h2>{deck ? <p className="bw-deck">{deck}</p> : null}</div>
 }
 
-function ReadingGuide() {
-  return (
-    <section className="bw-guide" aria-labelledby="guide-title">
-      <div className="ml-container">
-        <h2 id="guide-title" className="sr-only">이 페이지를 읽는 법</h2>
-        <ol>
-          <li className="bw-guide-fact"><span className="bw-label bw-label-fact">FACT</span><p>공개 자료에서 확인된 사실. 출처 번호를 눌러 원문까지 따라갈 수 있습니다.</p></li>
-          <li className="bw-guide-pattern"><span className="bw-label bw-label-pattern">OBSERVED PATTERN</span><p>서로 다른 둘 이상의 움직임에서 반복해서 관찰된 방향.</p></li>
-          <li className="bw-guide-take"><span className="bw-label bw-label-take">MARKLENS TAKE</span><p>사실과 패턴을 바탕으로 한 MarkLens의 해석. 사실이 아닙니다.</p></li>
-        </ol>
-      </div>
-    </section>
-  )
-}
-
 function Refs({ refs, label = "출처" }: { refs: number[]; label?: string }) {
   if (!refs.length) return null
   return <p className="bw-refs"><span>{label}</span>{refs.map(ref => <a key={ref} href={`#source-${ref}`} aria-label={`출처 ${ref}번으로 이동`}>[{ref}]</a>)}</p>
@@ -91,61 +145,67 @@ function DateLabel({ date }: { date: PublicDate | null }) {
   return <span className="bw-date"><time dateTime={date.date.slice(0, date.precision === "year" ? 4 : date.precision === "month" ? 7 : 10)}>{formatPublicDate(date)}</time>{basis ? <small>{basis}</small> : null}</span>
 }
 
+const typeLabel = (movement: PublicMovement) => MOVEMENT_TYPE_LABELS[movement.movementType] ?? movement.movementType
+const pad = (value: number) => String(value).padStart(2, "0")
+
 function SnapshotSection({ snapshot, hasMoves }: { snapshot: PublicSnapshot | null; hasMoves: boolean }) {
+  // No Snapshot: one quiet status line, so the page moves straight on to the published facts.
+  if (!snapshot) return (
+    <section id="snapshot" className="bw-snapshot-status" aria-labelledby="snapshot-title">
+      <div className="ml-container">
+        <p className="ml-eyebrow">SNAPSHOT</p>
+        <h2 id="snapshot-title">현재 공개 Snapshot 없음</h2>
+        <p>{hasMoves ? "아래에서 공개 자료로 확인된 움직임을 먼저 볼 수 있습니다." : "검수를 마친 요약이 공개되면 이곳에 표시됩니다."}</p>
+      </div>
+    </section>
+  )
   return (
     <section id="snapshot" className="bw-section bw-snapshot" aria-labelledby="snapshot-title">
       <div className="ml-container">
-        {snapshot ? (
-          <>
-            <div className="bw-snapshot-top">
-              <p className="ml-eyebrow">CURRENT SYNTHESIS · BRAND SNAPSHOT</p>
-              <p className="bw-asof"><time dateTime={isoDay(snapshot.asOf)}>{formatDay(snapshot.asOf)}</time> 기준</p>
-            </div>
-            <h2 id="snapshot-title" className="bw-snapshot-headline">{snapshot.headline}</h2>
-            {snapshot.asOfOnly ? <p className="bw-asof-note">이 요약은 {formatDay(snapshot.asOf)} 기준입니다. 이후의 움직임은 반영되지 않았을 수 있습니다.</p> : null}
-            <div className="bw-snapshot-grid">
-              <div><p className="bw-label">CURRENT DIRECTION</p><p className="bw-snapshot-text">{snapshot.currentDirection}</p></div>
-              {snapshot.watchNext ? <div><p className="bw-label">WATCH NEXT</p><p className="bw-snapshot-text">{snapshot.watchNext}</p></div> : null}
-            </div>
-            <p className="bw-snapshot-basis">
-              MarkLens가 아래의 사실·패턴·해석을 종합한 현재 요약입니다 · 근거 {snapshot.evidenceCount}건 · 출처 {snapshot.sourceCount}건
-              {snapshot.takeAnchors.length ? <> · 바탕이 된 해석: {snapshot.takeAnchors.map((take, index) => <span key={take.anchor}>{index ? ", " : ""}<a href={`#${take.anchor}`}>{take.patternTitle}</a></span>)}</> : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="ml-eyebrow">CURRENT SYNTHESIS · BRAND SNAPSHOT</p>
-            <h2 id="snapshot-title" className="bw-empty-title">현재 공개된 Brand Snapshot이 없습니다.</h2>
-            <p className="bw-empty">{hasMoves ? "아래에서 공개 자료로 확인된 움직임을 먼저 볼 수 있습니다." : "검수를 마친 요약이 공개되면 이곳에 표시됩니다."}</p>
-          </>
-        )}
+        <div className="bw-snapshot-top">
+          <p className="ml-eyebrow">CURRENT SIGNAL</p>
+          <p className="bw-asof"><time dateTime={isoDay(snapshot.asOf)}>{formatDay(snapshot.asOf)}</time> 기준</p>
+        </div>
+        {/* The headline leads the hero; here it titles the section for assistive technology only. */}
+        <h2 id="snapshot-title" className="sr-only">{snapshot.headline}</h2>
+        {snapshot.asOfOnly ? <p className="bw-asof-note">이 요약은 {formatDay(snapshot.asOf)} 기준입니다. 이후의 움직임은 반영되지 않았을 수 있습니다.</p> : null}
+        <div className="bw-snapshot-grid">
+          <div className="bw-snapshot-direction"><h3>CURRENT DIRECTION</h3><p>{keepDots(snapshot.currentDirection)}</p></div>
+          {snapshot.watchNext ? <div className="bw-snapshot-watch"><h3>WATCH NEXT</h3><p>{keepDots(snapshot.watchNext)}</p></div> : null}
+        </div>
+        <p className="bw-snapshot-basis">
+          <span>근거 {snapshot.evidenceCount}건 · 출처 {snapshot.sourceCount}건을 종합한 현재 요약</span>
+          {snapshot.takeAnchors.length ? <span>바탕이 된 해석 {snapshot.takeAnchors.map((take, index) => <span key={take.anchor}>{index ? ", " : ""}<a href={`#${take.anchor}`}>{take.patternTitle}</a></span>)}</span> : null}
+        </p>
       </div>
     </section>
   )
 }
 
-function MovesSection({ movements, themes }: { movements: PublicMovement[]; themes: Available["themes"] }) {
+// Composition follows the count: one feature, an asymmetric pair, or a lead with two supporting moves.
+function KeyMovesSection({ keyMoves: key }: { keyMoves: PublicMovement[] }) {
   return (
-    <section id="moves" className="bw-section bw-moves" aria-labelledby="moves-title">
+    <section id="key-moves" className="bw-section bw-key" aria-labelledby="key-title">
       <div className="ml-container">
-        <Heading eyebrow="FACT · RECENT MOVES" id="moves-title" title="최근 확인된 움직임" deck="공개 자료에서 확인된 사실입니다. 같은 사건을 다룬 여러 보도는 하나의 움직임으로 묶었습니다." />
-        {themes.length ? <div className="bw-themes"><p className="bw-label">THEMES</p><ul>{themes.map(theme => <li key={theme.slug}>{theme.name}</li>)}</ul></div> : null}
-        {movements.length ? (
-          <ol className="bw-move-list">
-            {movements.map(movement => (
-              <li key={movement.id} id={movement.anchor} className="bw-move">
-                <DateLabel date={movement.date} />
-                <div className="bw-move-body">
-                  <p className="bw-move-kind"><span className="bw-label bw-label-fact">FACT</span><span>{MOVEMENT_TYPE_LABELS[movement.movementType] ?? movement.movementType}</span></p>
-                  <h3>{movement.title}</h3>
-                  <p className="bw-move-summary">{movement.summary}</p>
-                  {movement.themes.length ? <ul className="bw-tags" aria-label="테마">{movement.themes.map(theme => <li key={theme.slug}>{theme.name}</li>)}</ul> : null}
-                  <Refs refs={movement.sourceRefs} label={`출처 ${movement.sourceRefs.length}건${movement.providerCount > 1 ? ` · 매체 ${movement.providerCount}곳` : ""}`} />
-                  <details className="bw-evidence">
-                    <summary>확인된 사실 {movement.facts.length}건 보기</summary>
-                    <ul>{movement.facts.map(fact => <li key={fact.id}><p>{fact.fact}</p><p className="bw-evidence-meta">{fact.date ? <DateLabel date={fact.date} /> : null}{fact.sourceRef ? <a href={`#source-${fact.sourceRef}`} aria-label={`출처 ${fact.sourceRef}번으로 이동`}>[{fact.sourceRef}]</a> : null}</p></li>)}</ul>
-                  </details>
-                </div>
+        <Heading eyebrow="KEY MOVES" id="key-title" title="지금 눈여겨볼 움직임" deck="반복 패턴과 여러 출처로 뒷받침된 공개 사실을 먼저 보여줍니다. 이미지는 각 출처가 게재한 것입니다." />
+        {key.length ? (
+          <ol className={`bw-key-grid bw-key-count-${key.length}`}>
+            {key.map((movement, index) => (
+              <li key={movement.id} className={`bw-key-signal${movement.visual ? " bw-key-has-visual" : ""}`}>
+                <article aria-labelledby={`key-${movement.anchor}`}>
+                  {movement.visual ? (
+                    <figure className="bw-key-figure">
+                      <div className="bw-key-frame"><EvidenceImage visual={movement.visual} width={index === 0 ? 1200 : 720} /></div>
+                      <figcaption><VisualCredit visual={movement.visual} /></figcaption>
+                    </figure>
+                  ) : null}
+                  <div className="bw-key-body">
+                    <p className="bw-key-meta"><span className="bw-key-index">{pad(index + 1)}</span><span className="bw-label bw-label-fact">FACT</span><span className="bw-key-type">{typeLabel(movement)}</span><DateLabel date={movement.date} /></p>
+                    <h3 id={`key-${movement.anchor}`} className="bw-key-title"><a href={`#${movement.anchor}`}>{keepDots(movement.title)}</a></h3>
+                    <p className="bw-key-summary">{keepDots(movement.summary)}</p>
+                    <Refs refs={movement.sourceRefs} label={`출처 ${movement.sourceRefs.length}건`} />
+                  </div>
+                </article>
               </li>
             ))}
           </ol>
@@ -155,26 +215,47 @@ function MovesSection({ movements, themes }: { movements: PublicMovement[]; them
   )
 }
 
-function PatternsSection({ patterns }: { patterns: PublicPattern[] }) {
+// Signature moment: the supporting moves' own evidence, gathered by one bracket into the observed direction.
+function PatternsSection({ patterns, movements }: { patterns: PublicPattern[]; movements: PublicMovement[] }) {
+  const byAnchor = new Map(movements.map(row => [row.anchor, row]))
   return (
     <section id="patterns" className="bw-section bw-patterns" aria-labelledby="patterns-title">
       <div className="ml-container">
-        <Heading eyebrow="OBSERVED PATTERN" id="patterns-title" title="반복해서 나타난 움직임" deck="서로 다른 둘 이상의 움직임에서 반복적으로 관찰된 방향입니다. 해석이 아니라 관찰입니다." />
+        <Heading eyebrow="OBSERVED PATTERN" id="patterns-title" title="여러 움직임에서 나타난 방향" deck="서로 다른 둘 이상의 움직임에서 반복적으로 관찰된 방향입니다. 해석이 아니라 관찰입니다." />
         {patterns.length ? (
           <div className="bw-pattern-list">
-            {patterns.map(pattern => (
-              <article key={pattern.id} id={pattern.anchor} className="bw-pattern" aria-labelledby={`${pattern.anchor}-title`}>
-                <p className="bw-pattern-top"><span className="bw-label bw-label-pattern">OBSERVED PATTERN</span><span className="bw-window"><time dateTime={pattern.windowStart}>{formatDay(pattern.windowStart)}</time> – <time dateTime={pattern.windowEnd}>{formatDay(pattern.windowEnd)}</time></span></p>
-                <h3 id={`${pattern.anchor}-title`}>{pattern.title}</h3>
-                <p className="bw-pattern-text">{pattern.description}</p>
-                {pattern.asOfOnly ? <p className="bw-asof-note">관찰 기간이 지난 패턴입니다 · {formatDay(pattern.windowEnd)} 기준</p> : null}
-                <div className="bw-chain">
-                  <p className="bw-label">근거가 된 움직임 {pattern.movementAnchors.length}건</p>
-                  <ol>{pattern.movementAnchors.map(movement => <li key={movement.anchor}><a href={`#${movement.anchor}`}>{movement.title}</a></li>)}</ol>
-                </div>
-                <Refs refs={pattern.sourceRefs} />
-              </article>
-            ))}
+            {patterns.map((pattern, patternIndex) => {
+              const supporting = pattern.movementAnchors.map(row => ({ row, movement: byAnchor.get(row.anchor) }))
+              // Themes every supporting move already carries; nothing new is written.
+              const shared = supporting.every(entry => entry.movement) ? supporting[0].movement!.themes.filter(theme => supporting.every(entry => entry.movement!.themes.some(row => row.slug === theme.slug))) : []
+              return (
+                <article key={pattern.id} id={pattern.anchor} className={`bw-pattern bw-reveal bw-pattern-n${Math.min(supporting.length, 4)}`} aria-labelledby={`${pattern.anchor}-title`} style={{ "--bw-n": supporting.length } as CSSProperties}>
+                  <p className="bw-pattern-top"><span className="bw-label bw-label-pattern">OBSERVED PATTERN</span><span className="bw-pattern-number">{pad(patternIndex + 1)}</span><span className="bw-window"><time dateTime={pattern.windowStart}>{formatDay(pattern.windowStart)}</time> – <time dateTime={pattern.windowEnd}>{formatDay(pattern.windowEnd)}</time></span></p>
+                  <ol className="bw-reveal-evidence" aria-label={`근거가 된 움직임 ${supporting.length}건`}>
+                    {supporting.map(({ row, movement }, index) => (
+                      <li key={row.anchor} style={{ "--bw-i": index } as CSSProperties}>
+                        <span className={`bw-reveal-frame${movement?.visual ? "" : " bw-reveal-frame-empty"}`}>
+                          {movement?.visual ? <EvidenceImage visual={movement.visual} width={640} /> : <span className="bw-reveal-plate">{movement ? typeLabel(movement) : "FACT"}</span>}
+                          <span className="bw-reveal-index" aria-hidden="true">{pad(index + 1)}</span>
+                        </span>
+                        <span className="bw-reveal-move">
+                          <a href={`#${row.anchor}`}>{keepDots(row.title)}</a>
+                          {movement ? <span className="bw-reveal-move-meta">{typeLabel(movement)}{movement.date ? <> · {formatPublicDate(movement.date)}</> : null}</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="bw-reveal-bracket" aria-hidden="true"><span /></div>
+                  <div className="bw-reveal-pattern">
+                    {shared.length ? <p className="bw-reveal-common"><span>공통 테마</span>{shared.map(theme => <span key={theme.slug}>{theme.name}</span>)}</p> : null}
+                    <h3 id={`${pattern.anchor}-title`}>{keepDots(pattern.title)}</h3>
+                    <p className="bw-pattern-text">{keepDots(pattern.description)}</p>
+                    {pattern.asOfOnly ? <p className="bw-asof-note">관찰 기간이 지난 패턴입니다 · {formatDay(pattern.windowEnd)} 기준</p> : null}
+                    <Refs refs={pattern.sourceRefs} />
+                  </div>
+                </article>
+              )
+            })}
           </div>
         ) : <p className="bw-empty">아직 공개된 Observed Pattern이 없습니다.</p>}
       </div>
@@ -182,19 +263,29 @@ function PatternsSection({ patterns }: { patterns: PublicPattern[] }) {
   )
 }
 
+// The Pattern's stem continues into the dark section: one transition marker, then the interpretation.
 function TakesSection({ takes }: { takes: PublicTake[] }) {
   return (
     <section id="take" className="bw-section bw-takes" aria-labelledby="take-title">
       <div className="ml-container">
-        <Heading eyebrow="MARKLENS TAKE · INTERPRETATION" id="take-title" title="MarkLens의 해석" deck="아래 내용은 사실(FACT)이 아니라, 위의 Observed Pattern을 바탕으로 한 MarkLens의 해석입니다." />
-        {takes.length ? takes.map(take => (
+        <p className="bw-handoff"><span className="bw-handoff-stem" aria-hidden="true" /><span className="bw-handoff-label">From pattern to interpretation</span></p>
+        <div className="bw-take-heading">
+          <p className="ml-eyebrow"><span className="bw-label bw-label-take">MARKLENS TAKE</span></p>
+          <h2 id="take-title">MarkLens의 해석<span className="ml-blue">.</span></h2>
+          <p className="bw-deck">아래 내용은 사실(FACT)이 아니라, 위의 Observed Pattern을 바탕으로 한 MarkLens의 해석입니다.</p>
+        </div>
+        {takes.length ? takes.map((take, index) => (
           <article key={take.id} id={take.anchor} className="bw-take" aria-label={`MarkLens Take: ${take.pattern.title}`}>
-            <p className="bw-take-top"><span className="bw-label bw-label-take">MARKLENS TAKE</span><span>기반 패턴 <a href={`#${take.pattern.anchor}`}>{take.pattern.title}</a></span></p>
+            <p className="bw-take-top">
+              <span className="bw-take-number">{pad(index + 1)}</span>
+              <span className="bw-take-from-label">Based on Observed Pattern {pad(Number(take.pattern.anchor.replace("pattern-", "")))}</span>
+              <a href={`#${take.pattern.anchor}`}>{keepDots(take.pattern.title)}</a>
+            </p>
             {take.asOfOnly ? <p className="bw-asof-note">기반 패턴의 관찰 기간이 지난 해석입니다.</p> : null}
             <dl>
-              <div><dt>WHAT WE SEE</dt><dd>{take.whatWeSee}</dd></div>
-              <div><dt>WHY IT MAY MATTER</dt><dd>{take.whyItMayMatter}</dd></div>
-              <div><dt>WHAT TO WATCH NEXT</dt><dd>{take.whatToWatchNext}</dd></div>
+              <div className="bw-take-why"><dt>WHY IT MAY MATTER</dt><dd>{keepDots(take.whyItMayMatter)}</dd></div>
+              <div className="bw-take-see"><dt>WHAT WE SEE</dt><dd>{keepDots(take.whatWeSee)}</dd></div>
+              <div className="bw-take-watch"><dt>WHAT TO WATCH NEXT</dt><dd>{keepDots(take.whatToWatchNext)}</dd></div>
             </dl>
             <Refs refs={take.sourceRefs} label="해석의 근거 출처" />
           </article>
@@ -204,18 +295,56 @@ function TakesSection({ takes }: { takes: PublicTake[] }) {
   )
 }
 
-function SourcesSection({ sources }: { sources: PublicSource[] }) {
+// Three or fewer Movements were all just shown above, so the timeline is a compact archive (date, FACT/type,
+// headline, sources, confirmed facts); larger timelines keep summaries and picture only what was not shown above.
+function TimelineSection({ movements, themes, pictured }: { movements: PublicMovement[]; themes: Available["themes"]; pictured: Set<string> }) {
+  const compact = movements.length <= 3
+  return (
+    <section id="moves" className="bw-section bw-moves" aria-labelledby="moves-title">
+      <div className="ml-container">
+        <div className="bw-timeline-heading">
+          <Heading eyebrow="FACT · TIMELINE" id="moves-title" title="확인된 움직임 전체" deck="같은 사건을 다룬 여러 보도는 하나의 움직임으로 묶었습니다." />
+          {themes.length ? <p className="bw-themes"><span>Themes</span>{themes.map(theme => <span key={theme.slug}>{theme.name}</span>)}</p> : null}
+        </div>
+        {movements.length ? (
+          <ol className={`bw-move-list${compact ? " bw-move-list-compact" : ""}`}>
+            {movements.map(movement => {
+              const thumb = !compact && movement.visual && !pictured.has(movement.id) ? movement.visual : null
+              return (
+              <li key={movement.id} id={movement.anchor} className={`bw-move${thumb ? " bw-move-has-visual" : ""}`}>
+                <DateLabel date={movement.date} />
+                {thumb ? <span className="bw-move-thumb"><EvidenceImage visual={thumb} width={480} /></span> : null}
+                <div className="bw-move-body">
+                  <p className="bw-move-kind"><span className="bw-label bw-label-fact">FACT</span><span>{typeLabel(movement)}</span>{movement.themes.map(theme => <span key={theme.slug} className="bw-move-theme">{theme.name}</span>)}</p>
+                  <h3>{keepDots(movement.title)}</h3>
+                  {compact ? null : <p className="bw-move-summary">{keepDots(movement.summary)}</p>}
+                  <Refs refs={movement.sourceRefs} label={`출처 ${movement.sourceRefs.length}건${movement.providerCount > 1 ? ` · 매체 ${movement.providerCount}곳` : ""}`} />
+                  <details className="bw-evidence"><summary>확인된 사실 {movement.facts.length}건 보기</summary>
+                    <ul>{movement.facts.map(fact => <li key={fact.id}><p>{keepDots(fact.fact)}</p><p className="bw-evidence-meta">{fact.date ? <DateLabel date={fact.date} /> : null}{fact.sourceRef ? <a href={`#source-${fact.sourceRef}`} aria-label={`출처 ${fact.sourceRef}번으로 이동`}>[{fact.sourceRef}]</a> : null}</p></li>)}</ul>
+                  </details>
+                </div>
+              </li>
+              )
+            })}
+          </ol>
+        ) : <p className="bw-empty">아직 공개된 움직임이 없습니다.</p>}
+      </div>
+    </section>
+  )
+}
+
+function SourcesSection({ sources, imageRefs }: { sources: PublicSource[]; imageRefs: Set<number> }) {
   return (
     <section id="sources" className="bw-section bw-sources" aria-labelledby="sources-title">
       <div className="ml-container">
-        <Heading eyebrow="SOURCES" id="sources-title" title="출처" deck="원문을 옮기지 않고 제목과 링크만 표시합니다. 전문은 각 매체에서 확인할 수 있습니다." />
+        <Heading eyebrow="SOURCES" id="sources-title" title="출처" deck="원문을 옮기지 않고 제목과 링크만 표시합니다. 이미지는 각 원문 페이지에 게재된 것을 저장하지 않고 연결해 보여줍니다." />
         {sources.length ? (
           <ol className="bw-source-list">
             {sources.map(source => (
               <li key={source.ref} id={`source-${source.ref}`}>
                 <span className="bw-source-ref" aria-hidden="true">[{source.ref}]</span>
                 <div>
-                  <p className="bw-source-meta"><span>{source.provider}</span><span>{PROVIDER_TYPE_LABELS[source.providerType] ?? "매체"}</span>{source.publishedAt ? <time dateTime={isoDay(source.publishedAt)}>{formatDay(source.publishedAt)}</time> : null}</p>
+                  <p className="bw-source-meta"><span>{source.provider}</span><span>{PROVIDER_TYPE_LABELS[source.providerType] ?? "매체"}</span>{source.publishedAt ? <time dateTime={isoDay(source.publishedAt)}>{formatDay(source.publishedAt)}</time> : null}{imageRefs.has(source.ref) ? <span className="bw-source-image">이미지 게재</span> : null}</p>
                   <a href={source.url} target="_blank" rel="noopener noreferrer" className="bw-source-link">{source.title}<span className="sr-only"> — {source.provider} 원문, 새 창에서 열림</span><ArrowUpRight size={14} aria-hidden="true" /></a>
                 </div>
               </li>

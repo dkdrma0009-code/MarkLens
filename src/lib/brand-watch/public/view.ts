@@ -2,15 +2,28 @@ import { businessDate } from "../dates"
 import { launchRegistry } from "../registry"
 import { buildLineageGraph, type LineageRows } from "../lifecycle/load"
 import { evaluateLineageHealth } from "../lifecycle/health"
+import { launchVisuals, type LaunchVisual } from "../launch/visuals"
 import { isProfileIndexable, isProfilePublic, type PublicRows } from "./queries"
-import type { PublicBrandCard, PublicBrandIdentity, PublicBrandState, PublicDate, PublicDatePrecision, PublicFact, PublicMovement, PublicPattern, PublicSnapshot, PublicSource, PublicTake, PublicTheme } from "./types"
+import type { PublicBrandCard, PublicBrandIdentity, PublicBrandState, PublicDate, PublicDatePrecision, PublicFact, PublicMovement, PublicPattern, PublicSignal, PublicSnapshot, PublicSource, PublicTake, PublicTheme, PublicVisual } from "./types"
+import { movementVisual } from "./visuals"
 
 const CATEGORY_LABELS: Record<string, string> = { fashion: "패션 플랫폼", beauty: "뷰티 리테일", finance: "핀테크", delivery: "배달 플랫폼", local: "로컬 커뮤니티" }
+// Display names checked against each brand's own first-party pages (2026-10-15): the name the brand itself uses in
+// Korean-facing materials leads; the other form is small metadata only, never styled as an official wordmark.
+const DISPLAY_NAMES: Record<string, { primary: string; secondary: string }> = {
+  musinsa: { primary: "MUSINSA", secondary: "무신사" }, // musinsa.com / newsroom.musinsa.com wordmark
+  "olive-young": { primary: "OLIVE YOUNG", secondary: "올리브영" }, // corp.oliveyoung.com
+  toss: { primary: "토스", secondary: "Toss" }, // toss.im newsroom (Korean) / toss.im/en
+  baemin: { primary: "배달의민족", secondary: "Baemin" }, // baemin.com; English app listing "Baemin"
+  danggeun: { primary: "당근", secondary: "Danggeun Market" }, // about.daangn.com; legal name Danggeun Market Inc.
+}
 export const PUBLIC_BRAND_SLUGS = launchRegistry.map(entry => entry.slug)
 
 export function publicBrandIdentity(slug: string): PublicBrandIdentity | null {
   const entry = launchRegistry.find(row => row.slug === slug)
-  return entry ? { slug: entry.slug, name: entry.name, nameKo: entry.nameKo, category: CATEGORY_LABELS[entry.category] ?? entry.category } : null
+  if (!entry) return null
+  const display = DISPLAY_NAMES[entry.slug] ?? { primary: entry.nameKo, secondary: entry.name }
+  return { slug: entry.slug, name: entry.name, nameKo: entry.nameKo, displayName: display.primary, displayNameSecondary: display.secondary, category: CATEGORY_LABELS[entry.category] ?? entry.category }
 }
 
 type Id = string
@@ -19,7 +32,7 @@ const latest = (values: (string | null | undefined)[]) => values.filter((value):
 
 // Pure: rows (already filtered by fetchPublicBrandRows) → sanitized public state for one launch brand.
 // Every object must be published and its whole lineage eligible; anything partial is hidden, never patched.
-export function buildPublicBrandState(slug: string, rows: PublicRows, now: string): PublicBrandState | null {
+export function buildPublicBrandState(slug: string, rows: PublicRows, now: string, visuals: readonly LaunchVisual[] = launchVisuals): PublicBrandState | null {
   const brand = publicBrandIdentity(slug)
   if (!brand) return null
   const entity = rows.entities.find(row => row.slug === slug)
@@ -83,7 +96,7 @@ export function buildPublicBrandState(slug: string, rows: PublicRows, now: strin
       .sort((a, b) => (a.date?.date ?? "9999").localeCompare(b.date?.date ?? "9999"))
     const refs = [...new Set(facts.map(fact => fact.sourceRef!))].sort((a, b) => a - b)
     const themes = linksOf(rows.movementThemes, "movement_id", row.id, "theme_id").map(id => themeById.get(id)).filter((theme): theme is NonNullable<typeof theme> => Boolean(theme)).map(theme => ({ slug: theme.slug, name: theme.name })).sort((a, b) => a.name.localeCompare(b.name))
-    return { id: row.id, anchor: anchorOf.get(row.id)!, title: row.title, summary: row.summary, movementType: row.movement_type, date, themes, facts, sourceRefs: refs, providerCount: new Set(evidence.map(item => sources.get(item.source_item_id)!.provider_id)).size }
+    return { id: row.id, anchor: anchorOf.get(row.id)!, title: row.title, summary: row.summary, movementType: row.movement_type, date, themes, facts, sourceRefs: refs, providerCount: new Set(evidence.map(item => sources.get(item.source_item_id)!.provider_id)).size, visual: movementVisual(refs, sourceList, visuals) }
   })
   const movementById = new Map(publicMovements.map(row => [row.id, row]))
 
@@ -154,9 +167,28 @@ function lineageRows(rows: PublicRows, movements: PublicRows["movements"], patte
   }
 }
 
+// Presentation order only: moves that support an Observed Pattern first, then wider sourcing, then recency.
+export function keyMovements(movements: readonly PublicMovement[], patterns: readonly PublicPattern[], limit = 3) {
+  const inPattern = new Set(patterns.flatMap(pattern => pattern.movementAnchors.map(row => row.anchor)))
+  return movements.map((movement, order) => ({ movement, order }))
+    .sort((a, b) => Number(inPattern.has(b.movement.anchor)) - Number(inPattern.has(a.movement.anchor)) || b.movement.sourceRefs.length - a.movement.sourceRefs.length || a.order - b.order)
+    .slice(0, limit).map(row => row.movement)
+}
+
+type Available = Extract<PublicBrandState, { kind: "available" }>
+// Never invents a summary: a Pattern is only labelled as an observed direction and a Movement as the latest fact.
+export function publicSignal(state: Available): PublicSignal | null {
+  if (state.snapshot) return { kind: "snapshot", text: state.snapshot.headline, anchor: "snapshot" }
+  if (state.patterns[0]) return { kind: "pattern", text: state.patterns[0].title, anchor: state.patterns[0].anchor }
+  if (state.movements[0]) return { kind: "movement", text: state.movements[0].title, anchor: state.movements[0].anchor }
+  return null
+}
+// The most recent public fact that carries its own visual evidence (Movements are newest first).
+export const leadVisual = (state: Available): PublicVisual | null => state.movements.find(row => row.visual)?.visual ?? null
+
 export function buildPublicBrandCard(state: PublicBrandState): PublicBrandCard {
-  if (state.kind !== "available") return { brand: state.brand, kind: state.kind, headline: null, recentMovements: [], lastUpdate: null }
-  return { brand: state.brand, kind: state.kind, headline: state.snapshot?.headline ?? null, recentMovements: state.movements.slice(0, 2).map(row => ({ title: row.title, date: row.date })), lastUpdate: state.lastUpdate }
+  if (state.kind !== "available") return { brand: state.brand, kind: state.kind, headline: null, recentMovements: [], lastUpdate: null, movementCount: 0, patternCount: 0, signal: null, visual: null }
+  return { brand: state.brand, kind: state.kind, headline: state.snapshot?.headline ?? null, recentMovements: state.movements.slice(0, 2).map(row => ({ title: row.title, date: row.date })), lastUpdate: state.lastUpdate, movementCount: state.movements.length, patternCount: state.patterns.length, signal: publicSignal(state), visual: leadVisual(state) }
 }
 
 export function errorStates(slugs: readonly string[]): PublicBrandState[] {

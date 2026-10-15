@@ -85,3 +85,12 @@ Entity decision: Baemin-branded consumer services (배민클럽, 픽업, 장보�
 - Support quotes are single sentences or headlines (≤ 200 characters), kept internal and never rendered publicly.
 - Movement summaries, Patterns, Takes and Snapshots are MarkLens-written. Takes and Snapshots are interpretation and hedged ("~일 수 있다", "지켜볼 만하다").
 - The full chain Take → Pattern → Movement → Evidence → Source is stored and traceable.
+
+## Visual evidence (Chapter 7.5B, checked 2026-10-15)
+
+- Registry: `src/lib/brand-watch/launch/visuals.ts` — one entry per source page: canonical source URL, image URL, evidence alt text, origin (`official` brand site, `newsroom`, or `media` outlet), credited rights holder, check date and an internal note. No migration; `source_items.image_url` stays NULL.
+- Each image is one the reviewed source page itself publishes for that event (page og:image or in-article image; Toss uses the in-article image because its og:image is a generic site image). It is linked from the page's image host through the existing image CDN (`weservThumb`), never copied or stored, and always shown with a credit linking to its footnoted source.
+- Media-outlet images are used only when the page credits the brand (e.g. "사진=우아한형제들", "사진=무신사 제공"); the credit is shown as "<rights holder> 제공 · <outlet>".
+- Not used: byline.network (0923-5) carries only the outlet's own photo of a conference speaker, which does not show the move, so the Toss AI-review Movement has no image.
+- Public rules (tested): an image appears only when its source supports a published Movement through approved, active, primary Evidence, so rejected, superseded or unpublished lineage never shows an image; invalid or non-https URLs, hotlink-blocked hosts and blank alt text fall back to no image; review notes never reach the public read model; a failed load shows a plate naming the provider.
+- Display names follow each brand's own Korean-facing materials: MUSINSA, OLIVE YOUNG, 토스 (Toss), 배달의민족 (Baemin), 당근 (Danggeun Market). The secondary form is small metadata only.

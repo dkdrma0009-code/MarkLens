@@ -14,6 +14,9 @@ export interface PublicSource {
 }
 export interface PublicFact { id: string; fact: string; date: PublicDate | null; sourceRef: number | null }
 export interface PublicTheme { slug: string; name: string }
+export type PublicVisualOrigin = "official" | "newsroom" | "media"
+// Visual evidence: an image the source page itself publishes, shown only with that public footnoted source.
+export interface PublicVisual { src: string; alt: string; sourceRef: number; provider: string; origin: PublicVisualOrigin; credit: string; fit: "cover" | "contain" }
 
 export interface PublicMovement {
   id: string
@@ -26,6 +29,7 @@ export interface PublicMovement {
   facts: PublicFact[]
   sourceRefs: number[]
   providerCount: number
+  visual: PublicVisual | null
 }
 export interface PublicPattern {
   id: string
@@ -60,7 +64,10 @@ export interface PublicSnapshot {
 }
 export interface PublicRelatedInsight { slug: string; title: string }
 
-export interface PublicBrandIdentity { slug: string; name: string; nameKo: string; category: string }
+// displayName is the brand's own primary name for Korean-facing UI; displayNameSecondary is small metadata only.
+export interface PublicBrandIdentity { slug: string; name: string; nameKo: string; displayName: string; displayNameSecondary: string; category: string }
+// Lead line for a brand, with distinct semantics: a published Snapshot, else an Observed Pattern, else the latest Movement.
+export interface PublicSignal { kind: "snapshot" | "pattern" | "movement"; text: string; anchor: string }
 
 export type PublicBrandState =
   | { kind: "unavailable"; brand: PublicBrandIdentity }
@@ -85,4 +92,9 @@ export interface PublicBrandCard {
   headline: string | null
   recentMovements: { title: string; date: PublicDate | null }[]
   lastUpdate: string | null
+  // Presentation counts of the already-public read model (no new data, never a score).
+  movementCount: number
+  patternCount: number
+  signal: PublicSignal | null
+  visual: PublicVisual | null
 }

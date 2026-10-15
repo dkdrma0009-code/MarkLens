@@ -13,6 +13,7 @@ const REVEAL_SELECTOR = [
   ".ml-feed-list", ".ml-article-image", ".ml-article-section > h2",
   ".ml-weekly-page .ml-page-section > .ml-eyebrow", ".ml-weekly-page .ml-editorial-row",
   ".ml-weekly-page .ml-page-cta", ".ml-footer-top",
+  ".bw-public .bw-heading", ".bw-key-signal", ".bw-reveal", ".bw-handoff", ".bw-take",
 ].join(",")
 
 export default function PublicMotion() {

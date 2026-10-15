@@ -26,7 +26,7 @@ const root = 'src/lib/brand-watch/'
 const { launchRegistry } = load(root + 'registry.ts')
 const { executeReviewCommand } = load(root + 'review/commands.ts')
 const { fetchPublicBrandRows, PUBLIC_COLUMNS } = load(root + 'public/queries.ts')
-const { buildPublicBrandState, buildPublicBrandCard, publicBrandIdentity, PUBLIC_BRAND_SLUGS } = load(root + 'public/view.ts')
+const { buildPublicBrandState, buildPublicBrandCard, publicBrandIdentity, publicSignal, PUBLIC_BRAND_SLUGS } = load(root + 'public/view.ts')
 const { loadPublicBrandStates } = load(root + 'public/load.ts')
 const { brandMetadata, brandsIndexMetadata } = load(root + 'public/metadata.ts')
 const { renderToStaticMarkup } = require('react-dom/server')
@@ -249,7 +249,7 @@ test('7/10: SSR — full, partial, empty and error states; FACT / PATTERN / TAKE
     await seed(db)
     const states = await loadStates(db)
     const html = dossier(bySlug(states, 'musinsa'))
-    assert.match(html, /<h1 id="bw-title">MUSINSA/)
+    assert.match(html, /<h1 id="bw-title">MUSINSA/); assert.match(html, /bw-hero-signal-label">Current signal</)
     assert.match(html, /CURRENT DIRECTION/); assert.match(html, /WATCH NEXT/); assert.match(html, /2026\.10\.08<\/time> 기준/)
     // Distinct, text-labelled layers.
     assert.ok((html.match(/bw-label-fact">FACT</g) ?? []).length >= 4)
@@ -269,7 +269,9 @@ test('7/10: SSR — full, partial, empty and error states; FACT / PATTERN / TAKE
     assert.doesNotMatch(html, /HEALTHY|STALE|REVIEW_REQUIRED|BROKEN|Score|\/100|%/)
     // Partial: Movements without Snapshot / Pattern / Take.
     const partial = dossier(bySlug(states, 'toss'))
-    assert.match(partial, /현재 공개된 Brand Snapshot이 없습니다/); assert.match(partial, /아래에서 공개 자료로 확인된 움직임을 먼저 볼 수 있습니다/)
+    // No Snapshot: a one-line status, and the hero names its lead line for what it is (never "Current signal").
+    assert.match(partial, /<h2 id="snapshot-title">현재 공개 Snapshot 없음<\/h2>/); assert.match(partial, /아래에서 공개 자료로 확인된 움직임을 먼저 볼 수 있습니다/)
+    assert.match(partial, /bw-hero-signal-label">Latest move</); assert.doesNotMatch(partial, /Current signal|CURRENT SIGNAL/)
     assert.match(partial, /아직 공개된 Observed Pattern이 없습니다/); assert.match(partial, /아직 공개된 MarkLens Take가 없습니다/)
     assert.match(partial, /Toss creator series/)
     // Empty: registry brand without public data.
@@ -277,7 +279,7 @@ test('7/10: SSR — full, partial, empty and error states; FACT / PATTERN / TAKE
     assert.match(empty, /아직 공개된 Brand Watch 데이터가 없습니다/); assert.doesNotMatch(empty, /id="snapshot"|id="moves"/)
     // Index: real data only, honest fallbacks, no scores.
     const list = index(states)
-    assert.match(list, /How brands are moving\./); assert.match(list, /Beauty is becoming a recurring direction/)
+    assert.match(list, /브랜드의 최근 움직임에서<br\/>반복되는 방향을 읽습니다/); assert.match(list, /Beauty is becoming a recurring direction/)
     assert.match(list, /href="\/brands\/olive-young"/); assert.ok((list.match(/아직 공개된 Brand Watch 데이터가 없습니다/g) ?? []).length === 3)
     assert.doesNotMatch(list, FORBIDDEN); assert.doesNotMatch(list, /\/100|Score|%/)
   } finally { await db.close() }
@@ -327,4 +329,77 @@ test('9: no service-role client or environment in rendering or client bundles; p
   }
   // The admin read model is not reused by the public layer.
   for (const name of readdirSync(libDir)) assert.doesNotMatch(readFileSync(`${libDir}/${name}`, 'utf8'), /from "\.\.\/admin/, name)
+})
+
+const visualRow = (n, extra = {}) => ({ sourceUrl: `https://p${n}.example.test/article-${n}`, imageUrl: `https://img${n}.example.test/v.jpg`, alt: `Evidence visual ${n}`, origin: 'media', credit: `Credit ${n}`, checkedAt: '2026-10-15', note: 'INTERNAL VISUAL NOTE', ...extra })
+test('11: visual evidence — only from public, eligible sources; provenance kept; invalid, rejected or corrected images never shown', async () => {
+  const registry = [visualRow(7), visualRow(3), visualRow(4), visualRow(2, { imageUrl: 'javascript:alert(1)' }), visualRow(1, { imageUrl: 'https://cdn.musebyclios.com/x.jpg' }), visualRow(5, { imageUrl: 'http://img5.example.test/v.jpg' }), visualRow(6, { alt: '  ' })]
+  const db = await database()
+  try {
+    await seed(db)
+    // Pending (p7) then explicitly rejected Evidence: its source never reaches a Movement, so its image never shows.
+    await review(db, { command: 'evidence.reject', evidenceId: id(17) })
+    const rows = await fetchPublicBrandRows(queryClient(db), ['musinsa', 'toss'])
+    const musinsa = buildPublicBrandState('musinsa', rows, now, registry), toss = buildPublicBrandState('toss', rows, now, registry)
+    // move-1 (two reports, p3 + p4): the first usable registry image, tied to its footnote, provider and credit.
+    assert.deepEqual(musinsa.movements[0].visual, { src: 'https://img3.example.test/v.jpg', alt: 'Evidence visual 3', sourceRef: 1, provider: 'Provider 3', origin: 'media', credit: 'Credit 3', fit: 'cover' })
+    // Invalid scheme, a hotlink-blocked host, plain http and a blank alt all fall back to no visual.
+    assert.deepEqual([...musinsa.movements.slice(1), ...toss.movements].map(row => row.visual), [null, null, null, null])
+    const json = JSON.stringify([musinsa, toss])
+    assert.doesNotMatch(json, /img7\.example|INTERNAL VISUAL NOTE|checkedAt|"note"|musebyclios|javascript:/)
+    // The index card leads with the same evidence; the signal semantics stay distinct.
+    assert.deepEqual(buildPublicBrandCard(musinsa).visual, musinsa.movements[0].visual)
+    assert.deepEqual([publicSignal(musinsa).kind, publicSignal({ ...musinsa, snapshot: null }), publicSignal({ ...musinsa, snapshot: null, patterns: [] })], ['snapshot', { kind: 'pattern', text: 'Recurring beauty activity', anchor: 'pattern-1' }, { kind: 'movement', text: 'Beauty creator campaign', anchor: 'move-1' }])
+    assert.match(dossier({ ...musinsa, snapshot: null }), /bw-hero-signal-label">Observed direction</)
+    // SSR: CDN-sized image (no Vercel optimisation), meaningful alt, eager only in the hero and lazy below it,
+    // credit linked to the footnoted source; moves without a visual render no image at all.
+    const html = dossier(musinsa)
+    const imgs = html.match(/<img [^>]*>/g) ?? []
+    // The hero carries move-1's evidence once; below it only the Pattern frame repeats it (Key Moves and the timeline do not).
+    assert.equal(imgs.filter(tag => /alt="Evidence visual 3"/.test(tag) && /loading="eager"/.test(tag)).length, 1)
+    assert.equal(imgs.filter(tag => /alt="Evidence visual 3"/.test(tag) && /loading="lazy"/.test(tag)).length, 1)
+    assert.ok(imgs.every(tag => /src="https:\/\/images\.weserv\.nl\/\?url=img3\.example\.test%2Fv\.jpg&amp;w=\d+/.test(tag)), imgs.join('\n'))
+    assert.doesNotMatch(html, /\/_next\/image/)
+    assert.match(html, /href="#source-1" aria-label="이미지 출처 1번으로 이동">Credit 3 제공 · Provider 3 \[1\]/)
+    assert.match(html, /<li id="move-2" class="bw-move"><span class="bw-date">/)
+    assert.match(html, /이미지 게재/)
+    assert.doesNotMatch(html, FORBIDDEN)
+    // Decorative repeats (index crop) carry an empty alt.
+    assert.match(index([musinsa]), /class="bw-dir-visual"><span class="bw-visual"[^>]*><img alt=""/)
+    // Every Movement pictured: no visual appears more than twice in the reading flow, the hero's Movement is not
+    // re-featured in Key Moves, and three Movements give a compact archive timeline without images or summaries.
+    const pictured = buildPublicBrandState('musinsa', rows, now, [visualRow(3), visualRow(2), visualRow(1)])
+    const full = dossier(pictured), counts = {}
+    for (const [, src] of full.matchAll(/<img [^>]*src="([^"]+)"/g)) { const key = src.replace(/&amp;w=\d+.*/, ''); counts[key] = (counts[key] ?? 0) + 1 }
+    assert.deepEqual(Object.values(counts).sort(), [2, 2, 2])
+    assert.doesNotMatch(full.slice(full.indexOf('id="key-moves"'), full.indexOf('id="patterns"')), /href="#move-1"/)
+    const timeline = full.slice(full.indexOf('id="moves"'), full.indexOf('id="sources"'))
+    assert.match(timeline, /bw-move-list bw-move-list-compact/); assert.doesNotMatch(timeline, /<img|bw-move-summary/)
+    assert.match(timeline, /<li id="move-1" class="bw-move">/)
+
+    // Correction: superseding the Evidence behind p3 hides that Movement and therefore its image.
+    await review(db, { command: 'evidence.supersede', evidenceId: id(13), successor: { sourceItemId: null, fact: 'Corrected', supportText: 'Corrected support', supportLocator: null, eventDate: null, datePrecision: 'unknown', marketingRelevance: 1, confidence: 0.5 } })
+    const corrected = buildPublicBrandState('musinsa', await fetchPublicBrandRows(queryClient(db), ['musinsa']), now, registry)
+    assert.doesNotMatch(JSON.stringify(corrected), /img3\.example|img4\.example/)
+    assert.doesNotMatch(dossier(corrected), /<img/)
+  } finally { await db.close() }
+})
+
+test('12: launch visual registry — every image belongs to approved launch Evidence, is https, credited and described', () => {
+  const { launchVisuals } = load(root + 'launch/visuals.ts')
+  const { launchSources, launchEvidence } = load(root + 'launch/dataset.ts')
+  const { isHotlinkBlocked } = load('src/lib/images.ts')
+  const href = url => new URL(url).href
+  const approved = new Set(launchEvidence.filter(row => row.decision.action === 'approve').map(row => row.sourceId))
+  const rejectedOnly = new Set(launchEvidence.filter(row => row.decision.action === 'reject' && !approved.has(row.sourceId)).map(row => row.sourceId))
+  assert.ok(launchVisuals.length >= 15 && rejectedOnly.size >= 5)
+  for (const visual of launchVisuals) {
+    const source = launchSources.find(row => href(row.url) === href(visual.sourceUrl))
+    assert.ok(source && approved.has(source.id), visual.sourceUrl + ' must be an approved launch source')
+    assert.match(visual.imageUrl, /^https:\/\//); assert.ok(!isHotlinkBlocked(visual.imageUrl))
+    assert.ok(visual.alt.trim().length >= 10 && !/^(image|photo|이미지|사진)$/i.test(visual.alt.trim()), visual.alt)
+    assert.ok(['official', 'newsroom', 'media'].includes(visual.origin) && visual.credit.trim() && visual.checkedAt)
+  }
+  assert.equal(new Set(launchVisuals.map(row => href(row.sourceUrl))).size, launchVisuals.length)
+  for (const id of rejectedOnly) assert.ok(!launchVisuals.some(row => href(row.sourceUrl) === href(launchSources.find(source => source.id === id).url)), id)
 })
