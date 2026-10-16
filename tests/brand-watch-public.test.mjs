@@ -249,7 +249,10 @@ test('7/10: SSR — full, partial, empty and error states; FACT / PATTERN / TAKE
     await seed(db)
     const states = await loadStates(db)
     const html = dossier(bySlug(states, 'musinsa'))
-    assert.match(html, /<h1 id="bw-title">MUSINSA/); assert.match(html, /bw-hero-signal-label">Current signal</)
+    // The brand's own wordmark carries the heading's name; the hero has no stats strip, legend or section nav.
+    assert.match(html, /<h1 id="bw-title" class="bw-hero-logo"[^>]*><img alt="MUSINSA"[^>]*src="\/brand-watch\/logos\/musinsa-wordmark-white\.png"/); assert.match(html, /bw-hero-signal-label">Current signal</)
+    assert.match(html, /Updated <time dateTime="2026-10-08">2026\.10\.08<\/time>/); assert.doesNotMatch(html, /bw-hero-stats|bw-toc|이 페이지를 읽는 법/)
+    assert.match(dossier(bySlug(states, 'toss')), /<h1 id="bw-title">토스<span class="ml-blue">\.<\/span><\/h1>/)
     assert.match(html, /CURRENT DIRECTION/); assert.match(html, /WATCH NEXT/); assert.match(html, /2026\.10\.08<\/time> 기준/)
     // Distinct, text-labelled layers.
     assert.ok((html.match(/bw-label-fact">FACT</g) ?? []).length >= 4)
@@ -354,7 +357,7 @@ test('11: visual evidence — only from public, eligible sources; provenance kep
     // SSR: CDN-sized image (no Vercel optimisation), meaningful alt, eager only in the hero and lazy below it,
     // credit linked to the footnoted source; moves without a visual render no image at all.
     const html = dossier(musinsa)
-    const imgs = html.match(/<img [^>]*>/g) ?? []
+    const imgs = (html.match(/<img [^>]*>/g) ?? []).filter(tag => !tag.includes('/brand-watch/logos/'))
     // The hero carries move-1's evidence once; below it only the Pattern frame repeats it (Key Moves and the timeline do not).
     assert.equal(imgs.filter(tag => /alt="Evidence visual 3"/.test(tag) && /loading="eager"/.test(tag)).length, 1)
     assert.equal(imgs.filter(tag => /alt="Evidence visual 3"/.test(tag) && /loading="lazy"/.test(tag)).length, 1)
@@ -370,7 +373,7 @@ test('11: visual evidence — only from public, eligible sources; provenance kep
     // re-featured in Key Moves, and three Movements give a compact archive timeline without images or summaries.
     const pictured = buildPublicBrandState('musinsa', rows, now, [visualRow(3), visualRow(2), visualRow(1)])
     const full = dossier(pictured), counts = {}
-    for (const [, src] of full.matchAll(/<img [^>]*src="([^"]+)"/g)) { const key = src.replace(/&amp;w=\d+.*/, ''); counts[key] = (counts[key] ?? 0) + 1 }
+    for (const [, src] of full.matchAll(/<img [^>]*src="([^"]+)"/g)) { if (src.startsWith('/brand-watch/logos/')) continue; const key = src.replace(/&amp;w=\d+.*/, ''); counts[key] = (counts[key] ?? 0) + 1 }
     assert.deepEqual(Object.values(counts).sort(), [2, 2, 2])
     assert.doesNotMatch(full.slice(full.indexOf('id="key-moves"'), full.indexOf('id="patterns"')), /href="#move-1"/)
     const timeline = full.slice(full.indexOf('id="moves"'), full.indexOf('id="sources"'))
@@ -384,7 +387,7 @@ test('11: visual evidence — only from public, eligible sources; provenance kep
     await review(db, { command: 'evidence.supersede', evidenceId: id(13), successor: { sourceItemId: null, fact: 'Corrected', supportText: 'Corrected support', supportLocator: null, eventDate: null, datePrecision: 'unknown', marketingRelevance: 1, confidence: 0.5 } })
     const corrected = buildPublicBrandState('musinsa', await fetchPublicBrandRows(queryClient(db), ['musinsa']), now, registry)
     assert.doesNotMatch(JSON.stringify(corrected), /img3\.example|img4\.example/)
-    assert.doesNotMatch(dossier(corrected), /<img/)
+    assert.doesNotMatch(dossier(corrected), /<img (?![^>]*\/brand-watch\/logos\/)/)
   } finally { await db.close() }
 })
 

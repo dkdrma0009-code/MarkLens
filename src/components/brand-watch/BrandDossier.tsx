@@ -1,14 +1,17 @@
 import type { CSSProperties } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, ArrowUpRight } from "lucide-react"
 import { keyMovements, publicSignal } from "@/lib/brand-watch/public/view"
 import type { PublicBrandState, PublicMovement, PublicPattern, PublicSignal, PublicSnapshot, PublicSource, PublicTake, PublicDate } from "@/lib/brand-watch/public/types"
 import { EvidenceImage, VisualCredit } from "./EvidenceImage"
+import { BRAND_LOGOS } from "./logos"
 import { DATE_BASIS_LABELS, MOVEMENT_TYPE_LABELS, PROVIDER_TYPE_LABELS, formatDay, formatPublicDate, isoDay, keepDots } from "./format"
 
 type Available = Extract<PublicBrandState, { kind: "available" }>
 
-// Editorial brand page: Hero → Current signal → Key moves → Pattern reveal → MarkLens Take → Timeline → Sources.
+// Editorial brand page: Hero (brand, observed direction, evidence) → Current signal → Key moves → Pattern reveal →
+// MarkLens Take → Timeline → Sources.
 // FACT / OBSERVED PATTERN / MARKLENS TAKE stay text-labelled layers; images are the sources' own visual evidence.
 // Nothing here adds, merges or rewrites data.
 export default function BrandDossier({ state }: { state: PublicBrandState }) {
@@ -17,13 +20,7 @@ export default function BrandDossier({ state }: { state: PublicBrandState }) {
   const signal = available ? publicSignal(available) : null
   // Hero evidence: the most recent public fact with its own image (Key Moves then leads with the strongest-supported).
   const lead = available?.movements.find(row => row.visual) ?? null
-  const sections = available ? [
-    { id: "snapshot", label: "Overview" },
-    { id: "key-moves", label: "Moves" },
-    { id: "patterns", label: "Patterns" },
-    { id: "take", label: "Take" },
-    { id: "sources", label: "Sources" },
-  ] : []
+  const logo = BRAND_LOGOS[brand.slug]
   return (
     <article className="bw-public" aria-labelledby="bw-title">
       <header className={`bw-hero${lead ? " bw-hero-has-visual" : ""}`}>
@@ -32,32 +29,27 @@ export default function BrandDossier({ state }: { state: PublicBrandState }) {
           <div className="bw-hero-grid">
             <div className="bw-hero-brand">
               <p className="ml-eyebrow bw-hero-eyebrow">BRAND WATCH / <span className="bw-hero-category">{brand.category}</span></p>
-              <h1 id="bw-title">{brand.displayName}<span className="ml-blue">.</span></h1>
+              {/* The brand's own dark-ground wordmark when one exists; its alt text keeps the heading's name. */}
+              {logo ? (
+                <h1 id="bw-title" className="bw-hero-logo" style={{ "--bw-logo-h": `${logo.displayHeight}px` } as CSSProperties}>
+                  <Image src={logo.src} alt={brand.displayName} width={logo.width} height={logo.height} unoptimized preload />
+                </h1>
+              ) : <h1 id="bw-title">{brand.displayName}<span className="ml-blue">.</span></h1>}
               <p className="bw-hero-secondary">{brand.displayNameSecondary}</p>
               {signal ? <HeroSignal signal={signal} /> : null}
+              {available?.lastUpdate ? <p className="bw-hero-updated">Updated <time dateTime={isoDay(available.lastUpdate)}>{formatDay(available.lastUpdate)}</time></p> : null}
             </div>
             {lead?.visual ? (
               <figure className="bw-hero-evidence">
                 <div className="bw-hero-frame"><EvidenceImage visual={lead.visual} width={1200} eager /></div>
                 <figcaption>
-                  <span className="bw-hero-evidence-meta"><span className="bw-label bw-label-fact">FACT</span><span>{typeLabel(lead)}</span>{lead.date ? <span>{formatPublicDate(lead.date)}</span> : null}</span>
+                  <span className="bw-hero-evidence-meta"><span className="bw-label bw-label-fact">FACT</span>{lead.date ? <span>{formatPublicDate(lead.date)}</span> : null}</span>
                   <a href={`#${lead.anchor}`} className="bw-hero-evidence-title">{keepDots(lead.title)}</a>
                   <VisualCredit visual={lead.visual} />
                 </figcaption>
               </figure>
             ) : null}
           </div>
-          {available ? <HeroStats state={available} /> : null}
-          {sections.length ? (
-            <div className="bw-hero-foot">
-              <nav className="bw-toc" aria-label="이 페이지의 구성"><ol>{sections.map((section, index) => <li key={section.id}><a href={`#${section.id}`}><span className="ml-index">{String(index + 1).padStart(2, "0")}</span>{section.label}</a></li>)}</ol></nav>
-              <ol className="bw-legend" aria-label="이 페이지를 읽는 법">
-                <li><span className="bw-label bw-label-fact">FACT</span>공개 자료로 확인된 사실</li>
-                <li><span className="bw-label bw-label-pattern">OBSERVED PATTERN</span>반복해서 관찰된 방향</li>
-                <li><span className="bw-label bw-label-take">MARKLENS TAKE</span>MarkLens의 해석 · 사실이 아님</li>
-              </ol>
-            </div>
-          ) : null}
         </div>
       </header>
       {state.kind === "error" ? <Notice title="Brand Watch 데이터를 불러오지 못했습니다." body="잠시 후 다시 확인해 주세요. 불러오지 못한 동안에는 어떤 요약이나 수치도 표시하지 않습니다." /> : null}
@@ -81,21 +73,6 @@ function HeroSignal({ signal }: { signal: PublicSignal }) {
       <p className="bw-hero-signal-text">{signal.kind === "snapshot" ? keepDots(signal.text) : <a href={`#${signal.anchor}`}>{keepDots(signal.text)}</a>}</p>
       {note ? <p className="bw-hero-signal-note">{note}</p> : null}
     </div>
-  )
-}
-
-// Real counts from the published read model only; never a score.
-function HeroStats({ state }: { state: Available }) {
-  const stats = [
-    { label: "Moves", value: String(state.movements.length) },
-    { label: "Patterns", value: String(state.patterns.length) },
-    { label: "Sources", value: String(state.sources.length) },
-  ]
-  return (
-    <dl className="bw-hero-stats">
-      {stats.map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
-      {state.lastUpdate ? <div className="bw-hero-asof"><dt>As of</dt><dd><time dateTime={isoDay(state.lastUpdate)}>{formatDay(state.lastUpdate)}</time></dd></div> : null}
-    </dl>
   )
 }
 
