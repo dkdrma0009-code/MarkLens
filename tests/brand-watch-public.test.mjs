@@ -342,7 +342,7 @@ test('11: visual evidence — only from public, eligible sources; provenance kep
     const rows = await fetchPublicBrandRows(queryClient(db), ['musinsa', 'toss'])
     const musinsa = buildPublicBrandState('musinsa', rows, now, registry), toss = buildPublicBrandState('toss', rows, now, registry)
     // move-1 (two reports, p3 + p4): the first usable registry image, tied to its footnote, provider and credit.
-    assert.deepEqual(musinsa.movements[0].visual, { src: 'https://img3.example.test/v.jpg', alt: 'Evidence visual 3', sourceRef: 1, provider: 'Provider 3', origin: 'media', credit: 'Credit 3', fit: 'cover', delivery: 'cdn' })
+    assert.deepEqual(musinsa.movements[0].visual, { src: 'https://img3.example.test/v.jpg', alt: 'Evidence visual 3', sourceRef: 1, provider: 'Provider 3', origin: 'media', credit: 'Credit 3', fit: 'cover', focus: 'center', delivery: 'cdn' })
     // Invalid scheme, a hotlink-blocked host, plain http and a blank alt all fall back to no visual.
     assert.deepEqual([...musinsa.movements.slice(1), ...toss.movements].map(row => row.visual), [null, null, null, null])
     const json = JSON.stringify([musinsa, toss])

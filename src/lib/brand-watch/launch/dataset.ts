@@ -47,6 +47,7 @@ export const launchProviders: LaunchProvider[] = [
   { id: id(116), name: "당근 보도자료", domain: "about.daangn.com", providerType: "official_newsroom", sourceTier: 1 },
   { id: id(117), name: "벤처스퀘어", domain: "www.venturesquare.net", providerType: "industry_media", sourceTier: 2 },
   { id: id(118), name: "무신사 뉴스룸", domain: "corp.musinsa.com", providerType: "official_newsroom", sourceTier: 1 },
+  { id: id(119), name: "우아한형제들 뉴스룸", domain: "www.woowahan.com", providerType: "official_newsroom", sourceTier: 1 },
 ]
 
 const kst = (day: string, time = "00:00") => `${day}T${time}:00+09:00`
@@ -86,6 +87,10 @@ export const launchSources: LaunchSource[] = [
   src(232, 112, "배민 '음식점 단골' 넘어서 '플랫폼 단골' 만든다 : 배달·장보기·쇼핑 결제 때 적립 늘려 멤버십 전방위 강화", "https://www.huffingtonpost.kr/article/260905", null, "unknown", "baemin"),
   src(233, 113, "배민, 추석 맞이 '9월말 투아웃' 캠페인 전개", "https://www.pointdaily.co.kr/news/articleView.html?idxno=320426", kst("2026-09-23", "16:36"), "day", "baemin"),
   src(234, 114, "배달 음식 넘어 화장품까지 … 배민, '뷰티 즉시배달' 키운다", "https://biz.newdaily.co.kr/site/data/html/2026/10/07/2026100700056.html", kst("2026-10-07", "08:58"), "day", "baemin"),
+  // Official releases (added 2026-10-16 for media rights: they publish the same images the media pages carried).
+  src(236, 119, "배민, ‘배민클럽 에디션 2’ 출시… 포인트 적립 혜택 더했다", "https://www.woowahan.com/report/detail/1322", kst("2026-10-01", "12:26"), "day", "baemin"),
+  src(237, 119, "“할인 화장품 주문 즉시배달”", "https://www.woowahan.com/report/detail/1329", kst("2026-10-07", "09:38"), "day", "baemin"),
+  src(238, 119, "배민-서울시, '외로움 없는 추석' 만든다… '9월말 투아웃' 캠페인 전개", "https://www.woowahan.com/report/detail/1313", kst("2026-09-23", "12:23"), "day", "baemin"),
   src(235, 115, "배달의민족, 10월 ‘우아한테크콘퍼런스 2026’ 개최", "https://www.fntimes.com/html/view.php?ud=202609221525018906b5b890e35c_18", kst("2026-09-22", "15:26"), "day", "baemin"),
   // DANGGEUN (one source also mentions TOSS through Toss Place)
   src(241, 116, "당근, 연중 최대 중고거래의 날 ‘당근절’ 개최", "https://about.daangn.com/company/pr/archive/당근-연중-최대-중고거래의-날-당근절-개최/", kst("2026-09-29"), "day", "danggeun"),
@@ -138,6 +143,9 @@ export const launchEvidence: LaunchEvidence[] = [
   ev(332, "baemin", 232, "배민클럽 에디션2는 음식 배달과 픽업, 장보기·쇼핑 결제 금액의 5%(배민페이머니·연결계좌) 또는 2%(배민페이카드)를 적립한다.", "음식 배달과 픽업, 장보기·쇼핑에서 배민페이머니나 연결계좌로 결제하면 5%, 배민페이카드로 결제하면 2%를 적립한다.", null, "unknown", approve("기사에 게재일 표기 없음 — 출처 날짜는 미상으로 둠")),
   ev(333, "baemin", 233, "우아한형제들은 서울시와 '9월말 투아웃' 캠페인을 진행하며 참여 고객에게 픽업 주문 쿠폰을 선착순으로 제공했다.", "캠페인에 참여하는 고객들에게는 픽업 주문 시 사용 가능한 쿠폰을 선착순으로 제공한다.", null, "unknown", actor),
   ev(335, "baemin", 234, "뷰티 판매점 오프뷰티가 2026년 10월 8일부터 배민 퀵커머스 서비스 '장보기·쇼핑'에 입점했다.", "배민 운영사 우아한형제들은 큐앤드비인터내셔날이 운영하는 뷰티 판매점 오프뷰티가 8일부터 퀵커머스 서비스 '장보기·쇼핑'에 입점한다고 7일 밝혔다.", "2026-10-08", "day", actor),
+  ev(337, "baemin", 236, "우아한형제들은 2026년 10월 1일 포인트 적립 기능을 더한 신규 멤버십 '배민클럽 에디션 2'를 출시했다.", "배달의민족(이하 배민) 운영사 (주)우아한형제들이 결제할 때마다 포인트를 적립해 주는 신규 멤버십 ‘배민클럽 에디션 2’를 출시한다고 1일 밝혔다.", "2026-10-01", "day", approve("공식 보도자료 — 10월 1일 출시 발표")),
+  ev(338, "baemin", 238, "우아한형제들은 서울시와 2026년 9월 23일부터 10월 2일까지 '9월말 투아웃' 캠페인을 진행했다.", "배달의민족(이하 배민) 운영사 ㈜우아한형제들이 서울특별시와 함께 '9월말 투아웃' 캠페인을 23일부터 진행한다고 밝혔다.", "2026-09-23", "day", approve("공식 보도자료로 시작일 확인")),
+  ev(339, "baemin", 237, "뷰티 판매점 오프뷰티가 2026년 10월 8일 배민 퀵커머스 서비스 '장보기·쇼핑'에 공식 입점했다.", "배민 운영사 ㈜우아한형제들은 7일 큐앤드비인터내셔날이 운영하는 뷰티 판매점 오프뷰티가 퀵커머스 서비스인 ‘장보기·쇼핑’ 카테고리에 8일 공식 입점한다고 밝혔다.", "2026-10-08", "day", actor),
   ev(336, "baemin", 235, "우아한형제들이 기술 행사 '우아한테크콘퍼런스 2026'을 연다.", "배달의민족, 10월 ‘우아한테크콘퍼런스 2026’ 개최", null, "unknown", reject("우아한형제들 기업·기술 행사 — BAEMIN 소비자 마케팅 움직임이 아님")),
   // DANGGEUN
   ev(341, "danggeun", 241, "당근은 2026년 10월 10일 처음으로 중고거래 행사 '당근절'을 연다고 밝혔다.", "국내 대표 지역생활 커뮤니티 당근이 오는 10월 10일, 연중 최대 중고거래의 날 ‘당근절’을 개최한다고 29일 밝혔다.", "2026-10-10", "day", actor),
@@ -167,9 +175,9 @@ export const launchMovements: LaunchMovement[] = [
   mv(422, "toss", "toss-apps-in-toss-10000", "앱인토스 제휴 미니앱 1만 개 돌파", "미니앱 플랫폼 앱인토스의 제휴 미니앱이 1만 개를 넘었고, 월 이용자는 400만명 수준으로 보도됐다.", "platform", "national", ["KR"], ["online"], 2, [322, 323], [theme("everyday-services")], kst("2026-08-14", "14:02")),
   mv(423, "toss", "toss-apps-in-toss-ai-review", "앱인토스 미니앱 AI 안전성 검수", "운영 중인 미니앱이 1만3000개를 넘은 가운데 AI로 미니앱 안전성을 검수한다고 밝혔다.", "platform", "national", ["KR"], ["online"], 1, [324], [theme("everyday-services")], kst("2026-09-27", "11:29")),
   mv(424, "toss", "toss-prepaid-card-students-2026", "외국인 유학생 선불카드 제공", "15개 대학 국제처를 통해 국내 계좌 없이 쓸 수 있는 선불카드를 신입 외국인 유학생에게 제공한다.", "product", "national", ["KR"], ["online", "offline"], 2, [325], [], kst("2026-08-27")),
-  mv(431, "baemin", "baemin-club-edition-2", "포인트 적립형 '배민클럽 에디션2' 출시", "10월 1일 결제 금액에 따라 배민포인트를 적립하는 배민클럽 신규 상품을 출시했다. 적립은 음식 배달뿐 아니라 픽업과 장보기·쇼핑 결제에도 적용된다.", "product", "national", ["KR"], ["online"], 3, [331, 332], [theme("membership")], kst("2026-09-01", "09:10")),
-  mv(432, "baemin", "baemin-seoul-two-out-2026", "서울시와 '9월말 투아웃' 픽업 캠페인", "서울시 '외로움 없는 서울' 정책과 연계해 10월 2일까지 캠페인을 진행하고 참여 고객에게 픽업 주문 쿠폰을 제공했다.", "campaign", "local", ["KR"], ["online"], 1, [333], [], kst("2026-09-23", "16:36")),
-  mv(433, "baemin", "baemin-offbeauty-quick-commerce", "장보기·쇼핑에 뷰티 판매점 오프뷰티 입점", "러쉬·아리따움에 이어 뷰티 판매점 오프뷰티가 10월 8일부터 장보기·쇼핑에 입점해 화장품 즉시배달 상품군이 넓어졌다.", "product", "national", ["KR"], ["online"], 2, [335], [theme("beauty")], kst("2026-10-07", "08:58")),
+  mv(431, "baemin", "baemin-club-edition-2", "포인트 적립형 '배민클럽 에디션2' 출시", "10월 1일 결제 금액에 따라 배민포인트를 적립하는 배민클럽 신규 상품을 출시했다. 적립은 음식 배달뿐 아니라 픽업과 장보기·쇼핑 결제에도 적용된다.", "product", "national", ["KR"], ["online"], 3, [331, 332, 337], [theme("membership")], kst("2026-09-01", "09:10")),
+  mv(432, "baemin", "baemin-seoul-two-out-2026", "서울시와 '9월말 투아웃' 픽업 캠페인", "서울시 '외로움 없는 서울' 정책과 연계해 10월 2일까지 캠페인을 진행하고 참여 고객에게 픽업 주문 쿠폰을 제공했다.", "campaign", "local", ["KR"], ["online"], 1, [333, 338], [], kst("2026-09-23", "16:36")),
+  mv(433, "baemin", "baemin-offbeauty-quick-commerce", "장보기·쇼핑에 뷰티 판매점 오프뷰티 입점", "러쉬·아리따움에 이어 뷰티 판매점 오프뷰티가 10월 8일부터 장보기·쇼핑에 입점해 화장품 즉시배달 상품군이 넓어졌다.", "product", "national", ["KR"], ["online"], 2, [335, 339], [theme("beauty")], kst("2026-10-07", "08:58")),
   mv(441, "danggeun", "danggeun-danggeunjeol-2026", "첫 중고거래 행사 '당근절' 개최", "10월 10일 첫 '당근절'을 열고 바로구매 배송비를 1인 최대 5회까지 지원했다. 당근은 당일 중고거래 건수가 평소 토요일보다 141% 많았다고 밝혔다.", "promotion", "national", ["KR"], ["online"], 3, [341, 342, 343], [theme("community")], kst("2026-10-11")),
   mv(442, "danggeun", "danggeun-running-record-2026", "당근모임 '러닝 기록 꾸미기' 출시", "외부 러닝 앱의 달리기 기록을 연동해 꾸미고 이웃과 공유하는 기능을 당근모임에 추가했다.", "product", "national", ["KR"], ["online", "social"], 2, [344], [theme("community")], kst("2026-09-18")),
   mv(443, "danggeun", "danggeun-ads-mcp-2026", "광고주 대상 '광고 MCP' 도입", "광고주가 AI 모델·에이전트를 통해 당근 광고 정보를 조회하고 업무를 수행할 수 있도록 광고 MCP를 도입했다.", "platform", "national", ["KR"], ["online"], 2, [345], [theme("local-business")], kst("2026-09-16")),

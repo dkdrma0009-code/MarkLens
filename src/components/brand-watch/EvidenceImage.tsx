@@ -10,7 +10,7 @@ import type { PublicVisual } from "@/lib/brand-watch/public/types"
 export function EvidenceImage({ visual, width, eager = false, decorative = false }: { visual: PublicVisual; width: number; eager?: boolean; decorative?: boolean }) {
   const src = visual.delivery === "direct" ? visual.src : weservThumb(visual.src, width)
   return (
-    <span className="bw-visual" data-origin={visual.origin} data-fit={visual.fit} style={visual.fit === "contain" ? { "--bw-backdrop": `url("${src}")` } as CSSProperties : undefined}>
+    <span className="bw-visual" data-origin={visual.origin} data-fit={visual.fit} data-focus={visual.focus} style={visual.fit === "contain" ? { "--bw-backdrop": `url("${src}")` } as CSSProperties : undefined}>
       <Image src={src} alt={decorative ? "" : visual.alt} fill unoptimized loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : "auto"} referrerPolicy="no-referrer" data-fallback={visual.provider} />
     </span>
   )

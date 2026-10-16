@@ -21,6 +21,7 @@
 .marklens-public .bw-visual img { object-fit: cover; transition: transform var(--motion-slow) var(--ease-editorial); }
 .marklens-public .bw-visual[data-fit="contain"] img { object-fit: contain; filter: drop-shadow(0 14px 28px rgba(16, 17, 19, .32)); }
 .marklens-public .bw-visual[data-fit="contain"] { overflow: hidden; }
+.marklens-public .bw-visual[data-focus="bottom"] img { object-position: center bottom; }
 .marklens-public .bw-visual[data-fit="contain"]::before { content: ""; position: absolute; inset: -40px; background: var(--bw-backdrop) center / cover no-repeat; filter: blur(26px) saturate(1.15); opacity: .9; }
 .marklens-public .bw-visual img::before { content: attr(data-fallback); position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: var(--ml-soft); color: var(--ml-muted); font-size: 12px; font-weight: 600; line-height: 1.5; text-align: center; }
 .marklens-public .bw-visual-credit { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; font-size: 11px; line-height: 1.5; color: var(--ml-muted); }

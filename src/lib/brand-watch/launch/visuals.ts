@@ -12,6 +12,7 @@ export interface LaunchVisual {
   origin: VisualOrigin // official = brand site/campaign page, newsroom = brand newsroom, media = outlet page
   credit: string // rights holder named on the page (media outlets carrying a company-provided image)
   fit?: "contain" // posters whose text would be cut by cropping are shown whole
+  focus?: "bottom" // keep the bottom of the image (its headline text) when a frame crops it
   delivery?: "direct" // the host refuses the image CDN; the browser loads the page's own image file directly
   checkedAt: string
   note?: string
@@ -19,6 +20,8 @@ export interface LaunchVisual {
 
 const CHECKED = "2026-10-15"
 const OY = "https://d10yximrhdxai4.cloudfront.net/news/"
+const WW = "https://woowahan-cdn.woowahan.com/new_resources/image/report/"
+const woowa = (id: number) => `https://www.woowahan.com/report/detail/${id}`
 const MS = "https://d3a9ls0n8d3jx7.cloudfront.net/object/images/press-releases/"
 const msPress = (id: number) => `https://corp.musinsa.com/ko/newsroom/press/detail/${id}`
 const DAANGN = "https://prismic-image-proxy.krrt.io/karrot/"
@@ -27,11 +30,11 @@ const pr = (slug: string) => `https://about.daangn.com/company/pr/archive/${slug
 
 // Order matters: for a Movement with several public sources, the first usable entry is shown.
 export const launchVisuals: readonly LaunchVisual[] = [
-  // BAEMIN — every image is credited to 우아한형제들 on the outlet page.
-  { sourceUrl: "https://biz.newdaily.co.kr/site/data/html/2026/10/07/2026100700056.html", imageUrl: "https://image.newdaily.co.kr/site/data/img/2026/10/07/2026100700056_0.jpg", alt: "보라색 컨테이너 매장 위 OFF BEAUTY 간판과 ‘배민장보기·쇼핑, 오프뷰티도 배민 돼요!’ 문구가 담긴 공식 홍보 이미지", origin: "media", credit: "우아한형제들", checkedAt: CHECKED, note: "caption: ⓒ우아한형제들" },
-  { sourceUrl: "https://www.huffingtonpost.kr/article/260905", imageUrl: "https://cdn.huffingtonpost.kr/news/photo/202610/202610019032.jpg", alt: "포인트 코인 그래픽과 ‘새로워진 배민클럽 포인트가 쌓인다’ 문구가 담긴 배민클럽 에디션2 공식 홍보 이미지", origin: "media", credit: "우아한형제들", checkedAt: CHECKED, note: "caption: ⓒ우아한형제들" },
-  { sourceUrl: "https://www.newspim.com/news/view/20260901000131", imageUrl: "https://img.newspim.com/news/2026/09/01/2609010845355090.jpg", alt: "배민클럽 로고 이미지", origin: "media", credit: "우아한형제들", checkedAt: CHECKED, note: "caption: [사진=우아한형제들]; announcement-stage source, superseded in the correction scenario" },
-  { sourceUrl: "https://www.pointdaily.co.kr/news/articleView.html?idxno=320426", imageUrl: "https://cdn.pointdaily.co.kr/news/photo/202609/320426_316986_3526.jpg", alt: "서울마이소울 × 배달의민족 ‘9월말 투아웃! 9월에는 함께 홈을 떠나요’ 픽업 캠페인 포스터", origin: "media", credit: "우아한형제들", fit: "contain", checkedAt: CHECKED, note: "caption: 사진=우아한형제들" },
+  // BAEMIN — official 우아한형제들 newsroom releases carrying the same images the media pages had (media copies and
+  // the unused 배민클럽 logo fallback are no longer used; release #1322 has no logo image).
+  { sourceUrl: woowa(1329), imageUrl: `${WW}0ec6426cec9f456a994e31b8f1f3f487.jpg`, alt: "보라색 컨테이너 매장 위 OFF BEAUTY 간판과 ‘배민장보기·쇼핑, 오프뷰티도 배민 돼요!’ 문구가 담긴 공식 홍보 이미지", origin: "newsroom", credit: "우아한형제들", checkedAt: "2026-10-16" },
+  { sourceUrl: woowa(1322), imageUrl: `${WW}1ace38b39cf74c10a253e04e5daf81ab.png`, alt: "포인트 코인 그래픽과 ‘새로워진 배민클럽 포인트가 쌓인다’ 문구가 담긴 배민클럽 에디션2 공식 홍보 이미지", origin: "newsroom", credit: "우아한형제들", focus: "bottom", checkedAt: "2026-10-16" },
+  { sourceUrl: woowa(1313), imageUrl: `${WW}e98eec18aea54194a7ebc05f273ba4dc.jpg`, alt: "서울마이소울 × 배달의민족 ‘9월말 투아웃! 9월에는 함께 홈을 떠나요’ 픽업 캠페인 포스터", origin: "newsroom", credit: "우아한형제들", fit: "contain", checkedAt: "2026-10-16" },
 
   // MUSINSA
   { sourceUrl: "https://www.musinsa.com/content/1528923777154874918", imageUrl: "https://image.msscdn.net/cms/v2/content/file_1784695467996_5718400_7zp5lg.jpg", alt: "MUSINSA 간판이 걸린 성수 거리 앞에 선 로블록스 아바타들 — 무신사 × 로블록스 팝업 키 비주얼", origin: "official", credit: "무신사", checkedAt: CHECKED, note: "og:image of the official campaign page" },

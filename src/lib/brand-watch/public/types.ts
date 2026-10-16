@@ -16,7 +16,7 @@ export interface PublicFact { id: string; fact: string; date: PublicDate | null;
 export interface PublicTheme { slug: string; name: string }
 export type PublicVisualOrigin = "official" | "newsroom" | "media"
 // Visual evidence: an image the source page itself publishes, shown only with that public footnoted source.
-export interface PublicVisual { src: string; alt: string; sourceRef: number; provider: string; origin: PublicVisualOrigin; credit: string; fit: "cover" | "contain"; delivery: "cdn" | "direct" }
+export interface PublicVisual { src: string; alt: string; sourceRef: number; provider: string; origin: PublicVisualOrigin; credit: string; fit: "cover" | "contain"; focus: "center" | "bottom"; delivery: "cdn" | "direct" }
 
 export interface PublicMovement {
   id: string
