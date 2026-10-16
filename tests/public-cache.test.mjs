@@ -23,7 +23,7 @@ test('public card projection strips operational data while preserving search, da
 test('exact revalidation covers new/edit/delete slugs, never unrelated B or route pattern',()=>{
  for(const slugs of [['article-a'],['new-slug'],['deleted-slug'],['article-a','article-a','']]) {
   const paths=[]; const {revalidatePublicContent}=load('src/lib/revalidate.ts',{'next/cache':{revalidatePath:p=>paths.push(p)}})
-  revalidatePublicContent(slugs)
+  revalidatePublicContent({ slugs })
   assert.deepEqual(paths,['/','/insights',...new Set(slugs.filter(Boolean).map(s=>`/insights/${s}`))])
   assert.ok(!paths.includes('/insights/article-b')); assert.ok(!paths.includes('/insights/[slug]'))
  }

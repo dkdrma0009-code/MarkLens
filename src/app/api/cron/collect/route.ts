@@ -95,7 +95,8 @@ export async function GET(req: Request) {
         await sb.from("articles").update({ status: "published", site_published_at: now }).in("id", ids)
         try {
           const { revalidatePublicContent } = await import("@/lib/revalidate")
-          revalidatePublicContent((fresh ?? []).map(i => i.slug))
+          // 이번 실행에서 공개한 글의 상세만 + 홈·목록 (0건이면 이 블록 자체를 타지 않음)
+          revalidatePublicContent({ slugs: (fresh ?? []).map((f) => f.slug) })
         } catch { /* 무효화 실패는 공개에 영향 없음 */ }
         sitePublished = ids.length
       }

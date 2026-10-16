@@ -16,8 +16,9 @@ export function weservThumb(url: string, width = 440): string {
   return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}&w=${width}&output=webp&q=75&maxage=7d`
 }
 
-// Public responsive images use the CDN as the only transformer. Preserve source
-// query parameters (including signed URLs); unwrap our existing CDN URL once.
+// Public images use the CDN as the only transformer (next.config images.unoptimized is global, so this
+// builds the src explicitly). Preserve source query parameters (including signed URLs); unwrap our existing
+// CDN URL once so an already-proxied URL is never proxied twice.
 export function editorialImageLoader({ src, width }: { src: string; width: number; quality?: number }): string {
   const url = new URL(src, "https://marklens.site")
   const original = (url.hostname === "images.weserv.nl" || url.hostname === "wsrv.nl")

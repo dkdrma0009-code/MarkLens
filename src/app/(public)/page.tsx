@@ -24,7 +24,9 @@ export const metadata: Metadata = {
   },
 }
 
-export const revalidate = 3600
+// 글 발행·편집·삭제는 revalidatePublicContent()가 홈을 즉시 무효화한다. 시간 기반 6시간은 그 밖의
+// 변경(대체 이미지 배치·featured 수동 지정·7일 구간 이동)을 위한 fallback.
+export const revalidate = 21600
 
 // 발행된 공개 콘텐츠만 조회. raw_content 등 본문 전체를 홈으로 전달하지 않는다.
 

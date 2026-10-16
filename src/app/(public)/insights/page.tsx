@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/insights" },
 }
 
-export const revalidate = 3600
+// 글 발행·편집·삭제는 revalidatePublicContent()가 목록을 즉시 무효화한다. 6시간은 그 밖의 변경 fallback.
+export const revalidate = 21600
 
 // searchParams를 서버에서 읽지 않고(읽으면 동적 강제) 전체 발행 인사이트를 한 번만 받아 캐시(ISR).
 // 카테고리 필터는 클라이언트(useSearchParams)에서 처리 → 페이지 정적화 + 카테고리 전환 즉시.

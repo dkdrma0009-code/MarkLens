@@ -17,11 +17,11 @@ export default function EditorialImage({ insight, sizes, eager = false }: { insi
     <div className="ml-image">
       {source ? <Image
         key={source}
-        src={source}
-        loader={editorialImageLoader}
+        src={editorialImageLoader({ src: source, width: eager ? 1600 : 1440 })}
         alt=""
         fill
         sizes={sizes}
+        unoptimized // weserv가 이미 리사이즈·WebP 처리 → Vercel Image Optimization 재변환 방지
         loading={eager ? "eager" : "lazy"}
         fetchPriority={eager ? "high" : "auto"}
         onError={() => usingOriginal ? setOriginalFailed(true) : setFallbackFailed(true)}

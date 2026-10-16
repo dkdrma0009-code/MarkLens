@@ -7,12 +7,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // 이미지 최적화는 weserv(리사이즈·WebP)가 담당 — Vercel Image Optimization은 쓰지 않는다.
+  // 전역 unoptimized로 새 next/image가 추가돼도 변환을 소비하지 않게 하고,
+  // 외부 호스트 허용(remotePatterns)은 두지 않는다 (/_next/image로 임의 외부 이미지 변환 차단).
   images: {
-    deviceSizes: [640, 768, 1024, 1440, 1920, 2560],
-    imageSizes: [128, 256, 384],
-    remotePatterns: [
-      { protocol: "https", hostname: "images.weserv.nl" },
-    ],
+    unoptimized: true,
   },
   // Remotion(번들러·렌더러)은 네이티브 바이너리 포함 — 서버 번들에서 제외(로컬 렌더 시 node_modules에서 직접 require)
   serverExternalPackages: ["@remotion/bundler", "@remotion/renderer"],
