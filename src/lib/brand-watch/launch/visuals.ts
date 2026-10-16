@@ -12,12 +12,15 @@ export interface LaunchVisual {
   origin: VisualOrigin // official = brand site/campaign page, newsroom = brand newsroom, media = outlet page
   credit: string // rights holder named on the page (media outlets carrying a company-provided image)
   fit?: "contain" // posters whose text would be cut by cropping are shown whole
+  delivery?: "direct" // the host refuses the image CDN; the browser loads the page's own image file directly
   checkedAt: string
   note?: string
 }
 
 const CHECKED = "2026-10-15"
 const OY = "https://d10yximrhdxai4.cloudfront.net/news/"
+const MS = "https://d3a9ls0n8d3jx7.cloudfront.net/object/images/press-releases/"
+const msPress = (id: number) => `https://corp.musinsa.com/ko/newsroom/press/detail/${id}`
 const DAANGN = "https://prismic-image-proxy.krrt.io/karrot/"
 const DAANGN_SIZE = "?auto=compress%2Cformat&fit=max&q=90&w=1600"
 const pr = (slug: string) => `https://about.daangn.com/company/pr/archive/${slug}/`
@@ -32,9 +35,11 @@ export const launchVisuals: readonly LaunchVisual[] = [
 
   // MUSINSA
   { sourceUrl: "https://www.musinsa.com/content/1528923777154874918", imageUrl: "https://image.msscdn.net/cms/v2/content/file_1784695467996_5718400_7zp5lg.jpg", alt: "MUSINSA 간판이 걸린 성수 거리 앞에 선 로블록스 아바타들 — 무신사 × 로블록스 팝업 키 비주얼", origin: "official", credit: "무신사", checkedAt: CHECKED, note: "og:image of the official campaign page" },
-  { sourceUrl: "https://www.newspim.com/news/view/20261008000081", imageUrl: "https://img.newspim.com/news/2026/10/08/2610080823533560.jpg", alt: "네온 ‘ON OFF’ 글자와 ‘온&오프 페스티벌 2026.10.06 - 10.19’ 문구가 담긴 무신사 공식 포스터", origin: "media", credit: "무신사", checkedAt: CHECKED, note: "caption: [사진=무신사 제공]" },
-  { sourceUrl: "https://www.sedaily.com/article/20095452", imageUrl: "https://wimg.sedaily.com/news/cms/2026/09/28/news-p.v1.20260928.9f7306f77e67483e9204dad259f646fc_P1.jpg", alt: "MUSINSA 간판이 걸린 무신사 상하이 팝업 스토어 2026 입구와 매장 내부", origin: "media", credit: "무신사", checkedAt: CHECKED, note: "caption: 사진 제공=무신사" },
-  { sourceUrl: "https://m.inews24.com/v/2006389", imageUrl: "https://image.inews24.com/v1/b59f73c46f9d75.jpg", alt: "‘MUSINSA → OSAKA POP-UP STORE 2026’ 키 비주얼", origin: "media", credit: "무신사", checkedAt: CHECKED, note: "caption: [사진=무신사]" },
+  // Official newsroom releases carrying the same images the media pages had (media copies are no longer used).
+  // The newsroom image host refuses the image CDN (HTTP 403), so these load directly from it.
+  { sourceUrl: msPress(1736), imageUrl: `${MS}df3a22ad-17ba-45ac-96ee-970999337afe.jpg`, alt: "네온 ‘ON OFF’ 글자와 ‘온&오프 페스티벌 2026.10.06 - 10.19’ 문구가 담긴 무신사 공식 포스터", origin: "newsroom", credit: "무신사", delivery: "direct", checkedAt: "2026-10-16" },
+  { sourceUrl: msPress(1722), imageUrl: `${MS}0ddfaa6d-e017-4c99-afb0-a5a4e0d2e3ef.jpg`, alt: "MUSINSA 간판이 걸린 무신사 상하이 팝업 스토어 2026 입구와 매장 내부", origin: "newsroom", credit: "무신사", delivery: "direct", checkedAt: "2026-10-16" },
+  { sourceUrl: msPress(1711), imageUrl: `${MS}65219cea-44b3-4af0-8743-08c950af4d54.png`, alt: "‘MUSINSA → OSAKA POP-UP STORE 2026’ 키 비주얼", origin: "newsroom", credit: "무신사", fit: "contain", delivery: "direct", checkedAt: "2026-10-16" },
 
   // OLIVE YOUNG — official newsroom images (page og:image).
   { sourceUrl: "https://corp.oliveyoung.com/ko/newsroom/press/288", imageUrl: `${OY}73306343d0a341f78b10dddfc90a5484.jpg`, alt: "싱가포르 쇼핑몰에 마련된 초록색 ‘OLIVE YOUNG K-Beauty Edit’ 팝업 매대와 세포라 × 올리브영 표기", origin: "newsroom", credit: "CJ올리브영", checkedAt: CHECKED },

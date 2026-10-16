@@ -5,9 +5,10 @@ import type { PublicVisual } from "@/lib/brand-watch/public/types"
 
 // Server-rendered visual evidence. The image CDN resizes (no Vercel image transformation) and the source page's
 // image is linked, not copied. If it fails to load, CSS replaces the broken image with a plate naming the provider.
-// A poster shown whole (fit "contain") gets the same image, enlarged and blurred, as its backdrop.
+// A poster shown whole (fit "contain") gets the same image, enlarged and blurred, as its backdrop. A host that
+// refuses the CDN ("direct") is loaded as published rather than routed around.
 export function EvidenceImage({ visual, width, eager = false, decorative = false }: { visual: PublicVisual; width: number; eager?: boolean; decorative?: boolean }) {
-  const src = weservThumb(visual.src, width)
+  const src = visual.delivery === "direct" ? visual.src : weservThumb(visual.src, width)
   return (
     <span className="bw-visual" data-origin={visual.origin} data-fit={visual.fit} style={visual.fit === "contain" ? { "--bw-backdrop": `url("${src}")` } as CSSProperties : undefined}>
       <Image src={src} alt={decorative ? "" : visual.alt} fill unoptimized loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : "auto"} referrerPolicy="no-referrer" data-fallback={visual.provider} />

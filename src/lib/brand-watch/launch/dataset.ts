@@ -46,6 +46,7 @@ export const launchProviders: LaunchProvider[] = [
   { id: id(115), name: "한국금융신문", domain: "www.fntimes.com", providerType: "business_media", sourceTier: 2 },
   { id: id(116), name: "당근 보도자료", domain: "about.daangn.com", providerType: "official_newsroom", sourceTier: 1 },
   { id: id(117), name: "벤처스퀘어", domain: "www.venturesquare.net", providerType: "industry_media", sourceTier: 2 },
+  { id: id(118), name: "무신사 뉴스룸", domain: "corp.musinsa.com", providerType: "official_newsroom", sourceTier: 1 },
 ]
 
 const kst = (day: string, time = "00:00") => `${day}T${time}:00+09:00`
@@ -69,6 +70,10 @@ export const launchSources: LaunchSource[] = [
   src(214, 106, "무신사, FW시즌 프로모션 '온&오프 페스티벌' 실시", "https://www.etnews.com/20261008000115", kst("2026-10-08", "10:28"), "day", "musinsa"),
   src(215, 107, "매장 방문 2배 늘어난 무신사…'온·오프라인 연계 페스티벌' 개최", "https://www.newspim.com/news/view/20261008000081", kst("2026-10-08", "08:56"), "day", "musinsa"),
   src(216, 108, "무신사 29CM, 이구홈 서울숲 오픈…\"최대 90% 할인\"", "https://biz.sbs.co.kr/amp/article/20000334134", kst("2026-09-11", "13:15"), "day", "musinsa"),
+  // Official releases (added 2026-10-16 for media rights: they publish the same images the media pages carried).
+  src(217, 118, "무신사, 10월 오사카서 첫 대형 팝업 개최… “수도권 넘어 간사이로 국내 신진 브랜드 日 진출길 넓힌다”", "https://corp.musinsa.com/ko/newsroom/press/detail/1711", kst("2026-09-16", "08:23"), "day", "musinsa"),
+  src(218, 118, "무신사, 中 상하이 핵심 상권서 K-패션 판로 넓힌다… “산업부·KOTRA와 손잡고 팝업 스토어 개최”", "https://corp.musinsa.com/ko/newsroom/press/detail/1722", kst("2026-09-28", "07:35"), "day", "musinsa"),
+  src(219, 118, "무신사, 오프라인 방문객 2.8배 늘자··· 온·오프라인 동시 할인 '온 & 오프 페스티벌' 진행", "https://corp.musinsa.com/ko/newsroom/press/detail/1736", kst("2026-10-08", "07:00"), "day", "musinsa"),
   // TOSS
   src(221, 109, "토스, 홈페이지 전면 개편… 금융 넘어 일상으로 나아가는 여정 담았다", "https://toss.im/newsroom/toss-new-homepage", kst("2026-08-18"), "day", "toss"),
   src(222, 109, "'앱인토스' 출시 1년 만에 미니앱 1만 개… 금융 넘어 ‘일상의 슈퍼앱’ 도약", "https://toss.im/newsroom/apps-in-toss-10000", kst("2026-08-14"), "day", "toss"),
@@ -116,6 +121,9 @@ export const launchEvidence: LaunchEvidence[] = [
   ev(312, "musinsa", 212, "무신사는 2026년 8월 21일부터 11월 30일까지 상하이 징안 캐리 센터에서 '무신사 상하이 팝업 스토어 2026'을 운영한다.", "지난달 21일부터 11월 30일까지 상하이 난징시루 '징안 캐리 센터'에서 진행되는 이번 팝업은 산업통상부와 대한무역투자진흥공사(코트라)의 '유통기업 해외진출 지원사업' 지원을 받아 추진됐다.", "2026-08-21", "day", approve("9월 28일 기사의 '지난달 21일' = 8월 21일로 확인")),
   ev(313, "musinsa", 213, "무신사는 10월 23일부터 11월 8일까지 오사카 '그랜드 그린 오사카 브이에스'에서 첫 대형 팝업 '무신사 오사카 팝업 스토어 2026'을 운영한다고 발표했다.", "무신사는 오는 10월 23일부터 11월 8일까지 17일간 일본 오사카 '그랜드 그린 오사카 브이에스'에서 '무신사 오사카 팝업 스토어 2026'을 운영한다고 16일 밝혔다.", null, "unknown", approve("예정 행사의 발표 — 날짜는 보도일 기준으로만 표시")),
   ev(314, "musinsa", 214, "무신사는 10월 19일까지 무신사 스토어 온라인과 오프라인 매장에서 FW 시즌 프로모션 '온 & 오프 페스티벌'을 진행한다.", "무신사는 오는 19일까지 무신사 스토어 온라인과 오프라인 매장에서 가을·겨울(FW) 시즌 프로모션 '온 & 오프 페스티벌'을 진행한다고 8일 밝혔다.", null, "unknown", actor),
+  ev(317, "musinsa", 217, "무신사는 10월 23일부터 11월 8일까지 오사카 '그랜드 그린 오사카 브이에스'에서 '무신사 오사카 팝업 스토어 2026'을 연다고 발표했다.", "‘무신사 오사카 팝업 스토어 2026’은 오는 10월 23일(금)부터 11월 8일(일)까지 17일간 오사카 ‘그랜드 그린 오사카 브이에스(Grand Green Osaka Vs.)’에서 열린다.", null, "unknown", approve("공식 보도자료 — 예정 행사의 발표, 날짜는 보도일 기준으로만 표시")),
+  ev(318, "musinsa", 218, "무신사는 2026년 8월 21일부터 11월 30일까지 상하이 징안 캐리 센터에서 '무신사 상하이 팝업 스토어 2026'을 운영한다.", "팝업 스토어는 지난 8월 21일부터 상하이 난징시루 ‘징안 캐리 센터(静安嘉里中心)’에서 운영 중에 있으며, 오는 11월 30일까지 진행된다.", "2026-08-21", "day", approve("공식 보도자료로 운영 기간 확인")),
+  ev(319, "musinsa", 219, "무신사는 10월 19일까지 무신사 스토어 온라인과 오프라인 매장에서 '온 & 오프 페스티벌'을 진행한다.", "무신사는 오는 19일까지 무신사 스토어 온라인과 오프라인 매장에서 '온 & 오프 페스티벌(On & Off Festival)'을 진행한다.", null, "unknown", actor),
   ev(315, "musinsa", 215, "무신사에 따르면 2026년 9월 오프라인 매장 방문객은 전년 동월의 약 2.8배였다.", "무신사에 따르면 지난달 오프라인 매장 방문객은 전년 동월의 약 2.8배로 늘었다.", null, "unknown", approve("회사 발표 수치 — 독립 집계 아님")),
   ev(316, "musinsa", 216, "29CM가 서울 성수동에 다섯 번째 매장 '이구홈 서울숲'을 열었다.", "무신사 29CM가 서울 성수동에 이구홈 서울숲을 개점했다고 오늘(11일) 밝혔습니다.", null, "unknown", reject("29CM은 MUSINSA와 분리된 관련 브랜드 — 제목의 '무신사' 언급만으로 MUSINSA core 행동이 되지 않음")),
   // TOSS
@@ -152,9 +160,9 @@ export const launchMovements: LaunchMovement[] = [
   mv(404, "olive-young", "olive-young-mobile-skin-scan-2026", "모바일 피부 진단 서비스 출시", "매장에서 운영하던 체험형 피부 측정 서비스 '스킨스캔'을 올리브영 앱에 구현했다.", "product", "national", ["KR"], ["online"], 2, [307], [theme("beauty")], kst("2026-09-15")),
   mv(405, "olive-young", "olive-young-sephora-sea-2026", "동남아 세포라 'K뷰티에딧' 입점·싱가포르 팝업", "올리브영이 큐레이션한 K뷰티 상품군이 말레이시아·싱가포르·태국·홍콩 세포라 온·오프라인에 입점했고, 싱가포르에서 기념 팝업을 열었다.", "partnership", "global", ["MY", "SG", "TH", "HK"], ["online", "offline", "retail"], 3, [308, 309], [theme("global"), theme("beauty")], kst("2026-10-12")),
   mv(411, "musinsa", "musinsa-seongsu-roblox-drop-2026", "무신사 스토어 성수 로블록스 팝업", "무신사 드롭이 로블록스를 주제로 한 팝업을 무신사 스토어 성수에서 7월 26일부터 8월 12일까지 운영했다.", "partnership", "local", ["KR"], ["offline", "retail"], 1, [311], [theme("offline")], "2026-10-13T12:00:00+09:00"),
-  mv(412, "musinsa", "musinsa-shanghai-popup-2026", "상하이 팝업 스토어 2026 운영", "상하이 징안 캐리 센터에서 K패션 브랜드를 소개하는 팝업을 8월 21일부터 11월 30일까지 운영한다.", "platform", "global", ["CN"], ["offline", "retail"], 3, [312], [theme("global")], kst("2026-09-28", "10:22")),
-  mv(413, "musinsa", "musinsa-osaka-popup-2026", "오사카 첫 대형 팝업 개최 발표", "10월 23일부터 11월 8일까지 오사카에서 국내 패션·뷰티 브랜드를 소개하는 첫 대형 팝업을 운영한다고 발표했다.", "platform", "global", ["JP"], ["offline", "retail"], 2, [313], [theme("global")], kst("2026-09-16", "17:10")),
-  mv(414, "musinsa", "musinsa-on-off-festival-fw-2026", "FW '온 & 오프 페스티벌' 진행", "10월 19일까지 무신사 스토어 온라인과 오프라인 매장에서 FW 시즌 할인 행사를 진행한다. 무신사는 9월 오프라인 매장 방문객이 전년 동월의 약 2.8배였다고 밝혔다.", "promotion", "national", ["KR"], ["online", "offline", "retail"], 2, [314, 315], [theme("offline")], kst("2026-10-08", "10:28")),
+  mv(412, "musinsa", "musinsa-shanghai-popup-2026", "상하이 팝업 스토어 2026 운영", "상하이 징안 캐리 센터에서 K패션 브랜드를 소개하는 팝업을 8월 21일부터 11월 30일까지 운영한다.", "platform", "global", ["CN"], ["offline", "retail"], 3, [312, 318], [theme("global")], kst("2026-09-28", "10:22")),
+  mv(413, "musinsa", "musinsa-osaka-popup-2026", "오사카 첫 대형 팝업 개최 발표", "10월 23일부터 11월 8일까지 오사카에서 국내 패션·뷰티 브랜드를 소개하는 첫 대형 팝업을 운영한다고 발표했다.", "platform", "global", ["JP"], ["offline", "retail"], 2, [313, 317], [theme("global")], kst("2026-09-16", "17:10")),
+  mv(414, "musinsa", "musinsa-on-off-festival-fw-2026", "FW '온 & 오프 페스티벌' 진행", "10월 19일까지 무신사 스토어 온라인과 오프라인 매장에서 FW 시즌 할인 행사를 진행한다. 무신사는 9월 오프라인 매장 방문객이 전년 동월의 약 2.8배였다고 밝혔다.", "promotion", "national", ["KR"], ["online", "offline", "retail"], 2, [314, 315, 319], [theme("offline")], kst("2026-10-08", "10:28")),
   mv(421, "toss", "toss-homepage-everyday-2026", "홈페이지 전면 개편 — '금융부터 일상까지'", "공식 홈페이지를 전면 개편해 송금에서 일상·글로벌로 넓혀 온 서비스를 하나의 메시지로 소개했다.", "brand", "national", ["KR"], ["online"], 2, [321], [theme("everyday-services")], kst("2026-08-18")),
   mv(422, "toss", "toss-apps-in-toss-10000", "앱인토스 제휴 미니앱 1만 개 돌파", "미니앱 플랫폼 앱인토스의 제휴 미니앱이 1만 개를 넘었고, 월 이용자는 400만명 수준으로 보도됐다.", "platform", "national", ["KR"], ["online"], 2, [322, 323], [theme("everyday-services")], kst("2026-08-14", "14:02")),
   mv(423, "toss", "toss-apps-in-toss-ai-review", "앱인토스 미니앱 AI 안전성 검수", "운영 중인 미니앱이 1만3000개를 넘은 가운데 AI로 미니앱 안전성을 검수한다고 밝혔다.", "platform", "national", ["KR"], ["online"], 1, [324], [theme("everyday-services")], kst("2026-09-27", "11:29")),

@@ -14,7 +14,7 @@ export function movementVisual(sourceRefs: readonly number[], sources: readonly 
   for (const entry of registry) {
     const target = normalized(entry.sourceUrl)
     const source = target && candidates.find(row => normalized(row.url) === target)
-    if (source && usable(entry)) return { src: entry.imageUrl, alt: entry.alt.trim(), sourceRef: source.ref, provider: source.provider, origin: entry.origin, credit: entry.credit, fit: entry.fit ?? "cover" }
+    if (source && usable(entry)) return { src: entry.imageUrl, alt: entry.alt.trim(), sourceRef: source.ref, provider: source.provider, origin: entry.origin, credit: entry.credit, fit: entry.fit ?? "cover", delivery: entry.delivery ?? "cdn" }
   }
   return null
 }

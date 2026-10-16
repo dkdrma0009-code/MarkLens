@@ -128,7 +128,7 @@ test('1: five launch entities seed with registry identities; per-brand counts co
     assert.deepEqual(rows.map(row => [row.slug, row.id]), [...launchRegistry].sort((a, b) => a.slug.localeCompare(b.slug)).map(row => [row.slug, row.entity.id]))
     const report = Object.fromEntries(await Promise.all(PUBLIC_BRAND_SLUGS.map(async slug => [slug, await brandReport(db, slug)])))
     const pick = row => [row.sources, row.evidenceApproved, row.evidenceRejected, row.movements, row.patterns, row.takes, row.snapshot, row.providers, row.eligibility.publicCandidate, row.eligibility.seoCandidate]
-    assert.deepEqual(pick(report.musinsa), [6, 5, 1, 4, 2, 2, 1, 5, true, true])
+    assert.deepEqual(pick(report.musinsa), [9, 8, 1, 4, 2, 2, 1, 6, true, true])
     assert.deepEqual(pick(report['olive-young']), [8, 9, 1, 5, 2, 2, 1, 2, true, false])
     assert.deepEqual(pick(report.toss), [7, 5, 1, 4, 1, 1, 0, 3, false, false])
     assert.deepEqual(pick(report.baemin), [5, 4, 1, 3, 1, 1, 0, 4, false, false])
@@ -180,7 +180,7 @@ test('3: several reports of one event stay one Movement; a second Movement for t
     const links = async movement => (await db.query('SELECT e.source_item_id FROM movement_evidence me JOIN brand_evidence e ON e.id=me.evidence_id WHERE me.movement_id=$1', [lid(movement)])).rows.map(row => row.source_item_id).sort()
     assert.deepEqual(await links(402), [lid(203), lid(204)]) // two official releases of the Sanrio campaign
     assert.deepEqual(await links(441), [lid(241), lid(242), lid(243)]) // 당근절 announcement, media, results
-    assert.deepEqual(await links(414), [lid(214), lid(215)]) // On & Off Festival in two outlets
+    assert.deepEqual(await links(414), [lid(214), lid(215), lid(219)]) // On & Off Festival: two outlets + the official release
     assert.deepEqual(await links(401), [lid(201), lid(202)]) // Festa LA: official + independent media
     await assert.rejects(seedClient(db).insert('brand_movements', { id: lid(499), entity_id: entity('danggeun'), event_key: 'danggeun-danggeunjeol-2026', title: '당근절 중복', summary: 'dup', movement_type: 'promotion', scope: 'national', importance: 1 }), /duplicate key|unique/)
     await applyRecommendedProfiles(db)
