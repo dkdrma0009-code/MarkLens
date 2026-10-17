@@ -158,8 +158,8 @@
 }
 .marklens-public .bw-key-count-1 .bw-key-title { font-size: clamp(28px, 2.8vw, 40px); line-height: 1.26; }
 
-/* 04 Pattern reveal — the signature moment: the moves' own evidence, gathered by one bracket into a direction. */
-.marklens-public .bw-patterns { background: var(--ml-paper); --bw-frame: 320px; --bw-gap: 32px; }
+/* 04 Pattern reveal — the signature moment: the supporting moves, gathered by one bracket into the observed direction. */
+.marklens-public .bw-patterns { background: var(--ml-paper); }
 .marklens-public .bw-section.bw-patterns { padding-top: 76px; padding-bottom: 0; }
 .marklens-public .bw-section.bw-key { padding-bottom: 76px; }
 .marklens-public .bw-section.bw-moves { padding-bottom: 72px; }
@@ -168,41 +168,56 @@
 .marklens-public .bw-pattern-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .marklens-public .bw-pattern-number { font-family: var(--font-geist-mono), monospace; font-size: 12px; color: var(--ml-muted); }
 .marklens-public .bw-window { font-family: var(--font-geist-mono), monospace; font-size: 12px; color: var(--ml-muted); margin-left: auto; }
-.marklens-public .bw-reveal-evidence { display: grid; grid-template-columns: repeat(var(--bw-n), var(--bw-frame)); justify-content: center; gap: var(--bw-gap); margin-top: 40px; }
-.marklens-public .bw-reveal-evidence li { display: grid; gap: 14px; align-content: start; min-width: 0; }
-.marklens-public .bw-reveal-frame { aspect-ratio: 16 / 10; }
-.marklens-public .bw-reveal-frame-empty { display: grid; place-items: center; border: 1px dashed var(--ml-line); }
-.marklens-public .bw-reveal-plate { font-size: 13px; font-weight: 700; color: var(--ml-muted); }
-.marklens-public .bw-reveal-index { position: absolute; top: 0; left: 0; z-index: 1; padding: 4px 8px; font-family: var(--font-geist-mono), monospace; font-size: 11px; color: #fff; background: var(--ml-ink); }
+/* The supporting moves are a reference list — small first-party thumbnail, title, type and date. Their photos already
+   ran large in the hero and Key Moves, so the observed direction, not a repeated photo, carries the visual weight. */
+.marklens-public .bw-reveal-evidence { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 28px; border-left: 1px solid var(--ml-ink); }
+.marklens-public .bw-reveal-evidence li { position: relative; display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 14px; align-items: center; min-width: 0; padding: 10px 0 10px 18px; }
+.marklens-public .bw-reveal-evidence li::before { content: ""; position: absolute; left: 0; top: 50%; width: 10px; height: 1px; background: var(--ml-ink); }
+.marklens-public .bw-reveal-frame { aspect-ratio: 4 / 3; }
+/* No image: nothing stands in for the missing photo. The number keeps the top-left corner and the type label sits at
+   the bottom, so they never overlap. */
+.marklens-public .bw-reveal-frame-empty { display: grid; place-items: end start; padding: 6px 8px; border: 1px dashed var(--ml-line); }
+.marklens-public .bw-reveal-plate { font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--ml-muted); }
+.marklens-public .bw-reveal-index { position: absolute; top: 0; left: 0; z-index: 1; padding: 2px 6px; font-family: var(--font-geist-mono), monospace; font-size: 11px; color: #fff; background: var(--ml-ink); }
 .marklens-public .bw-reveal-move { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .marklens-public .bw-reveal-move a { font-size: 15px; font-weight: 650; letter-spacing: -.03em; line-height: 1.5; }
 .marklens-public .bw-reveal-move a:hover { color: var(--ml-blue-readable); }
 .marklens-public .bw-reveal-move-meta { font-size: 12px; color: var(--ml-muted); }
-/* Bracket: one tick per move (repeating every frame + gap) joined by a rule, then a blue stem down to the pattern. */
-.marklens-public .bw-reveal-bracket { position: relative; width: calc((var(--bw-n) - 1) * (var(--bw-frame) + var(--bw-gap))); height: 32px; margin: 18px auto 0; border-bottom: 1px solid var(--ml-ink); border-right: 1px solid var(--ml-ink); background: repeating-linear-gradient(to right, var(--ml-ink) 0 1px, transparent 1px calc(var(--bw-frame) + var(--bw-gap))); transform-origin: center; }
-.marklens-public .bw-reveal-bracket span { position: absolute; left: 50%; top: 100%; width: 2px; height: 44px; margin-left: -1px; background: var(--ml-blue); transform-origin: top; }
-.marklens-public .bw-reveal-pattern { max-width: 820px; margin: 52px auto 0; text-align: center; }
-@media (min-width: 900px) {
-  .marklens-public .bw-pattern-n2 { --bw-gap2: 8%; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-evidence { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--bw-gap2); margin-top: 44px; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-move a { font-size: 18px; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-move-meta { font-size: 13px; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-index { padding: 6px 10px; font-size: 13px; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-bracket { width: calc(50% + var(--bw-gap2) / 2); height: 44px; margin-top: 22px; border: 2px solid var(--ml-ink); border-top: 0; background: none; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-bracket span { width: 3px; height: 60px; margin-left: -1.5px; }
-  .marklens-public .bw-pattern-n2 .bw-reveal-pattern { margin-top: 68px; }
-}
-.marklens-public .bw-reveal-common { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 12px; color: var(--ml-muted); margin-bottom: 18px; }
+/* One blue stem leads from the list into the statement. */
+.marklens-public .bw-reveal-bracket { position: relative; height: 40px; transform-origin: left; }
+.marklens-public .bw-reveal-bracket span { position: absolute; left: 0; top: 0; width: 2px; height: 100%; margin-left: -1px; background: var(--ml-blue); transform-origin: top; }
+.marklens-public .bw-reveal-pattern { margin-top: 12px; }
+.marklens-public .bw-reveal-common { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ml-muted); margin-bottom: 18px; }
 .marklens-public .bw-reveal-common > span:first-child { font-weight: 700; color: var(--ml-blue-readable); }
 .marklens-public .bw-reveal-common > span + span { font-weight: 700; color: var(--ml-ink); }
-.marklens-public .bw-reveal-pattern h3 { font-size: clamp(30px, 3.2vw, 48px); font-weight: 800; letter-spacing: -.06em; line-height: 1.22; }
-.marklens-public .bw-pattern-text { font-size: 16px; line-height: 1.8; margin: 18px auto 0; max-width: 56ch; }
-.marklens-public .bw-reveal-pattern .bw-refs { justify-content: center; }
+/* The observed direction is the page's statement. A long one (data-length="long", set from its character count) steps
+   down a size so it does not become a wall; short ones keep the full scale. */
+.marklens-public .bw-reveal-pattern h3 { font-size: clamp(34px, 9vw, 44px); font-weight: 800; letter-spacing: -.065em; line-height: 1.16; text-wrap: balance; }
+.marklens-public .bw-reveal[data-length="long"] .bw-reveal-pattern h3 { font-size: clamp(30px, 7.6vw, 38px); }
+.marklens-public .bw-pattern-text { font-size: 16px; line-height: 1.8; margin-top: 18px; max-width: 56ch; }
+@media (min-width: 900px) {
+  /* Spread: references on the left, one bracket gathers them, the statement takes the wider column. */
+  .marklens-public .bw-reveal { display: grid; grid-template-columns: minmax(0, 5fr) 88px minmax(0, 7fr); grid-template-areas: "top top top" "evidence bracket statement"; align-items: center; padding-bottom: 88px; }
+  .marklens-public .bw-reveal .bw-pattern-top { grid-area: top; margin-bottom: 40px; }
+  .marklens-public .bw-reveal-evidence { grid-area: evidence; margin: 0; border-left: 0; }
+  .marklens-public .bw-reveal-evidence li { grid-template-columns: 120px minmax(0, 1fr); gap: 18px; padding: 16px 0; border-top: 1px solid var(--ml-line); }
+  .marklens-public .bw-reveal-evidence li:last-child { border-bottom: 1px solid var(--ml-line); }
+  .marklens-public .bw-reveal-evidence li::before { display: none; }
+  .marklens-public .bw-reveal-move a { font-size: 16px; }
+  .marklens-public .bw-reveal-move-meta { font-size: 13px; }
+  .marklens-public .bw-reveal-bracket { grid-area: bracket; align-self: stretch; width: 28px; height: auto; margin-left: 12px; border: 2px solid var(--ml-ink); border-left: 0; }
+  .marklens-public .bw-reveal-bracket span { left: 100%; top: 50%; width: 44px; height: 3px; margin: -1.5px 0 0; transform-origin: left; }
+  .marklens-public .bw-reveal-pattern { grid-area: statement; margin: 0; padding-left: 16px; }
+  .marklens-public .bw-reveal-pattern h3 { font-size: clamp(44px, 5vw, 72px); line-height: 1.1; letter-spacing: -.07em; }
+  .marklens-public .bw-reveal[data-length="long"] .bw-reveal-pattern h3 { font-size: clamp(38px, 3.9vw, 56px); }
+  .marklens-public .bw-reveal-common { margin-bottom: 22px; }
+  .marklens-public .bw-pattern-text { font-size: 18px; max-width: 52ch; margin-top: 24px; }
+}
 
 /* 05 MarkLens Take — the interpretive climax, unmistakably not a fact. */
 .marklens-public .bw-takes { background: var(--ml-dark); color: #fff; }
 .marklens-public .bw-section.bw-takes { padding-top: 0; }
-.marklens-public .bw-handoff { display: grid; justify-items: center; gap: 14px; margin-bottom: 44px; }
+.marklens-public .bw-handoff { display: grid; justify-items: start; gap: 14px; margin-bottom: 44px; }
 .marklens-public .bw-handoff-stem { display: block; width: 3px; height: 72px; background: linear-gradient(var(--ml-blue), #6f8dff); transform-origin: top; }
 .marklens-public .bw-handoff-label { font-family: var(--font-geist-mono), monospace; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #a9bcff; }
 .marklens-public .bw-take-heading { max-width: 760px; margin-bottom: 40px; }
@@ -311,6 +326,7 @@
 /* Motion: the discovery plays once the reveal is in view (PublicMotion marks it) — evidence in sequence, then the
    bracket closes, the stem drops and the pattern lands. Static without JS or with reduced motion. */
 @keyframes bw-stem-open { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes bw-stem-across { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: no-preference) {
   .marklens-public :is(.bw-hero-signal, .bw-hero-evidence) { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) 220ms backwards; }
   .marklens-public .bw-reveal[data-motion-seen="true"] .bw-reveal-evidence li { animation: ml-editorial-enter var(--motion-base) var(--ease-editorial) backwards; animation-delay: calc(160ms + var(--bw-i) * 140ms); }
@@ -319,13 +335,15 @@
   .marklens-public .bw-reveal[data-motion-seen="true"] .bw-reveal-pattern { animation: ml-editorial-enter var(--motion-slow) var(--ease-editorial) calc(860ms + var(--bw-n) * 140ms) backwards; }
   .marklens-public .bw-handoff[data-motion-seen="true"] .bw-handoff-stem { animation: bw-stem-open var(--motion-base) var(--ease-editorial) 120ms backwards; }
 }
+@media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .marklens-public .bw-reveal[data-motion-seen="true"] .bw-reveal-bracket span { animation-name: bw-stem-across; }
+}
 
 @media (max-width: 1199px) {
   .marklens-public .bw-hero-grid { gap: 44px; padding-block: 40px 64px; }
   .marklens-public .bw-section { padding-block: 80px; }
   .marklens-public .bw-snapshot-grid { gap: 48px; }
   .marklens-public .bw-key-grid { gap: 40px; }
-  .marklens-public .bw-patterns { --bw-frame: 212px; --bw-gap: 22px; }
   .marklens-public .bw-section.bw-key { padding-bottom: 64px; }
   .marklens-public .bw-section.bw-patterns { padding-top: 64px; }
   .marklens-public .bw-section.bw-moves { padding-bottom: 60px; }
@@ -340,17 +358,7 @@
   .marklens-public :is(.bw-key-count-2, .bw-key-count-3) { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .marklens-public .bw-key-count-3 .bw-key-signal:first-child { grid-row: auto; }
   .marklens-public .bw-key-count-1 .bw-key-has-visual > article { grid-template-columns: minmax(0, 1fr); }
-  /* Pattern reveal becomes a vertical narrative: evidence down a spine → stem → observed pattern. */
-  .marklens-public .bw-reveal-evidence { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 28px; border-left: 1px solid var(--ml-ink); }
-  .marklens-public .bw-reveal-evidence li { position: relative; grid-template-columns: 112px minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px 0 12px 20px; }
-  .marklens-public .bw-reveal-evidence li::before { content: ""; position: absolute; left: 0; top: 50%; width: 12px; height: 1px; background: var(--ml-ink); }
-  .marklens-public .bw-reveal-bracket { width: auto; height: 48px; margin: 0; border: 0; background: none; }
-  .marklens-public .bw-reveal-bracket span { left: 0; top: 0; height: 100%; margin-left: -1px; }
-  .marklens-public .bw-reveal-pattern { margin: 16px 0 0; text-align: left; }
-  .marklens-public :is(.bw-reveal-common, .bw-reveal-pattern .bw-refs) { justify-content: flex-start; }
-  .marklens-public .bw-pattern-text { margin-left: 0; }
   .marklens-public .bw-take dl { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  .marklens-public .bw-handoff { justify-items: start; }
   .marklens-public .bw-source-list { grid-template-columns: minmax(0, 1fr); }
   .marklens-public .bw-directory-head { display: none; }
   .marklens-public .bw-dir-row { grid-template-columns: auto auto minmax(0, 1fr) 20px; gap: 14px 28px; padding-block: 28px; }
@@ -392,9 +400,7 @@
   .marklens-public .bw-key-title, .marklens-public :is(.bw-key-count-2, .bw-key-count-3) .bw-key-signal:first-child .bw-key-title, .marklens-public .bw-key-count-1 .bw-key-title { font-size: 21px; }
   .marklens-public .bw-key-count-3 .bw-key-signal:not(:first-child) .bw-key-title { font-size: 17px; }
   .marklens-public .bw-pattern-top .bw-window { margin-left: 0; width: 100%; }
-  .marklens-public .bw-reveal-evidence li { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; }
-  .marklens-public .bw-reveal-pattern h3 { font-size: 26px; }
-  .marklens-public .bw-handoff { justify-items: start; margin-bottom: 36px; }
+  .marklens-public .bw-handoff { margin-bottom: 36px; }
   .marklens-public .bw-handoff-stem { height: 56px; }
   .marklens-public .bw-public .ml-eyebrow, .marklens-public .bw-public .ml-index { font-size: 12px; }
   .marklens-public .bw-label { font-size: 11.5px; }

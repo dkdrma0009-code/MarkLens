@@ -261,6 +261,10 @@ test('7/10: SSR — full, partial, empty and error states; FACT / PATTERN / TAKE
     assert.match(html, /WHAT WE SEE/); assert.match(html, /WHY IT MAY MATTER/); assert.match(html, /WHAT TO WATCH NEXT/)
     // Take → Pattern → Movement → Source chain is navigable.
     assert.match(html, /href="#pattern-1">Recurring beauty activity/)
+    // The Pattern statement steps down a size only when its text is long; a short one keeps the display size.
+    assert.match(html, /<article id="pattern-1" class="bw-pattern bw-reveal" aria-labelledby="pattern-1-title"/)
+    const musinsa = bySlug(states, 'musinsa'), longTitle = { ...musinsa, patterns: musinsa.patterns.map(row => ({ ...row, title: '가'.repeat(33) })) }
+    assert.match(dossier(longTitle), /<article id="pattern-1" class="bw-pattern bw-reveal" data-length="long" aria-labelledby="pattern-1-title"/)
     assert.match(html, /href="#move-1">Beauty creator campaign/)
     assert.match(html, /href="#source-1" aria-label="출처 1번으로 이동">\[1\]/)
     assert.match(html, /<li id="source-1">/)

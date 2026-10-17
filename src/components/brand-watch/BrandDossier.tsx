@@ -192,7 +192,11 @@ function KeyMovesSection({ keyMoves: key }: { keyMoves: PublicMovement[] }) {
   )
 }
 
-// Signature moment: the supporting moves' own evidence, gathered by one bracket into the observed direction.
+// A statement longer than this runs past three lines at full display size (about 10–11 Korean characters per line in
+// the desktop statement column), so it takes the compact size. Measured on the text itself, never on the brand.
+const LONG_PATTERN_TITLE = 32
+
+// Signature moment: the supporting moves as a reference list, gathered by one bracket into the observed direction.
 function PatternsSection({ patterns, movements }: { patterns: PublicPattern[]; movements: PublicMovement[] }) {
   const byAnchor = new Map(movements.map(row => [row.anchor, row]))
   return (
@@ -206,13 +210,13 @@ function PatternsSection({ patterns, movements }: { patterns: PublicPattern[]; m
               // Themes every supporting move already carries; nothing new is written.
               const shared = supporting.every(entry => entry.movement) ? supporting[0].movement!.themes.filter(theme => supporting.every(entry => entry.movement!.themes.some(row => row.slug === theme.slug))) : []
               return (
-                <article key={pattern.id} id={pattern.anchor} className={`bw-pattern bw-reveal bw-pattern-n${Math.min(supporting.length, 4)}`} aria-labelledby={`${pattern.anchor}-title`} style={{ "--bw-n": supporting.length } as CSSProperties}>
+                <article key={pattern.id} id={pattern.anchor} className="bw-pattern bw-reveal" data-length={pattern.title.length > LONG_PATTERN_TITLE ? "long" : undefined} aria-labelledby={`${pattern.anchor}-title`} style={{ "--bw-n": supporting.length } as CSSProperties}>
                   <p className="bw-pattern-top"><span className="bw-label bw-label-pattern">OBSERVED PATTERN</span><span className="bw-pattern-number">{pad(patternIndex + 1)}</span><span className="bw-window"><time dateTime={pattern.windowStart}>{formatDay(pattern.windowStart)}</time> – <time dateTime={pattern.windowEnd}>{formatDay(pattern.windowEnd)}</time></span></p>
                   <ol className="bw-reveal-evidence" aria-label={`근거가 된 움직임 ${supporting.length}건`}>
                     {supporting.map(({ row, movement }, index) => (
                       <li key={row.anchor} style={{ "--bw-i": index } as CSSProperties}>
                         <span className={`bw-reveal-frame${movement?.visual ? "" : " bw-reveal-frame-empty"}`}>
-                          {movement?.visual ? <EvidenceImage visual={movement.visual} width={640} /> : <span className="bw-reveal-plate">{movement ? typeLabel(movement) : "FACT"}</span>}
+                          {movement?.visual ? <EvidenceImage visual={movement.visual} width={240} /> : <span className="bw-reveal-plate">{movement ? typeLabel(movement) : "FACT"}</span>}
                           <span className="bw-reveal-index" aria-hidden="true">{pad(index + 1)}</span>
                         </span>
                         <span className="bw-reveal-move">

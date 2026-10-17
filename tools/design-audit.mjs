@@ -27,7 +27,8 @@ mkdirSync(out, { recursive: true })
 const T = {
   minFont: 11, metaFont: 12, // under 11px: REVIEW (9 of 18 references have none); 11px is the minimum exception; 12px+ recommended
   primaryChars: 40, // own text this long counts as primary content, shorter is metadata
-  cropLoss: 20, cropLarge: 35, // cover-crop share; REVIEW only with a reason (large, poster-like, or text in the image)
+  cropLoss: 20, cropLarge: 35, cropExtreme: 45, // cover-crop share; REVIEW only with a reason (large, poster-like, or text in the image)
+  thumbWidth: 160, // below this a photo is a reference thumbnail: its crop share alone is INFO, a risk signal makes it REVIEW
   repeatWidth: 200, // a repeated photo is REVIEW only when 2+ uses are at least this wide; smaller reuse is a reference
   blankDesktop: 240, blankMobile: 180, // empty vertical band; reference median 160 / 175px
   screensDesktop: 9.2, screensMobile: 13.1, // reference article medians; longer is reported, not judged
@@ -94,11 +95,18 @@ const MEASURE = `(() => {
   const repeated = Object.entries(seen).filter(([, uses]) => uses.length > 1).map(([k, uses]) => ({ image: k.slice(-60), count: uses.length, uses, large: uses.filter(u => u.width >= ${T.repeatWidth}).length }))
   // Crop: share of the photo cut away by object-fit: cover, with the reasons it might matter. Whether letters,
   // faces, products or logos are actually cut is a vision-review question.
-  const textHint = /[‘’“”"'「」]|문구|포스터|글자|텍스트|타이포|키 ?비주얼|poster|banner|배너|text|key visual|headline|logo|로고/i
-  const cropped = imgs.filter(i => visible(i) && i.naturalWidth && i.getBoundingClientRect().width >= 120 && getComputedStyle(i).objectFit === 'cover').map(i => {
+  const textHint = /[‘’“”"'「」]|문구|포스터|글자|텍스트|타이포|키 ?비주얼|poster|banner|배너|text|key visual|headline/i
+  const subjectHint = /얼굴|인물|사람|초상|portrait|face|제품|상품|product|로고|logo/i
+  // A reference thumbnail (under thumbWidth) is not reviewed for crop share alone: its printed text is unreadable either
+  // way. It still is when it looks like a poster or document, is cut to the extreme, or is cut hard where its alt
+  // describes text, a face, a product or a logo.
+  const cropped = imgs.filter(i => visible(i) && i.naturalWidth && i.getBoundingClientRect().width >= 64 && getComputedStyle(i).objectFit === 'cover').map(i => {
     const r = i.getBoundingClientRect(), a = i.naturalWidth / i.naturalHeight, b = r.width / r.height, lost = Math.round((1 - Math.min(a, b) / Math.max(a, b)) * 100)
-    const reasons = [lost >= ${T.cropLarge} && 'large crop', a <= 0.9 && 'portrait / poster shape', textHint.test(i.alt) && 'alt suggests text in image'].filter(Boolean)
-    return { image: key(i.currentSrc || i.src).slice(-40), lost, reasons, shown: Math.round(r.width) + 'x' + Math.round(r.height), y: top(i), section: sectionOf(i) }
+    const small = r.width < ${T.thumbWidth}, hint = textHint.test(i.alt) ? 'alt suggests text in image' : subjectHint.test(i.alt) ? 'alt names a face, product or logo' : null
+    const reasons = small
+      ? [lost >= ${T.cropExtreme} && 'extreme crop', a <= 0.9 && 'portrait / poster shape', hint && lost >= ${T.cropLarge} && hint].filter(Boolean)
+      : [lost >= ${T.cropLarge} && 'large crop', a <= 0.9 && 'portrait / poster shape', hint].filter(Boolean)
+    return { image: key(i.currentSrc || i.src).slice(-40), lost, small, reasons, shown: Math.round(r.width) + 'x' + Math.round(r.height), y: top(i), section: sectionOf(i) }
   }).filter(c => c.lost >= ${T.cropLoss}).sort((x, y) => y.lost - x.lost)
   const broken = imgs.filter(i => i.complete && (i.currentSrc || i.getAttribute('src')) && i.naturalWidth === 0 && visible(i)).length
   const missingAlt = imgs.filter(i => !i.hasAttribute('alt')).length
@@ -173,7 +181,7 @@ for (const page of pages) for (const width of widths) {
   const repeatReview = result.repeated.filter(r => r.large > 1)
   if (repeatReview.length) review('same photo used large more than once', repeatReview.map(r => `${r.count}× …${r.image.slice(-24)} (${r.uses.map(u => `${u.section} ${u.width}px`).join(' → ')})`).join('; '))
   const cropReview = result.cropped.filter(c => c.reasons.length)
-  if (cropReview.length) review('crop to check (text, face, product, logo?)', cropReview.map(c => `${c.lost}% of …${c.image.slice(-20)} in ${c.section} (${c.reasons.join(', ')})`).slice(0, 4).join('; '))
+  if (cropReview.length) review('crop to check (text, face, product, logo?)', cropReview.map(c => `${c.lost}% of ${c.small ? 'thumbnail ' : ''}…${c.image.slice(-20)} in ${c.section} (${c.reasons.join(', ')})`).slice(0, 4).join('; '))
   if (new Set(result.dateStamps.map(d => d.date)).size > 1) review('DATE REVIEW', `different dates on screen; Content QA decides what each means: ${result.dateStamps.map(d => `"${d.label}"`).join(' / ')}`)
   if (result.missingAlt) review('images without alt', `${result.missingAlt}`)
   const blankLimit = mobile ? T.blankMobile : T.blankDesktop
