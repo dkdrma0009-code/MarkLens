@@ -13,10 +13,10 @@
 | ID | Change | Reason (one line) | Evidence |
 |---|---|---|---|
 | A1 | Korean text never in mono: Korean labels switch to the sans; mono stays for Latin and numbers | Geist Mono has no Hangul, so it is a rendering defect, not a style | #1, F5; Korean refs 2/2 use sans for Korean meta (P20). **Applied in V1.1** with the shared `.ml-hangul` class (4 places). |
-| A2 | Images with printed type (posters, banners) are never cropped by `cover`. Use `contain`, a wider frame or a registered focus. | Cutting a source's own words visually misquotes the evidence | #7, N6. **Applied in V1.1 to DANGGEUN** (광고 MCP and 지구를 위한 동네모임 posters, `fit: "contain"`). Still open: the DANGGEUN lead image at 390 (a 10% crop clips the first glyph of its subtitle). TOSS Key Move (38%) and OLIVE YOUNG Key Moves (22–25%) are REVIEW but not yet checked by eye. |
+| A2 | Images with printed type (posters, banners) are never cropped by `cover`. Use `contain`, a wider frame or a registered focus. | Cutting a source's own words visually misquotes the evidence | #7, N6. **Applied in V1.1 to DANGGEUN** (광고 MCP and 지구를 위한 동네모임 posters, `fit: "contain"`). **V1 final:** the OLIVE YOUNG City Log image (logo cut at the top) also moved to `contain`. Checked by eye and left as is: OLIVE YOUNG FESTA (25%, the sign stays whole) and TOSS mini-apps (38%, only background cut). Still open: the DANGGEUN lead image at 390 (a 10% crop clips the first glyph of its subtitle). |
 | A3 | Do not re-use a page's hero or Key Move image at full size in Pattern. Use a different first-party image, or a small captioned citation. | The repeat reads as a shortage of material | #6, N5 |
 | A4 | No legends, stat tiles or number columns in a first screen | 0 of 18 references put them there; they are the main source of the dashboard feel | P8, #9, #13 |
-| A5 | 12px floor for visible metadata, 11px absolute minimum (no 9–10px) | Home has 60 elements under 11px; 9 of 18 references have none and only 6 have 5 or more | #8, X3 |
+| A5 | 12px floor for visible metadata, 11px absolute minimum (no 9–10px) | Home has 60 elements under 11px; 9 of 18 references have none and only 6 have 5 or more | #8, X3. **V1 final:** FACT labels raised to 11px. Still open: Home (8–9px), index head, footer (10px). |
 | A6 | Before any public UI merge, run `tools/design-audit.mjs` and the vision review on the changed pages | Turns these rules into a repeatable check | audit-rules.md |
 
 ## EXPERIMENT — promising; test one at a time with before/after captures

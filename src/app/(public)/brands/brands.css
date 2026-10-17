@@ -9,7 +9,7 @@
 .marklens-public .bw-public :is(h1, h2, h3, p, a, dd, li, figcaption) { overflow-wrap: anywhere; word-break: keep-all; }
 
 /* Layer labels: text + shape; colour is a secondary cue. */
-.marklens-public .bw-label { display: inline-flex; align-items: center; font-family: var(--font-geist-mono), monospace; font-size: 10px; font-weight: 600; letter-spacing: .12em; line-height: 1.4; white-space: nowrap; color: var(--ml-muted); }
+.marklens-public .bw-label { display: inline-flex; align-items: center; font-family: var(--font-geist-mono), monospace; font-size: 11px; font-weight: 600; letter-spacing: .12em; line-height: 1.4; white-space: nowrap; color: var(--ml-muted); }
 .marklens-public .bw-label-fact { padding: 3px 7px; color: var(--ml-paper); background: var(--ml-ink); }
 .marklens-public .bw-label-pattern { padding: 2px 6px; color: var(--ml-blue-readable); border: 1px solid currentColor; }
 .marklens-public .bw-label-take { padding: 3px 7px; color: #fff; background: var(--ml-blue); }

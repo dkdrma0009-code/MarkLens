@@ -44,10 +44,10 @@ reference. The file is left untouched; deleting it is a separate decision.
 | # | Area | Current state | What may change |
 |---|---|---|---|
 | X1 | **Section rhythm** | The three largest dossier gaps are all 158–200px (desktop). Home switches dark and light 9 times. | Vary spacing by section role; fewer, longer dark passages (P10) |
-| X2 | **Pattern section scale** | The pattern headline is centred and modest. Its images are a 2–3 up row of small tiles. | A bigger type scale and one dominant image per pattern (P2, P3) |
-| X3 | **Metadata density** | 10–11px mono labels, 22–36 uppercase micro-labels per dossier | Fewer labels, 12px floor, labels only where they carry information (P6) |
+| X2 | **Pattern section scale** | **Settled (B′, `abc1371`):** a text-led reveal. The supporting moves are a reference list with 120px / 80px thumbnails; one bracket leads to the statement (up to 72px, compact over 32 characters). The one-dominant-image variant was rejected because it repeats photos already shown large. | Change only through the change policy |
+| X3 | **Metadata density** | FACT labels raised from 10px to 11px. Still 22–36 uppercase micro-labels per dossier; the footer is 10px. | Fewer labels, 12px floor, labels only where they carry information (P6) |
 | X4 | **Home hero voice** | Latin "FOR THE NEXT GENERATION." | Korean-first or signal-led headline. Needs a copy decision, not only design. |
-| X5 | **Crop rules** | `cover` everywhere except registered `contain` visuals | Use `contain`, or a wider frame, for images with printed type (posters, banners) |
+| X5 | **Crop rules** | `cover` except registered `contain` visuals; the DANGGEUN posters and the OLIVE YOUNG City Log logo image were moved to `contain` after an eye check | Use `contain`, or a wider frame, for images with printed type or logos. Check by eye; the crop share alone decides nothing. |
 | X6 | **Mobile length** | Brand dossiers are 8.7–9.4k px at 390 | Collapse the source list and timeline, and shorten repeated captions |
 | X7 | **Serif for long reading** | No serif anywhere | Only as an experiment on Insight body text, never in Brand Watch data areas (P5, HOLD) |
 | X8 | **Number display** | MOVES / PATTERNS counts in index rows | Keep as text meta, or drop. Never as tiles. |
@@ -71,3 +71,11 @@ reference. The file is left untouched; deleting it is a separate decision.
 
 Before a design change, name the rule it touches. Use the IDs: F means stop and ask, X means test with captures,
 N means don't. Then run `tools/design-audit.mjs` and [vision-review.md](vision-review.md) before and after.
+
+**Frozen as V1 (2026-10-17).** The FIXED / FLEXIBLE / FORBIDDEN lists were re-checked after Pattern B′ and still hold.
+A new reference alone does not change this file. A change needs all three of:
+- repeated evidence across independent sites
+- fit with the FIXED rules
+- the owner's approval
+
+See the change policy in [README.md](README.md#change-policy).

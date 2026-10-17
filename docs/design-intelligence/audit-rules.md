@@ -138,3 +138,45 @@ experiment B for BAEMIN.
 - **Dates:** MUSINSA, OLIVE YOUNG and DANGGEUN show DATE REVIEW, which leaves the decision to Content QA.
 - **Repetition:** V1 skipped every image inside a `<header>`, which hid the dossier hero. V1.1 skips only site chrome
   (a header or footer outside the content). Hero → Pattern repeats now count: BAEMIN, MUSINSA and OLIVE YOUNG.
+
+## V1 final validation (2026-10-17)
+
+The audit ran on the five dossiers, the index, Home, the Insights list and an Insight detail at 1440 and 390, after
+Pattern B′ was adopted. Each REVIEW was then checked by eye.
+
+**What the REVIEWs were worth:**
+
+| REVIEW | Verdict | Why |
+|---|---|---|
+| OLIVE YOUNG City Log crop, 22% (Key Moves) | **True positive** | The top of the "OLIVE YOUNG" logo was cut. Fixed with `fit: "contain"`. |
+| FACT label 10px (dossiers, desktop) | **True positive** | The smallest item in its row, below the Bible's 11px floor. Raised to 11px. |
+| Site footer 10px ("© 2026 MarkLens") on every page | **True positive**, out of scope | A real floor violation in the global footer. It repeats on every page until fixed. |
+| Index directory head 10px, Home 8–9px labels, Insights list 10px categories | **True positive**, out of scope | Already in the baseline; Home and the index are not in this scope. |
+| OLIVE YOUNG FESTA crop, 25% (Key Moves) | **Useful warning** | Checked: venue photo, and the sign stays whole. PASS. |
+| TOSS mini-app crop, 38% (Key Moves) | **Useful warning** | Checked: only empty background is cut. PASS. A 38% crop deserves a look, so the rule stays. |
+| DATE REVIEW (MUSINSA, OLIVE YOUNG, DANGGEUN) | **Useful warning** | Different dates are on screen; Content QA decides what they mean. |
+| Home blank band, 291px | **Useful warning** | A dark-to-light section break, larger than other breaks (about 200px). Not dead space. |
+| Home first screen (56 / 11 / 13), index first screen (47 / 8 / 15) | **True positive**, out of scope | The dashboard-feel findings from the baseline. |
+| Home and Insights repetition and crops | **False positive (environment)** | 16 sample insights share 8 images. Not a rule problem, so no calibration. |
+
+**Calibration in this pass:** none. The only false positives came from sample data. The thumbnail rule from the
+Pattern B′ adoption already turned the reference-thumbnail crops into INFO. No threshold was loosened.
+
+**What it caught over the whole project** (AUTO = the script finds it; VISION = needs the screenshots;
+CONTENT QA = belongs there; NOT RELIABLE = no dependable check):
+
+| Problem found during development | Class | Notes |
+|---|---|---|
+| Hero stats / legend overload | AUTO | Busy first screen (numbers, labels); clarity itself is a vision call |
+| AI-dashboard feel | VISION | The script's proxies (numbers, labels, cards, glass) point; a person decides |
+| Image repetition | AUTO | Section and width of every use; "meaningless" is a vision call |
+| Pattern weakness | VISION | Scale and position can be measured only with a page-specific selector |
+| Korean in mono | AUTO | Exact |
+| Poster crop | VISION | The script flags the crop with a reason; only eyes see whether letters or a logo are cut |
+| Tiny metadata | AUTO | Exact, split into metadata and primary text |
+| Long mobile page | AUTO | Measured against the reference median, with the text-only tail |
+| Date ambiguity | CONTENT QA | The script surfaces a DATE REVIEW; meaning and correctness are Content QA |
+| No-image overlap | VISION | Found by eye; a generic overlap check would fire on every intended badge over an image |
+| `/_next/image` | AUTO | Exact (FAIL) |
+| Large blank spacing | AUTO | Gap size is exact; whether it is dead space is a vision call |
+| Brand differentiation | NOT RELIABLE | No metric; a person with names and logos covered |
