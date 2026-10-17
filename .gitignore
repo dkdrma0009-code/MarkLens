@@ -71,3 +71,6 @@ __pycache__/
 
 # n8n import files with injected secret
 /n8n/dist/
+
+# design intelligence audit output (screenshots, scratch)
+/.design-audit/
