@@ -46,7 +46,9 @@ const rpc = db => ({ async rpc(fn, args) {
 } })
 const run = (db, command) => executeReviewCommand(rpc(db), { ...who, ...command })
 const one = async (db, sql, params = []) => (await db.query(sql, params)).rows[0]
-const events = async db => (await db.query('SELECT target_type,target_id,action,actor,reason FROM brand_watch_review_events ORDER BY occurred_at,id')).rows
+// Which review happened to which target. Not chronological: occurred_at can tie (PGlite's clock is millisecond),
+// so rows are ordered by target and action instead of by an id that is random within a tie.
+const events = async db => (await db.query('SELECT target_type,target_id,action,actor,reason FROM brand_watch_review_events ORDER BY target_type,target_id,action')).rows
 const approvedEvidence = async (db, n, source = id(10)) => { await evidence(db, n, source); assert.equal((await run(db, { command: 'evidence.approve', evidenceId: id(n), matchRole: 'primary' })).ok, true) }
 
 test('019 is repeat-safe, adds no tables, and exposes review RPCs to service_role only', async () => {
@@ -180,7 +182,7 @@ test('movement supersede creates a linked draft successor atomically and keeps t
     assert.deepEqual({ ...(await one(db, 'SELECT status,event_key,importance FROM brand_movements WHERE id=$1', [result.result.successorId])) }, { status: 'draft', event_key: 'event-corrected', importance: 2 })
     assert.deepEqual((await db.query('SELECT evidence_id FROM movement_evidence WHERE movement_id=$1 ORDER BY evidence_id', [result.result.successorId])).rows.map(row => row.evidence_id), [id(20), id(21)])
     assert.deepEqual((await db.query('SELECT evidence_id FROM movement_evidence WHERE movement_id=$1', [id(30)])).rows.map(row => row.evidence_id), [id(20)])
-    assert.equal((await events(db)).at(-1).action, 'supersede')
+    assert.ok((await events(db)).some(row => row.target_id === id(30) && row.action === 'supersede'))
     assert.equal((await run(db, { command: 'movement.supersede', movementId: id(30), successor: { ...successor, eventKey: 'again', evidenceIds: [id(20)] } })).code, 'INVALID_TRANSITION')
   } finally { await db.close() }
 })

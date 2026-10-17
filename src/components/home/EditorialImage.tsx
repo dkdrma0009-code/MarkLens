@@ -1,8 +1,8 @@
 "use client"
 
-import Image from "next/image"
 import { useState } from "react"
-import { isHotlinkBlocked, editorialImageLoader } from "@/lib/images"
+import CdnImage from "@/components/media/CdnImage"
+import { isHotlinkBlocked } from "@/lib/images"
 import type { HomeInsight } from "./data"
 
 export default function EditorialImage({ insight, sizes, eager = false }: { insight?: HomeInsight; sizes: string; eager?: boolean }) {
@@ -15,13 +15,12 @@ export default function EditorialImage({ insight, sizes, eager = false }: { insi
 
   return (
     <div className="ml-image">
-      {source ? <Image
+      {source ? <CdnImage
         key={source}
-        src={editorialImageLoader({ src: source, width: eager ? 1600 : 1440 })}
+        src={source}
+        fallbackWidth={eager ? 1600 : 1440}
         alt=""
-        fill
         sizes={sizes}
-        unoptimized // weserv가 이미 리사이즈·WebP 처리 → Vercel Image Optimization 재변환 방지
         loading={eager ? "eager" : "lazy"}
         fetchPriority={eager ? "high" : "auto"}
         onError={() => usingOriginal ? setOriginalFailed(true) : setFallbackFailed(true)}

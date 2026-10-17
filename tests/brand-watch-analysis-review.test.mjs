@@ -253,7 +253,8 @@ test('14/15: actor and reason are required, and every mutation writes exactly on
     assert.equal(await status(db, 'brand_patterns', 50), 'draft')
     const before = (await one(db, 'SELECT count(*)::int AS n FROM brand_watch_review_events')).n
     await review(db, { command: 'pattern.publish', patternId: id(50), actor: '  admin:lee  ', reason: '  Checked.  ' })
-    assert.deepEqual((await db.query('SELECT target_type,target_id,action,actor,reason FROM brand_watch_review_events ORDER BY occurred_at')).rows.slice(before).map(row => ({ ...row })), [{ target_type: 'pattern', target_id: id(50), action: 'publish', actor: 'admin:lee', reason: 'Checked.' }])
+    assert.equal((await one(db, 'SELECT count(*)::int AS n FROM brand_watch_review_events')).n, before + 1)
+    assert.deepEqual((await db.query('SELECT target_type,target_id,action,actor,reason FROM brand_watch_review_events WHERE target_id=$1', [id(50)])).rows.map(row => ({ ...row })), [{ target_type: 'pattern', target_id: id(50), action: 'publish', actor: 'admin:lee', reason: 'Checked.' }])
   } finally { await db.close() }
 })
 

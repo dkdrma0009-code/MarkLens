@@ -265,7 +265,7 @@ test('8: Snapshot revision switches the current pointer; history is kept and pub
     const rows = (await db.query(`SELECT id, status, revision FROM brand_snapshots WHERE entity_id=$1 ORDER BY revision`, [entity('olive-young')])).rows
     assert.deepEqual(rows.map(row => [row.id, row.status, row.revision]), [[lid(701), 'superseded', 1], [lid(702), 'published', 2]])
     assert.equal((await one(db, 'SELECT current_snapshot_id FROM brand_watch_profiles WHERE entity_id=$1', [entity('olive-young')])).current_snapshot_id, lid(702))
-    assert.deepEqual((await db.query(`SELECT action FROM brand_watch_review_events WHERE target_id=$1 ORDER BY occurred_at`, [lid(701)])).rows.map(row => row.action), ['publish', 'supersede'])
+    assert.deepEqual((await db.query(`SELECT action FROM brand_watch_review_events WHERE target_id=$1 ORDER BY occurred_at,action`, [lid(701)])).rows.map(row => row.action), ['publish', 'supersede'])
     const after = bySlug(await states(db), 'olive-young')
     assert.equal(after.snapshot.headline, v2.p_headline)
     assert.doesNotMatch(JSON.stringify(after), /국내 체험형 접점과 해외 소비자 접점을 함께 넓히는 중/)
@@ -517,7 +517,7 @@ test('correction E2E: Evidence → Movement → Pattern → Take → Snapshot v1
     // v1 history kept; pointer on v2; the public page shows only v2 and the corrected fact.
     assert.deepEqual((await db.query('SELECT id, status, revision FROM brand_snapshots WHERE entity_id=$1 ORDER BY revision', [baemin])).rows.map(row => [row.id, row.status, row.revision]), [[lid(731), 'superseded', 1], [lid(732), 'published', 2]])
     assert.equal((await one(db, 'SELECT current_snapshot_id FROM brand_watch_profiles WHERE entity_id=$1', [baemin])).current_snapshot_id, lid(732))
-    assert.deepEqual((await db.query('SELECT action FROM brand_watch_review_events WHERE target_id=$1 ORDER BY occurred_at', [lid(731)])).rows.map(row => row.action), ['publish', 'supersede'])
+    assert.deepEqual((await db.query('SELECT action FROM brand_watch_review_events WHERE target_id=$1 ORDER BY occurred_at,action', [lid(731)])).rows.map(row => row.action), ['publish', 'supersede'])
     assert.deepEqual([(await one(db, 'SELECT status FROM brand_evidence WHERE id=$1', [lid(331)])).status, (await one(db, 'SELECT status FROM brand_movements WHERE id=$1', [lid(431)])).status], ['superseded', 'superseded'])
     state = bySlug(await states(db), 'baemin')
     assert.deepEqual([state.snapshot.currentDirection, state.snapshot.sourceCount, state.patterns.length, state.takes.length, state.movements.length], [v2.p_body, 2, 1, 1, 3])

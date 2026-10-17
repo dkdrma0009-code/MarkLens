@@ -393,6 +393,6 @@ test('E2E: Source -> Evidence -> Movement -> Pattern -> Take -> Snapshot, then a
     assert.deepEqual((await db.query('SELECT status FROM brand_patterns UNION ALL SELECT status FROM brand_takes UNION ALL SELECT status FROM brand_snapshots')).rows.map(r => r.status), Array(5).fill('published'))
     assert.deepEqual({ ...(await one(db, 'SELECT status,review_status FROM brand_evidence WHERE id=$1', [id(11)])) }, { status: 'superseded', review_status: 'approved' })
     assert.deepEqual(providers.map(row => row.calls), calls)
-    assert.deepEqual((await db.query("SELECT action FROM brand_watch_review_events WHERE target_id=$1 ORDER BY occurred_at", [id(11)])).rows.map(r => r.action), ['approve', 'supersede'])
+    assert.deepEqual((await db.query("SELECT action FROM brand_watch_review_events WHERE target_id=$1 ORDER BY occurred_at,action", [id(11)])).rows.map(r => r.action), ['approve', 'supersede'])
   } finally { await db.close() }
 })

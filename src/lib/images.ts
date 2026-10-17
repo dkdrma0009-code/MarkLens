@@ -25,3 +25,9 @@ export function editorialImageLoader({ src, width }: { src: string; width: numbe
     ? url.searchParams.get("url") || src : src
   return weservThumb(original, width)
 }
+
+// Widths the browser may pick from (srcset). Every candidate is a CDN URL; Vercel never resizes.
+export const CDN_WIDTHS = [320, 480, 640, 768, 1024, 1440, 1920, 2560] as const
+export function editorialSrcSet(src: string, widths: readonly number[] = CDN_WIDTHS): string {
+  return widths.map(width => `${editorialImageLoader({ src, width })} ${width}w`).join(", ")
+}
