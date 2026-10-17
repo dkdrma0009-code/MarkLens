@@ -137,9 +137,13 @@ export function brandWatchFindings({ states, lineage, evidence, orphans = [] }) 
       if (!m.date) out.push(finding('CONTENT-MOVEMENT-002', yellow, `${brand} · ${m.title}`, '움직임 날짜가 없습니다'))
       // Shown date is the report date, but the movement's own text names another day: which should the reader see?
       if (m.date?.basis === 'reported' && m.date.precision === 'day') {
-        const days = [...mentionedDays([m.title, m.summary, ...m.facts.map(f => f.fact), m.visual?.alt ?? ''].join(' '))].filter(day => day !== md(m.date.date))
-        if (days.length) out.push(finding('CONTENT-DATE-001', yellow, `${brand} · ${m.title}`, `화면 날짜는 보도일(${md(m.date.date)})인데, 본문·이미지에는 다른 날짜(${days.join(', ')})가 있습니다`,
-          { review: 'human', question: `${brand} 「${m.title}」의 날짜를 어떤 기준으로 보여 줄까요?`, reason: `화면은 보도일 ${md(m.date.date)}, 본문·이미지에는 ${days.join(', ')}` }))
+        const shown = md(m.date.date), days = [...mentionedDays([m.title, m.summary, ...m.facts.map(f => f.fact), m.visual?.alt ?? ''].join(' '))].filter(day => day !== shown)
+        const after = (a, b) => { const [am, ad] = a.split('.').map(Number), [bm, bd] = b.split('.').map(Number); return am > bm || (am === bm && ad > bd) }
+        // An announcement's date is the day it was announced; later days in its text are the plan, not a conflict.
+        if (days.length && /발표|예고|예정|공개 예정/.test(m.title) && days.every(day => after(day, shown)))
+          out.push(finding('CONTENT-DATE-001', 'info', `${brand} · ${m.title}`, `발표 움직임이라 화면 날짜는 발표일(${shown})입니다. 본문의 ${days.join(', ')}은 예정된 일정입니다 (참고)`))
+        else if (days.length) out.push(finding('CONTENT-DATE-001', yellow, `${brand} · ${m.title}`, `화면 날짜는 보도일(${shown})인데, 본문·이미지에는 다른 날짜(${days.join(', ')})가 있습니다`,
+          { review: 'human', question: `${brand} 「${m.title}」의 날짜를 어떤 기준으로 보여 줄까요?`, reason: `화면은 보도일 ${shown}, 본문·이미지에는 ${days.join(', ')}`, evidence: { shown: m.date.date, mentioned: days } }))
       }
     }
     // Patterns: at least two distinct, public supporting movements.
@@ -164,7 +168,8 @@ export function brandWatchFindings({ states, lineage, evidence, orphans = [] }) 
       const asOf = businessDay(state.snapshot.asOf)
       const newer = state.movements.filter(m => m.date && m.date.date > asOf).sort((a, b) => b.date.date.localeCompare(a.date.date))
       if (newer.length) out.push(finding('CONTENT-SNAPSHOT-001', yellow, brand, `Snapshot 기준일(${md(asOf)}) 이후의 움직임 ${newer.length}건이 요약에 반영되지 않았습니다: ${newer.map(m => `${md(m.date.date)} ${m.title}`).join(' / ')}`,
-        { review: 'human', question: `${brand} Snapshot을 갱신할까요?`, reason: `Snapshot 기준일 ${md(asOf)}보다 최신 움직임(${md(newer[0].date.date)} ${newer[0].title})이 있습니다` }))
+        { review: 'human', question: `${brand} Snapshot을 갱신할까요?`, reason: `Snapshot 기준일 ${md(asOf)}보다 최신 움직임(${md(newer[0].date.date)} ${newer[0].title})이 있습니다`,
+          evidence: { asOf, newer: newer.map(m => ({ date: m.date.date, title: m.title })) } }))
     }
     // Sources: what a footnote needs.
     for (const s of state.sources) if (!s.url || !s.provider || !s.title) out.push(finding('CONTENT-SOURCE-001', red, `${brand} · 출처 [${s.ref}]`, '출처의 주소·제공처·제목 중 빠진 것이 있습니다'))

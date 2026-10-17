@@ -1,8 +1,8 @@
-// MarkLens Quality Review V1 — one local entry point for Content, Design and Functional checks. It reports; a person
+// MarkLens Quality Review V1.1 — one local entry point for Content, Design and Functional checks. It reports; a person
 // decides. Every check runs even when an earlier one fails, and a check that cannot run says why.
 //
 //   node tools/quality-review.mjs [--full] [--base http://localhost:3000] [--out .quality-review]
-//        [--brand-route /brands/{slug}] [--brands-index /brands]
+//        [--brand-route /brands/{slug}] [--brands-index /brands] [--known <file>] [--insights-scope sample|real]
 //
 // quick (default): Content QA, all tests, page status + Design audit (when --base is given), cache settings of the last build.
 // --full adds TypeScript, ESLint and a production build (only against a local database), then re-reads the cache settings.
@@ -11,11 +11,20 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { brandWatchFindings, collectBrandWatch, fetchLocalInsights, insightFindings, loadSource, openLaunchDatabase } from './quality-review/content.mjs'
+import { applyKnown, buildQueue, keyOf, kindOf, scopeOf } from './quality-review/queue.mjs'
 
 const args = process.argv.slice(2)
 const opt = (flag, fallback) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : fallback }
 const full = args.includes('--full'), out = path.resolve(opt('--out', '.quality-review')), base = opt('--base', null)
 const brandRoute = opt('--brand-route', '/brands/{slug}'), brandsIndex = opt('--brands-index', '/brands')
+const knownFile = path.resolve(opt('--known', 'docs/quality-review/known-issues.json'))
+const insightsScope = opt('--insights-scope', 'sample') === 'real' ? 'REAL' : 'LOCAL_SAMPLE'
+const LABELS = {
+  'FUNC-IMAGE-001': '/_next/image 이미지 변환 사용 (Vercel 비용)', 'FUNC-IMAGE-002': '이미지 프록시 중복', 'FUNC-IMAGE-003': '깨진 이미지', 'FUNC-IMAGE-004': '주소 없는 이미지',
+  'FUNC-PAGE-001': '콘솔 오류', 'FUNC-LAYOUT-001': '가로 넘침', 'DESIGN-TEXT-001': '작은 글자를 최소 기준(11px) 이상으로 올려야 합니다', 'DESIGN-TEXT-002': '한글이 고정폭 글꼴로 보입니다',
+  'DESIGN-IMAGE-001': '같은 사진이 한 페이지에 크게 두 번 나옵니다', 'DESIGN-IMAGE-002': '사진 크롭이 글자·얼굴·제품·로고를 자르는지 봐 주세요', 'DESIGN-DATE-001': '한 화면에 서로 다른 날짜가 있습니다',
+  'DESIGN-A11Y-001': '대체 텍스트 없는 이미지', 'DESIGN-SPACE-001': '큰 빈 공간이 있습니다', 'DESIGN-LENGTH-001': '페이지가 깁니다', 'DESIGN-HERO-001': '첫 화면에 정보가 많습니다', 'DESIGN-STYLE-001': '둥근 카드·유리·그라데이션이 있습니다',
+}
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/
 mkdirSync(out, { recursive: true })
 
@@ -103,7 +112,16 @@ else {
     const { code, text } = await run('node', ['tools/design-audit.mjs', '--out', `"${dir}"`, ...routes.map(([name, , route]) => `"${name}=${new URL(route, base)}"`)])
     if (!existsSync(path.join(dir, 'report.json'))) throw new Error(`design audit did not finish (exit ${code}): ${text.trim().split('\n').at(-1)}`)
     const pages = JSON.parse(readFileSync(path.join(dir, 'report.json'), 'utf8')), label = Object.fromEntries(routes.map(([name, l]) => [name, l]))
-    for (const page of pages) for (const check of page.checks) add(check.id, check.id.startsWith('FUNC') ? 'functional' : 'design', check.level === 'FAIL' ? 'red' : 'yellow', `${label[page.name] ?? page.name} @${page.width}`, check.detail)
+    for (const page of pages) for (const check of page.checks) {
+      const extra = { page: page.name, label: LABELS[check.id] }
+      // Small text keeps its texts, so a known issue (e.g. the footer) can be matched exactly and a new one is not hidden.
+      if (check.id === 'DESIGN-TEXT-001') {
+        const samples = [...page.fonts.metadata.samples, ...page.fonts.primary.samples].sort((a, b) => a.size - b.size), count = page.fonts.metadata.under11 + page.fonts.primary.under11
+        Object.assign(extra, { evidence: { count, texts: samples.map(s => s.text) }, why: 'Design Bible의 최소 글자 크기는 11px입니다.' })
+        check.detail = `${count}개, 가장 작은 것 ${samples[0].size}px "${samples[0].text}"`
+      }
+      add(check.id, check.id.startsWith('FUNC') ? 'functional' : 'design', check.level === 'FAIL' ? 'red' : 'yellow', `${label[page.name] ?? page.name} @${page.width}`, check.detail, extra)
+    }
     const fired = new Set(pages.flatMap(page => page.checks.map(check => check.id)))
     for (const [id, text] of [['FUNC-IMAGE-003', '깨진 이미지 0'], ['FUNC-IMAGE-001', '/_next/image 0'], ['FUNC-IMAGE-002', '이미지 프록시 중복 0'], ['FUNC-PAGE-001', '콘솔 오류 0'],
       ['FUNC-LAYOUT-001', '가로 넘침 0'], ['DESIGN-TEXT-002', '고정폭 글꼴로 보이는 한글 0'], ['DESIGN-IMAGE-001', '크게 반복되는 사진 0'], ['DESIGN-STYLE-001', '둥근 카드·유리·그라데이션 0']])
@@ -146,48 +164,55 @@ await section('functional', '캐시 설정', async () => {
   return { status: wrong.length ? 'FAIL' : 'PASS', detail: `${expected.length}개 경로` }
 })
 
-// ---------- Report ----------
-const LABELS = {
-  'FUNC-IMAGE-001': '/_next/image 이미지 변환 사용 (Vercel 비용)', 'FUNC-IMAGE-002': '이미지 프록시 중복', 'FUNC-IMAGE-003': '깨진 이미지', 'FUNC-IMAGE-004': '주소 없는 이미지',
-  'FUNC-PAGE-001': '콘솔 오류', 'FUNC-LAYOUT-001': '가로 넘침', 'DESIGN-TEXT-001': '11px보다 작은 글자', 'DESIGN-TEXT-002': '고정폭 글꼴로 보이는 한글',
-  'DESIGN-IMAGE-001': '같은 사진이 크게 두 번', 'DESIGN-IMAGE-002': '사진 크롭 확인 (글자·얼굴·제품·로고가 잘리는지)', 'DESIGN-DATE-001': '한 화면에 서로 다른 날짜 (뜻은 콘텐츠 검수)',
-  'DESIGN-A11Y-001': '대체 텍스트 없는 이미지', 'DESIGN-SPACE-001': '큰 빈 공간', 'DESIGN-LENGTH-001': '긴 페이지', 'DESIGN-HERO-001': '첫 화면 정보 과다', 'DESIGN-STYLE-001': '둥근 카드·유리·그라데이션',
-}
-// Page-level checks are grouped per rule (one line, many pages); content and functional findings stay one per item.
-const grouped = []
+// ---------- Human queue ----------
+// Scope: Brand Watch content is the real launch dataset; Insights pages show whatever the local database holds
+// (sample data unless --insights-scope real). Known issues stop accepted findings from being asked again.
+const INSIGHT_PAGES = new Set(['home', 'insights', 'insight'])
 for (const f of findings) {
-  if (!LABELS[f.id]) { grouped.push({ ...f, targets: [f.target] }); continue }
-  const row = grouped.find(g => g.id === f.id && g.level === f.level && g.label)
-  if (row) row.targets.push(f.target); else grouped.push({ ...f, label: LABELS[f.id], message: LABELS[f.id], sample: f.message, targets: [f.target] })
+  const dataScope = f.target.startsWith('file:') ? 'TEST_FIXTURE' : (INSIGHT_PAGES.has(f.page) || f.id.startsWith('INSIGHT-')) ? insightsScope : 'REAL'
+  Object.assign(f, { key: keyOf(f), kind: kindOf(f), scope: scopeOf(f, dataScope) })
 }
-const reds = grouped.filter(g => g.level === 'red'), yellows = grouped.filter(g => g.level === 'yellow'), notes = grouped.filter(g => g.level === 'info')
-// First look: every red, then the top item of each area, so one area cannot fill the list.
-const firsts = ['content', 'design', 'functional'].map(area => yellows.find(g => g.area === area)).filter(Boolean)
-const rest = yellows.filter(g => !firsts.includes(g)), fresh = rest.filter(g => !firsts.some(f => f.id === g.id))
-const queue = [...new Set([...reds, ...firsts, ...fresh, ...rest])].slice(0, 3)
-const errors = sections.filter(s => s.status === 'ERROR' || s.status === 'SKIPPED')
+const known = existsSync(knownFile) ? JSON.parse(readFileSync(knownFile, 'utf8')).issues : []
+const { findings: judged, quiet } = applyKnown(findings, known)
+const queue = buildQueue(judged)
+// Vision review is reported as a status, never asked: required when design files changed in the last commit or the working tree.
+const changed = [(await run('git', ['diff', '--name-only', 'HEAD~1', 'HEAD'])).text, (await run('git', ['status', '--porcelain'])).text].join('\n')
+const designFiles = [...new Set(changed.split('\n').map(line => line.replace(/^.. /, '').trim()).filter(file => /^(src\/(components|app)\/.*\.(tsx|css)|public\/)/.test(file)))]
+const visionReview = { required: designFiles.length > 0, status: 'NOT_RUN', files: designFiles }
+
+// ---------- Report ----------
+const group = list => { const out = []; for (const f of list) { const row = f.label && out.find(g => g.id === f.id && g.level === f.level && g.label); if (row) row.targets.push(f.target); else out.push({ ...f, targets: [f.target] }) } return out }
+const reds = group(judged.filter(f => f.level === 'red')), open = group(judged.filter(f => f.level === 'yellow' && f.status === 'OPEN' && f.scope === 'REAL'))
+const sample = group(judged.filter(f => f.level === 'yellow' && f.status === 'OPEN' && f.scope !== 'REAL')), accepted = group(judged.filter(f => f.level === 'yellow' && f.status !== 'OPEN'))
+const notes = judged.filter(f => f.level === 'info'), errors = sections.filter(s => s.status === 'ERROR' || s.status === 'SKIPPED')
 const where = g => g.targets.length > 3 ? `${g.targets.slice(0, 3).join(', ')} 외 ${g.targets.length - 3}곳` : g.targets.join(', ')
-const line = g => g.label ? `${g.label} — ${where(g)}` : `${g.targets[0]}: ${g.message}`
+const item = (q, i) => [`${i + 1}. ${q.level === 'red' ? '🔴' : '🟡'} **${q.title}**`, ...q.lines.map(text => `   - ${text}`), ...(q.why ? [`   - 왜: ${q.why}`] : []), ...(q.options.length ? [`   - 선택: ${q.options.map(o => `[${o}]`).join(' ')}`] : [])]
+const STATUS = { ACKNOWLEDGED: '확인됨', DEFERRED: '보류' }
 
 const md = [
   `# 검수 결과 (${startedAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} · ${full ? '전체' : '빠른'} 검수)`, '',
-  `🔴 꼭 수정 ${reds.length} · 🟡 확인 필요 ${yellows.length} · 🟢 괜찮음 ${passes.length}`, '',
+  `🔴 꼭 수정 ${reds.length} · 🟡 확인 필요 ${open.length} · 🟢 괜찮음 ${passes.length}`,
+  `(이미 알고 있는 문제 ${accepted.length}개, 샘플 데이터에서만 나온 것 ${sample.length}개는 질문하지 않았습니다)`, '',
   reds.length ? '**지금 고쳐야 할 문제가 있습니다.**' : '**고쳐야 할 큰 문제는 없습니다.**', '',
-  '## 가장 먼저 볼 것', ...(queue.length ? queue.map((g, i) => `${i + 1}. ${g.level === 'red' ? '🔴' : '🟡'} ${line(g)}`) : ['- 없음']), '',
-  '## 내가 확인할 것', ...(yellows.some(g => g.question) ? yellows.filter(g => g.question).slice(0, 5).map((g, i) => `${i + 1}. ${g.question}\n   이유: ${g.reason}`) : ['- 없음']), '',
+  '## 내가 확인할 것', ...(queue.length ? queue.flatMap(item) : ['- 없음']), '',
   '## 자동으로 판단하지 않은 것',
-  '- 화면 판단(AI 대시보드 느낌, 편집 품질, 브랜드 구분, Pattern의 힘): 스크린샷으로 [vision-review.md](../docs/design-intelligence/vision-review.md)를 보세요.',
+  visionReview.required ? `- 화면 검수(사람 판단): **미실행.** 최근 디자인 파일이 바뀌어 필요합니다 (${designFiles.length}개). 스크린샷: \`${path.relative('.', path.join(out, 'design'))}\`, 기준: [vision-review.md](../docs/design-intelligence/vision-review.md)`
+    : '- 화면 검수(사람 판단): 최근 디자인 변경이 없어 필요하지 않습니다.',
   '- 날짜·출처·해석이 실제로 맞는지: 원문 대조가 필요합니다.', '',
   ...(errors.length ? ['## 실행하지 못한 검사', ...errors.map(s => `- ${s.name}: ${s.detail ?? s.status}`), ''] : []),
-  '## 괜찮은 것', ...passes.map(p => `- 🟢 ${p}`), ...notes.map(g => `- 참고: ${g.targets[0]} — ${g.message}`), '',
-  '## 다음에 할 일', reds.length ? '- 🔴 항목을 고친 뒤 다시 검수하세요.' : yellows.length ? '- 🟡 항목을 보고 유지할지 고칠지 정하세요. 고친 뒤 다시 검수하세요.' : '- 승인하면 됩니다.', '',
-  '---', '## 상세', '', '| 영역 | 상태 | 규칙 | 대상 | 내용 |', '|---|---|---|---|---|',
-  ...grouped.map(g => `| ${{ content: '콘텐츠', design: '디자인', functional: '기능' }[g.area]} | ${{ red: '🔴', yellow: '🟡', info: '🟢' }[g.level]} | ${g.id} | ${where(g).replace(/\|/g, '/')} | ${(g.label ? `${g.label}. 예: ${g.sample}` : g.message).replace(/\|/g, '/')} |`), '',
+  '## 괜찮은 것', ...passes.map(p => `- 🟢 ${p}`), ...notes.map(f => `- 참고: ${f.target} — ${f.message}`), '',
+  ...(sample.length ? ['## 실제 데이터에서 재확인 필요', '로컬 샘플 데이터로 본 화면이라, 실제 콘텐츠에서 다시 봐야 합니다.', ...sample.map(g => `- 🟡 ${g.label ?? g.message} — ${where(g)}`), ''] : []),
+  ...(accepted.length ? ['## 이미 알고 있는 문제', ...accepted.map(g => `- ${STATUS[g.status]}: ${g.known.title} — ${g.known.reason} (${where(g)})`), ''] : []),
+  ...(quiet.length ? ['## 이번에 나타나지 않은 알려진 문제', '고쳐졌다면 known-issues.json에서 RESOLVED로 바꾸세요.', ...quiet.map(entry => `- ${entry.title}`), ''] : []),
+  '## 다음에 할 일', reds.length ? '- 🔴 항목을 고친 뒤 다시 검수하세요.' : queue.length ? '- 위 항목을 정하거나 고친 뒤 다시 검수하세요.' : '- 승인하면 됩니다.', '',
+  '---', '## 상세', '', '| 영역 | 상태 | 범위 | 처리 | 규칙 | 대상 | 내용 |', '|---|---|---|---|---|---|---|',
+  ...group(judged).map(g => `| ${{ content: '콘텐츠', design: '디자인', functional: '기능' }[g.area]} | ${{ red: '🔴', yellow: '🟡', info: '🟢' }[g.level]} | ${g.scope} | ${g.status} | ${g.id} | ${where(g).replace(/\|/g, '/')} | ${(g.label ? `${g.label}. 예: ${g.message}` : g.message).replace(/\|/g, '/')} |`), '',
   '## 실행한 검사', '', '| 영역 | 검사 | 결과 | 비고 | 시간 |', '|---|---|---|---|---|',
   ...sections.map(s => `| ${s.area} | ${s.name} | ${s.status} | ${(s.detail ?? '').replace(/\|/g, '/')} | ${(s.ms / 1000).toFixed(1)}s |`), '',
 ]
 writeFileSync(path.join(out, 'report.md'), md.join('\n'))
-writeFileSync(path.join(out, 'report.json'), JSON.stringify({ runAt: startedAt.toISOString(), mode: full ? 'full' : 'quick', base, summary: { red: reds.length, yellow: yellows.length, green: passes.length },
-  sections, findings, humanQueue: yellows.filter(g => g.question).map(g => ({ id: g.id, target: g.targets[0], question: g.question, reason: g.reason })) }, null, 1))
-console.log(`\n🔴 ${reds.length} · 🟡 ${yellows.length} · 🟢 ${passes.length}  →  ${path.relative('.', path.join(out, 'report.md'))}`)
+writeFileSync(path.join(out, 'report.json'), JSON.stringify({ runAt: startedAt.toISOString(), mode: full ? 'full' : 'quick', base, knownFile: path.relative('.', knownFile),
+  summary: { red: reds.length, yellow: open.length, green: passes.length, accepted: accepted.length, sampleOnly: sample.length }, visionReview, sections,
+  findings: judged.map(({ known: entry, ...f }) => ({ ...f, ...(entry ? { knownTitle: entry.title, knownReason: entry.reason } : {}) })), humanQueue: queue }, null, 1))
+console.log(`\n🔴 ${reds.length} · 🟡 ${open.length} · 🟢 ${passes.length} · 질문 ${queue.length}  →  ${path.relative('.', path.join(out, 'report.md'))}`)
 process.exitCode = reds.length ? 1 : 0

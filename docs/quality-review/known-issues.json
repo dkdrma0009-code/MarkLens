@@ -1,0 +1,45 @@
+{
+  "about": "Known Quality Review findings that should not be asked again on every run. status: ACKNOWLEDGED (seen, accepted as is) | DEFERRED (real, fixed later) | RESOLVED (fixed; if it fires again it comes back). A finding that is not listed is OPEN. A red (FAIL-level) finding is never suppressed. Remove an entry or set it to OPEN to bring the question back. See docs/quality-review/README.md#known-issues.",
+  "issues": [
+    {
+      "id": "DESIGN-TEXT-001",
+      "title": "사이트 하단 문구 10px",
+      "match": { "texts": ["© 2026 MarkLens", "Marketing × Trend × Intelligen"] },
+      "status": "DEFERRED",
+      "reason": "전체 사이트 글자 크기 정리 단계에서 처리",
+      "since": "2026-10-17"
+    },
+    {
+      "id": "DESIGN-HERO-001",
+      "title": "홈·브랜드 목록 첫 화면 정보 과다",
+      "match": {},
+      "status": "DEFERRED",
+      "reason": "홈·브랜드 목록 정리 단계에서 처리 (Design Intelligence baseline #9, #13; 이번 범위에서 홈 재설계 금지)",
+      "since": "2026-10-17"
+    },
+    {
+      "id": "DESIGN-SPACE-001",
+      "title": "홈 섹션 전환 간격 291px",
+      "match": { "target": "홈 @1440", "detail": "291px" },
+      "status": "ACKNOWLEDGED",
+      "reason": "눈으로 확인: 어두운 섹션에서 밝은 섹션으로 넘어가는 간격이며 빈 화면이 아님 (Design Intelligence V1 final)",
+      "since": "2026-10-17"
+    },
+    {
+      "id": "DESIGN-IMAGE-002",
+      "title": "올리브영 페스타 LA 사진 크롭 25%",
+      "match": { "target": "OLIVE YOUNG", "detail": "96b43f25271df636" },
+      "status": "ACKNOWLEDGED",
+      "reason": "눈으로 확인: 행사장 사진이며 간판이 온전함 (Design Intelligence V1 final)",
+      "since": "2026-10-17"
+    },
+    {
+      "id": "DESIGN-DATE-001",
+      "title": "브랜드 페이지의 Updated 날짜와 Snapshot 기준일",
+      "match": { "detail": "Updated" },
+      "status": "DEFERRED",
+      "reason": "Updated 날짜의 의미는 날짜 표시 기준을 정할 때 함께 처리 (이번 범위에서 날짜 의미 변경 금지)",
+      "since": "2026-10-17"
+    }
+  ]
+}

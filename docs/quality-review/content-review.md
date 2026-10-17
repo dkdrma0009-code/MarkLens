@@ -32,6 +32,9 @@ Content QA adds only what those do not check:
   "No Snapshot".
 - **Images are optional.** A movement without a visual is never a finding.
 - **Dates are questions, not errors.** A report date shown while the text names an event date raises a question only.
+  An announcement is the exception: its title says 발표 / 예고 / 예정, and every other date in its text comes after the
+  shown date. Its date is the announcement day and the later days are the plan, so it gets a 🟢 note only (V1.1;
+  MUSINSA Osaka).
   The rule compares explicit days only ("2026.10.06", "10월 19일"); a bare "19일" is too ambiguous.
 - **Stale Snapshots are questions too.** A Snapshot older than a newer public movement is raised for a person, never
   updated automatically.

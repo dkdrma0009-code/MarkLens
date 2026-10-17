@@ -1,4 +1,4 @@
-# MarkLens Quality Review V1
+# MarkLens Quality Review V1.1
 
 One local command that runs the Design, Content and Functional checks together and tells a person three things:
 - whether there is a real problem
@@ -70,7 +70,7 @@ line, many pages), so a site-wide issue does not become twenty warnings.
 | CONTENT-LEAK-001 | 🔴 | A field or internal value outside the public read model |
 | CONTENT-LEAK-002 | 🔴 | A public fact whose Evidence is not approved and active |
 | CONTENT-MOVEMENT-001 / 002 | 🔴 / 🟡 | Empty title, summary or evidence / no date |
-| CONTENT-DATE-001 | 🟡 human | Shown date is the report date, but the movement's own text or image names other days |
+| CONTENT-DATE-001 | 🟡 human / note | Shown date is the report date, but the movement's own text or image names other days (an announcement whose other days are later is a note) |
 | CONTENT-PATTERN-001 | 🔴 | Fewer than 2 distinct supporting movements, or a supporting movement that is not public |
 | CONTENT-TAKE-001 | 🔴 | Take not tied to a public Pattern, or an empty part |
 | CONTENT-SNAPSHOT-001 | 🟡 human | Snapshot as-of date is older than the latest public movement |
@@ -93,23 +93,78 @@ New rules are added only when a real problem needs them.
 ## Report
 
 **`report.md`** is for people. Its order:
-1. counts
+1. counts, and how many known or sample-only findings were not asked
 2. whether there is a real problem
-3. "가장 먼저 볼 것" (what to look at first, up to 3)
-4. "내가 확인할 것" (questions for you, up to 5)
-5. what was not judged automatically
-6. what is fine
-7. what to do next
-8. details and the list of checks, at the bottom
+3. "내가 확인할 것" (the human queue, up to 5): each item has a title, the facts, why it matters and, for a choice,
+   up to three options
+4. what was not judged automatically, including whether a vision review is needed
+5. what is fine
+6. "실제 데이터에서 재확인 필요" (findings seen only on sample data)
+7. "이미 알고 있는 문제" (known issues and their reasons)
+8. known issues that did not appear this run
+9. what to do next
+10. details (with scope and status) and the list of checks, at the bottom
 
 **`report.json`** is for tools. It holds:
-- `runAt`, `mode`, `base`
-- `summary { red, yellow, green }`
+- `runAt`, `mode`, `base`, `knownFile`
+- `summary { red, yellow, green, accepted, sampleOnly }`
+- `visionReview { required, status, files }`
 - `sections[]` (area, name, status, detail, ms)
-- `findings[]` (id, area, level, target, message, review, and question / reason when a person must decide)
-- `humanQueue[]` (id, target, question, reason)
+- `findings[]` (id, key, area, level, kind, scope, status, target, message, evidence, and question / reason / knownTitle when relevant)
+- `humanQueue[]` (key, kind, level, ids, title, lines, why, options)
 
-`humanQueue` is the decision list a later integration (Notion, mail) would read; V1 only writes it.
+`humanQueue` is the input a later integration (Notion, mail) would read; V1.1 only writes it.
+
+## Human queue (V1.1)
+
+The queue holds only what is worth a person's time.
+
+**Kinds** (internal; the report just shows the item):
+
+| Kind | Meaning | Rules |
+|---|---|---|
+| DECISION | A direction only the owner can set | Date meaning (`CONTENT-DATE-001`), Snapshot refresh (`CONTENT-SNAPSHOT-001`), public brand without Snapshot |
+| REVIEW | Needs eyes on the result; no automatic answer | Crop, repetition, dates on screen, blank space, long page, first-screen density, style, lineage review or stale |
+| ACTION | The answer is clear; the fix is not done yet | Everything else, and every 🔴 |
+
+**Order:** 🔴 first, then DECISION, then REVIEW, then ACTION. At most 5 items. Ties sort by a stable key, so the same
+state gives the same queue.
+
+**Grouping:**
+- Each date or Snapshot question stays its own item, because each movement's date means something different.
+- Page findings are grouped per rule into one item listing the pages.
+
+**Never in the queue:**
+- **"Should we run a review?"** Vision review is a status. `visionReview.required` is true when design files changed in
+  the last commit or the working tree, and the report says "미실행" (not run) until a person does it.
+- **Findings whose scope is not real** (see Scope below).
+- **Accepted or deferred known issues.**
+
+**Scope:**
+- **REAL:** the Brand Watch launch dataset, and the site's own code (typography, layout, delivery). Code findings stay
+  REAL whatever data rendered them.
+- **LOCAL_SAMPLE:** content-dependent findings (which photo, crop, length, dates, Insights rows) on pages built from
+  the local database. Pass `--insights-scope real` when that database holds real content. These findings are listed
+  under "실제 데이터에서 재확인 필요" (recheck on real data).
+- **TEST_FIXTURE:** findings from `file://` validation pages.
+
+## Known issues
+
+`docs/quality-review/known-issues.json` lists findings that should not be asked again (`--known` points elsewhere).
+Statuses:
+- **OPEN:** the default for anything not listed.
+- **ACKNOWLEDGED:** seen and accepted as is.
+- **DEFERRED:** real, to be fixed in a later step.
+- **RESOLVED:** fixed. If it appears again it returns to the queue, marked as having reappeared.
+
+**Rules:**
+- An entry matches by rule id plus optional `target` / `detail` substrings.
+- For small text, it matches only while every small text on the page is one of the listed `texts`. A new small text
+  anywhere on that page brings the finding back.
+- **A 🔴 finding is never suppressed.** Broken pages or images, leaks, failed tests or builds, `/_next/image` and broken
+  lineage always show.
+- Entries that did not fire this run are listed as candidates to mark RESOLVED.
+- To ask again, delete the entry or set it to OPEN.
 
 ## Who owns what
 
