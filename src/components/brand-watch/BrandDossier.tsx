@@ -141,7 +141,7 @@ function SnapshotSection({ snapshot, hasMoves }: { snapshot: PublicSnapshot | nu
       <div className="ml-container">
         <div className="bw-snapshot-top">
           <p className="ml-eyebrow">CURRENT SIGNAL</p>
-          <p className="bw-asof"><time dateTime={isoDay(snapshot.asOf)}>{formatDay(snapshot.asOf)}</time> 기준</p>
+          <p className="bw-asof"><time dateTime={isoDay(snapshot.asOf)}>{formatDay(snapshot.asOf)}</time> <span className="ml-hangul">기준</span></p>
         </div>
         {/* The headline leads the hero; here it titles the section for assistive technology only. */}
         <h2 id="snapshot-title" className="sr-only">{snapshot.headline}</h2>

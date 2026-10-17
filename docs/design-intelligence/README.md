@@ -43,14 +43,16 @@ node tools/design-audit.mjs --out .design-audit --widths 1440,390 atlantic=https
   by Node as `C:\c\Users\...`.
 - **Chrome path:** set `CHROME_PATH` or `--chrome` if Chrome is not in the default Windows location.
 - **Output:** per page and width, a JSON file, a first-screen PNG and a full-page PNG (up to 9,000px), plus `report.json`.
-  The console prints 🔴 / 🟡 flags. `.design-audit/` is a scratch folder; do not commit it.
+  The console prints each page's result (PASS / REVIEW / FAIL) and the checks that fired. `.design-audit/` is a
+  scratch folder; do not commit it.
 
-The script's flags are prompts to look, not verdicts. Then run [vision-review.md](vision-review.md) on the screenshots.
+FAIL is reserved for objectively broken pages. REVIEW is a prompt to look, not a verdict. Then run
+[vision-review.md](vision-review.md) on the screenshots. Levels and thresholds: [audit-rules.md](audit-rules.md).
 
 ## Boundary with Content QA
 
-Design Intelligence checks only whether dates **look** consistent on the page. For example, "Updated 2026.10.16" next
-to "2026.10.08 기준" is flagged because a reader sees two different "as of" dates.
+Design Intelligence only shows that different dates are **on screen**, as a DATE REVIEW. For example, "Updated
+2026.10.16" next to "2026.10.08 기준" may be two different meanings, not an error.
 
 Whether a date is **factually** right belongs to Content QA. That includes the MUSINSA On&Off start date, or whether a
 Snapshot includes the latest Move. The same split applies to image rights, source accuracy and wording.
@@ -58,3 +60,10 @@ Snapshot includes the latest Move. The same split applies to image rights, sourc
 ## Version
 
 V1, 2026-10-17. MarkLens baseline: `release/brand-watch-v1` at `c2e4898`, rendered locally with QA fixtures and sample insights.
+
+V1.1, 2026-10-17:
+- **Calibration:** PASS / REVIEW / FAIL levels. Crop, repetition, dates, length and font size report context and
+  leave the judgement to the vision review or Content QA.
+- **Fixes:** two baseline issues fixed: Hangul in mono, and the DANGGEUN poster crop.
+- **Experiment:** the Pattern experiment B is local QA only. Results are in [audit-rules.md](audit-rules.md#v11-self-test-2026-10-17)
+  and [adoption-queue.md](adoption-queue.md).

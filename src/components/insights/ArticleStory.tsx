@@ -28,7 +28,7 @@ export default function ArticleStory({ insight, title, terms, toc, color, midCta
   return <>
         <header className="ml-article-header">
           <Link href="/insights" className="ml-article-back"><ArrowLeft size={16} aria-hidden="true" /> 인사이트 목록</Link>
-          <p className="ml-eyebrow"><Link href={`/insights?category=${encodeURIComponent(insight.category)}`}>{insight.category}</Link><span> / {article?.source_name || "MARKLENS"}</span></p>
+          <p className="ml-eyebrow"><Link className="ml-hangul" href={`/insights?category=${encodeURIComponent(insight.category)}`}>{insight.category}</Link><span> / {article?.source_name || "MARKLENS"}</span></p>
           <h1>{title}</h1>
           {article?.title && article.title !== title ? <p className="ml-article-deck">{article.title}</p> : null}
           <div className="ml-article-meta">
@@ -38,7 +38,7 @@ export default function ArticleStory({ insight, title, terms, toc, color, midCta
         </header>
         <ArticleVisual key={insight.id} article={article ? { image_url: article.image_url, fallback_image: article.fallback_image ? { url: article.fallback_image.url, credit: article.fallback_image.credit, creditLink: article.fallback_image.creditLink } : null } : null} />
         <div className="ml-article-reading">
-          {toc.length >= 3 ? <nav aria-label="목차" className="ml-article-toc"><details><summary>IN THIS STORY <span>목차</span></summary><ol>{toc.map(t => <li key={t.id}><a href={`#${t.id}`}>{t.label}</a></li>)}</ol></details></nav> : null}
+          {toc.length >= 3 ? <nav aria-label="목차" className="ml-article-toc"><details><summary>IN THIS STORY <span className="ml-hangul">목차</span></summary><ol>{toc.map(t => <li key={t.id}><a href={`#${t.id}`}>{t.label}</a></li>)}</ol></details></nav> : null}
           <div className="ml-article-body">
             {insight.summary ? <Section id="summary" title="핵심 요약"><SentenceText text={insight.summary} className="ml-article-summary" /></Section> : null}
             {midCta("summary")}

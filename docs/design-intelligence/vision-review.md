@@ -62,7 +62,8 @@ If you cannot tell from the screenshot, say "판단 불가" rather than guessing
    - text that is printed inside the image (poster or banner type, logos)
    - faces, or the product
 
-   Name the image by its section and position.
+   Name the image by its section and position. The script lists every crop of 20%+ with a reason. A large crop
+   with nothing important cut is 🟢; only a cut word, face, product or logo is a problem.
 9. **Rhythm.** Scroll the full screenshot. Do sections change pace (wide vs narrow, image vs text, dark vs light), or
    is every gap and every block the same size? Flag runs of three or more sections that look interchangeable.
    Also flag dark/light switches so frequent that the page flickers.
@@ -70,7 +71,12 @@ If you cannot tell from the screenshot, say "판단 불가" rather than guessing
     stretch longer than about two screens with no image, heading or change of pace. Note sections that only
     make sense on desktop, such as wide tables or side-by-side comparisons squeezed into one column.
 11. **Repetition.** Does the same photo, phrase, label or section shape appear again in a way the reader would notice?
-    Re-use of a hero image inside the same page is a flag unless the second use is clearly a citation (small, captioned).
+    The question is whether an image in the same role is repeated without meaning: the same photo, the same crop,
+    the same message, shown large in two places (for example Key Moves and Pattern). A small reference thumbnail
+    that points back to an earlier move is a citation and is fine.
+
+Dates are not a vision question. When the script reports a DATE REVIEW, list the dates you see and leave their
+meaning to Content QA.
 
 ### Output format
 

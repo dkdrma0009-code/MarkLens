@@ -54,7 +54,7 @@ export default function HeroRadar({ stories, visuals }: { stories: RadarStory[];
 
   return <>
     <div className="ml-hero-visual ml-radar-media" ref={media} {...interaction}>
-      <div className="ml-hero-visual-top"><span>THE EDITORIAL LENS</span><span>{selected.category}</span></div>
+      <div className="ml-hero-visual-top"><span>THE EDITORIAL LENS</span><span className="ml-hangul">{selected.category}</span></div>
       <Link href={selected.href} className="ml-hero-image-link" aria-label={selected.title}>
         <div className="ml-radar-frames">{visuals.map((visual, index) => <div key={stories[index].id} className={`ml-radar-frame${active === index ? " ml-radar-frame-active" : ""}`} aria-hidden={active !== index}>{visual}</div>)}</div>
       </Link>

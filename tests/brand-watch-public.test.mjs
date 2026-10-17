@@ -253,7 +253,7 @@ test('7/10: SSR — full, partial, empty and error states; FACT / PATTERN / TAKE
     assert.match(html, /<h1 id="bw-title" class="bw-hero-logo"[^>]*><img alt="MUSINSA"[^>]*src="\/brand-watch\/logos\/musinsa-wordmark-white\.png"/); assert.match(html, /bw-hero-signal-label">Current signal</)
     assert.match(html, /Updated <time dateTime="2026-10-08">2026\.10\.08<\/time>/); assert.doesNotMatch(html, /bw-hero-stats|bw-toc|이 페이지를 읽는 법/)
     assert.match(dossier(bySlug(states, 'toss')), /<h1 id="bw-title">토스<span class="ml-blue">\.<\/span><\/h1>/)
-    assert.match(html, /CURRENT DIRECTION/); assert.match(html, /WATCH NEXT/); assert.match(html, /2026\.10\.08<\/time> 기준/)
+    assert.match(html, /CURRENT DIRECTION/); assert.match(html, /WATCH NEXT/); assert.match(html, /2026\.10\.08<\/time> <span class="ml-hangul">기준<\/span>/)
     // Distinct, text-labelled layers.
     assert.ok((html.match(/bw-label-fact">FACT</g) ?? []).length >= 4)
     assert.match(html, /bw-label-pattern">OBSERVED PATTERN</); assert.match(html, /bw-label-take">MARKLENS TAKE</)

@@ -1,12 +1,13 @@
-// MarkLens Design Intelligence V1 — automatic page audit (local review tool, not part of the site build).
+// MarkLens Design Intelligence V1.1 — automatic page audit (local review tool, not part of the site build).
 // Drives an installed Chrome over the DevTools protocol (no dependencies), measures each page at each width,
-// saves a first-screen and a full-page screenshot, and prints 🔴 / 🟡 / 🟢 flags.
+// saves a first-screen and a full-page screenshot, and reports PASS / REVIEW / FAIL.
 //
 //   node tools/design-audit.mjs --out .design-audit [--widths 1440,390] [--no-shots] name=https://url ...
 //
-// Measurements are heuristics that point a reviewer at something; they do not judge design quality.
-// The judgement calls (editorial feel, hierarchy, crop quality, brand difference) live in
-// docs/design-intelligence/vision-review.md. Thresholds and their reasons: docs/design-intelligence/audit-rules.md.
+// FAIL is reserved for things that are objectively broken (broken image, overflow, console error, /_next/image,
+// double image proxy, image without a source). Everything visual or editorial is REVIEW: a pointer for a person or
+// the vision review (docs/design-intelligence/vision-review.md), never a verdict.
+// Thresholds and their reasons: docs/design-intelligence/audit-rules.md.
 import { spawn } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -22,12 +23,15 @@ const pages = args.map(a => { const i = a.indexOf('='); return i > 0 && !a.start
 if (!pages.length) { console.error('usage: node tools/design-audit.mjs [--out dir] [--widths 1440,390] name=url ...'); process.exit(1) }
 mkdirSync(out, { recursive: true })
 
-// Thresholds (V1). Each one is a prompt to look, not a verdict. Calibrated on 18 reference sites (docs/design-intelligence/audit-rules.md).
+// Thresholds (V1.1). Calibrated on 18 reference sites (docs/design-intelligence/audit-rules.md).
 const T = {
-  minFont: 11, metaFont: 12, // flag text under 11px (9 of 18 references have none, 6 have 5+); 11–12px is reported, not flagged
-  repeatMax: 1, cropLoss: 20, // same photo twice on a page; cover-crop that cuts 20%+ of a photo
+  minFont: 11, metaFont: 12, // under 11px: REVIEW (9 of 18 references have none); 11px is the minimum exception; 12px+ recommended
+  primaryChars: 40, // own text this long counts as primary content, shorter is metadata
+  cropLoss: 20, cropLarge: 35, // cover-crop share; REVIEW only with a reason (large, poster-like, or text in the image)
+  repeatWidth: 200, // a repeated photo is REVIEW only when 2+ uses are at least this wide; smaller reuse is a reference
   blankDesktop: 240, blankMobile: 180, // empty vertical band; reference median 160 / 175px
-  screensDesktop: 10, screensMobile: 14, // page length; about the reference article median (9.2 / 13.1 screens)
+  screensDesktop: 9.2, screensMobile: 13.1, // reference article medians; longer is reported, not judged
+  tailScreens: 2, // REVIEW a long page only if its last image is followed by more than this many screens of text
   foldTexts: 40, foldNumbers: 5, foldLabels: 20, // first screen; references peak at 5 standalone numbers
   cards: 12,
 }
@@ -57,6 +61,8 @@ const MEASURE = `(() => {
   const vw = innerWidth, vh = innerHeight, H = document.documentElement.scrollHeight
   const visible = el => { const r = el.getBoundingClientRect(), s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05 }
   const ownText = el => [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim()
+  const top = el => Math.round(el.getBoundingClientRect().top + scrollY)
+  const sectionOf = el => { const s = el.closest('section') || el.closest('header, footer, aside, article'); return s ?(s.id || (typeof s.className === 'string' && s.className.trim().split(/\\s+/)[0]) || s.tagName.toLowerCase()) : 'page' }
   // Classified by the first font in the stack (what the designer asked for); custom names fall back to the stack's generic family.
   const family = f => {
     const stack = f.split(',').map(s => s.replace(/["']/g, '').trim().toLowerCase()), first = stack[0], generic = stack.findLast(s => /^(serif|sans-serif|monospace|system-ui)$/.test(s))
@@ -66,32 +72,46 @@ const MEASURE = `(() => {
     return generic === 'serif' ? 'serif' : generic === 'monospace' ? 'mono' : 'sans'
   }
   const texts = [...document.querySelectorAll('body *')].filter(el => ownText(el) && visible(el) && !el.closest('script,style,noscript,svg'))
-  const chars = { sans: 0, serif: 0, mono: 0 }; let tiny = [], hangulMono = [], upper = 0, meta = 0
+  const chars = { sans: 0, serif: 0, mono: 0 }, small = { metadata: [], primary: [] }, minimum = { metadata: 0, primary: 0 }
+  let hangulMono = [], upper = 0
   for (const el of texts) {
-    const s = getComputedStyle(el), t = ownText(el), size = parseFloat(s.fontSize), fam = family(s.fontFamily)
+    const s = getComputedStyle(el), t = ownText(el), size = parseFloat(s.fontSize), fam = family(s.fontFamily), role = t.length >= ${T.primaryChars} ? 'primary' : 'metadata'
     chars[fam] += t.length
-    if (size < ${T.minFont}) tiny.push({ size, text: t.slice(0, 30) })
-    else if (size < ${T.metaFont}) meta++
+    if (size < ${T.minFont}) small[role].push({ size, text: t.slice(0, 30) })
+    else if (size < ${T.metaFont}) minimum[role]++
     if (fam === 'mono' && /[\\uAC00-\\uD7A3]/.test(t)) hangulMono.push(t.slice(0, 30))
     if ((s.textTransform === 'uppercase' || (t === t.toUpperCase() && /[A-Z]{3}/.test(t))) && t.length <= 32) upper++
   }
+  const fonts = Object.fromEntries(['metadata', 'primary'].map(k => [k, { under11: small[k].length, at11: minimum[k], samples: small[k].sort((a, b) => a.size - b.size).slice(0, 3) }]))
   const h1 = document.querySelector('h1'), body = [...document.querySelectorAll('p')].find(p => visible(p) && p.textContent.trim().length > 60)
-  // Images: repetition by underlying source (CDN wrappers unwrapped, size params ignored).
+  // Images. Repetition is keyed by the underlying source (CDN wrapper and size parameters ignored).
   const key = src => { try { const u = new URL(src, location.href); const inner = u.searchParams.get('url'); return decodeURIComponent((inner ? inner.replace(/^https?:\\/\\//, '') : u.host + u.pathname).split('?')[0]).normalize('NFC') } catch { return src } }
-  const imgs = [...document.images].filter(i => i.currentSrc || i.getAttribute('src'))
-  const seen = {}; for (const i of imgs) { if (!visible(i) || i.closest('header,footer,nav') || i.naturalWidth && i.naturalWidth < 64) continue; const k = key(i.currentSrc || i.src); (seen[k] ||= []).push(Math.round(i.getBoundingClientRect().top + scrollY)) }
-  const repeated = Object.entries(seen).filter(([, ys]) => ys.length > ${T.repeatMax}).map(([k, ys]) => ({ image: k.slice(-60), count: ys.length, at: ys }))
-  // Crop loss: share of the photo cut away by object-fit: cover (text inside photos is often what gets cut).
+  const imgs = [...document.images]
+  const noSource = imgs.filter(i => visible(i) && !i.getAttribute('src') && !i.getAttribute('srcset')).length
+  // Site chrome (a header or footer outside the content) is skipped; a hero header inside the content is counted.
+  const chrome = el => el.closest('nav') || [el.closest('header'), el.closest('footer')].some(c => c && !c.closest('main, article'))
+  const seen = {}; for (const i of imgs) { if (!(i.currentSrc || i.src) || !visible(i) || chrome(i) || i.naturalWidth && i.naturalWidth < 64) continue; const r = i.getBoundingClientRect(); (seen[key(i.currentSrc || i.src)] ||= []).push({ y: top(i), width: Math.round(r.width), section: sectionOf(i) }) }
+  const repeated = Object.entries(seen).filter(([, uses]) => uses.length > 1).map(([k, uses]) => ({ image: k.slice(-60), count: uses.length, uses, large: uses.filter(u => u.width >= ${T.repeatWidth}).length }))
+  // Crop: share of the photo cut away by object-fit: cover, with the reasons it might matter. Whether letters,
+  // faces, products or logos are actually cut is a vision-review question.
+  const textHint = /[‘’“”"'「」]|문구|포스터|글자|텍스트|타이포|키 ?비주얼|poster|banner|배너|text|key visual|headline|logo|로고/i
   const cropped = imgs.filter(i => visible(i) && i.naturalWidth && i.getBoundingClientRect().width >= 120 && getComputedStyle(i).objectFit === 'cover').map(i => {
-    const r = i.getBoundingClientRect(), a = i.naturalWidth / i.naturalHeight, b = r.width / r.height
-    return { image: key(i.currentSrc || i.src).slice(-40), lost: Math.round((1 - Math.min(a, b) / Math.max(a, b)) * 100), shown: Math.round(r.width) + 'x' + Math.round(r.height) }
-  }).filter(c => c.lost >= 15).sort((x, y) => y.lost - x.lost)
-  const broken = imgs.filter(i => i.complete && i.naturalWidth === 0 && visible(i)).length
+    const r = i.getBoundingClientRect(), a = i.naturalWidth / i.naturalHeight, b = r.width / r.height, lost = Math.round((1 - Math.min(a, b) / Math.max(a, b)) * 100)
+    const reasons = [lost >= ${T.cropLarge} && 'large crop', a <= 0.9 && 'portrait / poster shape', textHint.test(i.alt) && 'alt suggests text in image'].filter(Boolean)
+    return { image: key(i.currentSrc || i.src).slice(-40), lost, reasons, shown: Math.round(r.width) + 'x' + Math.round(r.height), y: top(i), section: sectionOf(i) }
+  }).filter(c => c.lost >= ${T.cropLoss}).sort((x, y) => y.lost - x.lost)
+  const broken = imgs.filter(i => i.complete && (i.currentSrc || i.getAttribute('src')) && i.naturalWidth === 0 && visible(i)).length
   const missingAlt = imgs.filter(i => !i.hasAttribute('alt')).length
   // Vertical coverage → blank bands (gaps with no visible text, image, svg or video).
   const blocks = [...document.querySelectorAll('img,svg,video,picture,canvas,iframe'), ...texts].filter(visible).map(el => { const r = el.getBoundingClientRect(); return [r.top + scrollY, r.bottom + scrollY] }).sort((a, b) => a[0] - b[0])
   const gaps = []; let end = 0; for (const [a, b] of blocks) { if (a - end > 0 && end > 0) gaps.push({ at: Math.round(end), size: Math.round(a - end) }); end = Math.max(end, b) }
   gaps.sort((a, b) => b.size - a.size)
+  // Length context: sections, and how much text-only page follows the last real image before the footer.
+  const footer = document.querySelector('footer'), contentEnd = footer && visible(footer) ? top(footer) : H
+  const media = [...document.querySelectorAll('img,video,picture,canvas')].filter(el => visible(el) && el.getBoundingClientRect().width >= 120 && !el.closest('header,footer,nav'))
+  const lastMedia = media.reduce((m, el) => Math.max(m, el.getBoundingClientRect().bottom + scrollY), 0)
+  const length = { sections: [...document.querySelectorAll('main section, main h2')].filter(visible).filter(el => el.tagName === 'SECTION' || !el.closest('main section')).length,
+    textTail: Math.max(0, Math.round(contentEnd - lastMedia)), textTailScreens: +(Math.max(0, contentEnd - lastMedia) / vh).toFixed(1) }
   // First screen: how much interface it carries.
   const inFold = el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= vh && !el.closest('header > nav, [role=banner] nav') }
   const foldTexts = texts.filter(inFold)
@@ -110,17 +130,17 @@ const MEASURE = `(() => {
   const tones = []; for (let y = 0; y < H; y += 400) { scrollTo({ top: Math.max(0, y - vh / 2), behavior: 'instant' }); const el = document.elementFromPoint(vw / 2, Math.min(vh - 1, y - scrollY)); if (el) tones.push(lum(bgAt(el)) < 0.35 ? 'D' : 'L') }
   scrollTo({ top: 0, behavior: 'instant' })
   const rhythm = tones.join('').replace(/(.)\\1+/g, '$1')
-  // "As of" style dates shown to the reader. Only checks that they agree visually; whether they are factually right is Content QA.
+  // Dates shown next to "Updated / 기준 / as of" labels. Different dates may mean different things; Content QA decides.
   const dateRe = /(20\\d\\d)[.\\-/년 ]+\\s*(\\d{1,2})[.\\-/월 ]+\\s*(\\d{1,2})/
   const stamps = texts.filter(el => /updated|업데이트|기준|as of|snapshot|last update/i.test(el.parentElement?.textContent ?? '') && dateRe.test(el.parentElement?.textContent ?? '') && (el.parentElement?.textContent ?? '').length < 80)
-    .map(el => { const t = el.parentElement.textContent.replace(/\\s+/g, ' ').trim(), m = t.match(dateRe); return { label: t.slice(0, 50), date: m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') } })
+    .map(el => { const t = el.parentElement.textContent.replace(/\\s+/g, ' ').trim(), m = t.match(dateRe); return { label: t.slice(0, 50), date: m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0'), section: sectionOf(el) } })
   const dateStamps = [...new Map(stamps.map(s => [s.label, s])).values()]
   return { title: document.title, height: H, screens: +(H / vh).toFixed(1), overflow: document.documentElement.scrollWidth > vw + 1,
     h1: h1 ? { size: Math.round(parseFloat(getComputedStyle(h1).fontSize)), family: family(getComputedStyle(h1).fontFamily), text: h1.textContent.trim().slice(0, 50) } : null,
     bodyFamily: body ? family(getComputedStyle(body).fontFamily) : null, bodySize: body ? parseFloat(getComputedStyle(body).fontSize) : null,
     charShare: Object.fromEntries(Object.entries(chars).map(([k, v]) => [k, Math.round(v / Math.max(1, chars.sans + chars.serif + chars.mono) * 100)])),
-    tinyText: tiny.length, metaText: meta, tinySamples: tiny.sort((a, b) => a.size - b.size).slice(0, 4), hangulMono: hangulMono.length, hangulMonoSamples: hangulMono.slice(0, 4), upperLabels: upper,
-    images: imgs.length, broken, missingAlt, repeated, cropped: cropped.slice(0, 8), largestBlanks: gaps.slice(0, 3), fold, cards, gradients, glass, rhythm, dateStamps }
+    fonts, hangulMono: hangulMono.length, hangulMonoSamples: hangulMono.slice(0, 4), upperLabels: upper,
+    images: imgs.length, broken, noSource, missingAlt, repeated, cropped: cropped.slice(0, 8), largestBlanks: gaps.slice(0, 3), length, fold, cards, gradients, glass, rhythm, dateStamps }
 })()`
 
 const report = []
@@ -136,28 +156,35 @@ for (const page of pages) for (const width of widths) {
   await sleep(1200)
   const m = await evaluate(MEASURE)
   if (!m) { console.log(`${page.name}@${width}  (page did not load)`); continue }
-  const result = { name: page.name, url: page.url, width, ...m, nextImage: imageRequests.filter(u => u.includes('/_next/image')).length, consoleErrors: errors.length }
-  // Flags: 🔴 must fix, 🟡 look at it. Anything else is 🟢.
-  const flags = []
-  const red = (w, why) => flags.push(['🔴', w, why]), amber = (w, why) => flags.push(['🟡', w, why])
-  if (result.broken) red('broken images', `${result.broken}`)
-  if (result.overflow) red('horizontal overflow', 'page wider than screen')
-  if (result.nextImage) red('/_next/image requests', `${result.nextImage} (Vercel image optimizer in use)`)
-  if (result.consoleErrors) red('console errors', `${result.consoleErrors}`)
-  if (result.hangulMono) amber('Korean in mono font', result.hangulMonoSamples.join(' · '))
-  if (result.tinyText) amber(`text under ${T.minFont}px`, `${result.tinyText} elements, e.g. ${result.tinySamples.map(s => s.size + 'px "' + s.text + '"').slice(0, 2).join(', ')} (plus ${result.metaText} at ${T.minFont}–${T.metaFont}px)`)
-  if (result.repeated.length) amber(`image used more than ${T.repeatMax}×`, result.repeated.map(r => `${r.count}× …${r.image.slice(-28)} (y=${r.at.join(', ')})`).join(', '))
-  if (result.missingAlt) amber('images without alt', `${result.missingAlt}`)
-  const heavyCrops = result.cropped.filter(c => c.lost >= T.cropLoss)
-  if (heavyCrops.length) amber(`photos cropped ${T.cropLoss}%+`, heavyCrops.map(c => `${c.lost}% of …${c.image.slice(-24)} (${c.shown})`).slice(0, 3).join(', '))
-  if (new Set(result.dateStamps.map(d => d.date)).size > 1) amber('as-of dates disagree', result.dateStamps.map(d => `"${d.label}"`).join(' vs '))
+  const result = { name: page.name, url: page.url, width, ...m, consoleErrors: errors.length,
+    nextImage: imageRequests.filter(u => u.includes('/_next/image')).length, doubleProxy: imageRequests.filter(u => (u.match(/images\.weserv\.nl/g) ?? []).length > 1).length }
+  const checks = []
+  const fail = (what, detail) => checks.push({ level: 'FAIL', what, detail }), review = (what, detail) => checks.push({ level: 'REVIEW', what, detail })
+  // FAIL: objectively broken.
+  if (result.broken) fail('broken images', `${result.broken}`)
+  if (result.noSource) fail('images without a source', `${result.noSource}`)
+  if (result.overflow) fail('horizontal overflow', 'page wider than screen')
+  if (result.consoleErrors) fail('console errors', `${result.consoleErrors}`)
+  if (result.nextImage) fail('/_next/image requests', `${result.nextImage} (Vercel image optimizer in use)`)
+  if (result.doubleProxy) fail('double image proxy', `${result.doubleProxy} requests wrap the CDN in itself`)
+  // REVIEW: look at it; the decision belongs to a person or the vision review.
+  if (result.hangulMono) review('Korean in mono font', result.hangulMonoSamples.join(' · '))
+  for (const role of ['metadata', 'primary']) { const f = result.fonts[role]; if (f.under11) review(`${role} text under ${T.minFont}px`, `${f.under11}, e.g. ${f.samples.map(s => `${s.size}px "${s.text}"`).join(', ')}`) }
+  const repeatReview = result.repeated.filter(r => r.large > 1)
+  if (repeatReview.length) review('same photo used large more than once', repeatReview.map(r => `${r.count}× …${r.image.slice(-24)} (${r.uses.map(u => `${u.section} ${u.width}px`).join(' → ')})`).join('; '))
+  const cropReview = result.cropped.filter(c => c.reasons.length)
+  if (cropReview.length) review('crop to check (text, face, product, logo?)', cropReview.map(c => `${c.lost}% of …${c.image.slice(-20)} in ${c.section} (${c.reasons.join(', ')})`).slice(0, 4).join('; '))
+  if (new Set(result.dateStamps.map(d => d.date)).size > 1) review('DATE REVIEW', `different dates on screen; Content QA decides what each means: ${result.dateStamps.map(d => `"${d.label}"`).join(' / ')}`)
+  if (result.missingAlt) review('images without alt', `${result.missingAlt}`)
   const blankLimit = mobile ? T.blankMobile : T.blankDesktop
-  const blanks = result.largestBlanks.filter(g => g.size > blankLimit); if (blanks.length) amber('large blank bands', blanks.map(g => `${g.size}px at y=${g.at}`).join(', '))
-  if (result.screens > (mobile ? T.screensMobile : T.screensDesktop)) amber('long page', `${result.screens} screens (${result.height}px)`)
-  if (result.fold.texts > T.foldTexts || result.fold.numbers > T.foldNumbers || result.fold.labels > T.foldLabels) amber('busy first screen', `${result.fold.texts} text blocks, ${result.fold.numbers} numbers, ${result.fold.labels} small labels`)
-  if (result.cards > T.cards) amber('many rounded cards', `${result.cards}`)
-  if (result.glass || result.gradients > 3) amber('glass / gradient decoration', `${result.glass} glass, ${result.gradients} gradients`)
-  result.flags = flags.map(([level, what, detail]) => ({ level, what, detail }))
+  const blanks = result.largestBlanks.filter(g => g.size > blankLimit); if (blanks.length) review('large blank bands', blanks.map(g => `${g.size}px at y=${g.at}`).join(', '))
+  const median = mobile ? T.screensMobile : T.screensDesktop
+  if (result.screens > median * 2 || (result.screens > median && result.length.textTailScreens > T.tailScreens)) review('long page', `${result.screens} screens vs reference median ${median}; ${result.length.sections} sections; text-only tail ${result.length.textTailScreens} screens`)
+  if (result.fold.texts > T.foldTexts || result.fold.numbers > T.foldNumbers || result.fold.labels > T.foldLabels) review('busy first screen', `${result.fold.texts} text blocks, ${result.fold.numbers} numbers, ${result.fold.labels} small labels`)
+  if (result.cards > T.cards) review('many rounded cards', `${result.cards}`)
+  if (result.glass || result.gradients > 3) review('glass / gradient decoration', `${result.glass} glass, ${result.gradients} gradients`)
+  result.checks = checks
+  result.result = checks.some(c => c.level === 'FAIL') ? 'FAIL' : checks.length ? 'REVIEW' : 'PASS'
   report.push(result)
   const file = `${page.name}-${width}`
   writeFileSync(path.join(out, `${file}.json`), JSON.stringify(result, null, 1))
@@ -167,8 +194,9 @@ for (const page of pages) for (const width of widths) {
     const full = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width, height: Math.min(result.height, 9000), scale: 1 } })
     if (full.result) writeFileSync(path.join(out, `${file}-full.png`), Buffer.from(full.result.data, 'base64'))
   }
-  console.log(`\n${page.name} @${width}  h1 ${result.h1?.size ?? '-'}px ${result.h1?.family ?? ''}  type ${JSON.stringify(result.charShare)}  rhythm ${result.rhythm}  fold img ${result.fold.imageShare}%`)
-  console.log(result.flags.length ? result.flags.map(f => `  ${f.level} ${f.what}: ${f.detail}`).join('\n') : '  🟢 no automatic flags')
+  const repeats = result.repeated.reduce((n, r) => n + r.count - 1, 0)
+  console.log(`\n${result.result.padEnd(6)} ${page.name} @${width}  ${result.screens} screens (${result.height}px, ${result.length.sections} sections, text tail ${result.length.textTailScreens})  repeats ${repeats}  crops≥${T.cropLoss}% ${result.cropped.length}`)
+  for (const c of checks) console.log(`  ${c.level.padEnd(6)} ${c.what}: ${c.detail}`)
 }
 writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 1))
 ws.close(); chrome.kill(); await sleep(400); try { rmSync(profile, { recursive: true, force: true }) } catch {}
