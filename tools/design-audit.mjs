@@ -151,6 +151,16 @@ const MEASURE = `(() => {
     images: imgs.length, broken, noSource, missingAlt, repeated, cropped: cropped.slice(0, 8), largestBlanks: gaps.slice(0, 3), length, fold, cards, gradients, glass, rhythm, dateStamps }
 })()`
 
+// Stable rule ids (used by tools/quality-review.mjs and docs/quality-review/). FAIL checks are functional, REVIEW checks are design.
+const RULE_IDS = [
+  [/^broken images/, 'FUNC-IMAGE-003'], [/^images without a source/, 'FUNC-IMAGE-004'], [/^horizontal overflow/, 'FUNC-LAYOUT-001'],
+  [/^console errors/, 'FUNC-PAGE-001'], [/^\/_next\/image/, 'FUNC-IMAGE-001'], [/^double image proxy/, 'FUNC-IMAGE-002'],
+  [/^Korean in mono/, 'DESIGN-TEXT-002'], [/text under/, 'DESIGN-TEXT-001'], [/^same photo/, 'DESIGN-IMAGE-001'], [/^crop to check/, 'DESIGN-IMAGE-002'],
+  [/^DATE REVIEW/, 'DESIGN-DATE-001'], [/^images without alt/, 'DESIGN-A11Y-001'], [/^large blank/, 'DESIGN-SPACE-001'], [/^long page/, 'DESIGN-LENGTH-001'],
+  [/^busy first screen/, 'DESIGN-HERO-001'], [/rounded cards|glass/, 'DESIGN-STYLE-001'],
+]
+const ruleId = what => RULE_IDS.find(([pattern]) => pattern.test(what))?.[1] ?? 'DESIGN-OTHER'
+
 const report = []
 for (const page of pages) for (const width of widths) {
   errors.length = 0; imageRequests.length = 0
@@ -167,7 +177,7 @@ for (const page of pages) for (const width of widths) {
   const result = { name: page.name, url: page.url, width, ...m, consoleErrors: errors.length,
     nextImage: imageRequests.filter(u => u.includes('/_next/image')).length, doubleProxy: imageRequests.filter(u => (u.match(/images\.weserv\.nl/g) ?? []).length > 1).length }
   const checks = []
-  const fail = (what, detail) => checks.push({ level: 'FAIL', what, detail }), review = (what, detail) => checks.push({ level: 'REVIEW', what, detail })
+  const fail = (what, detail) => checks.push({ level: 'FAIL', id: ruleId(what), what, detail }), review = (what, detail) => checks.push({ level: 'REVIEW', id: ruleId(what), what, detail })
   // FAIL: objectively broken.
   if (result.broken) fail('broken images', `${result.broken}`)
   if (result.noSource) fail('images without a source', `${result.noSource}`)

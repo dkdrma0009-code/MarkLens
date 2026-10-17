@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Quality Review validation — known design problems</title>
+<style>body { margin: 0; padding: 24px; font: 16px/1.6 sans-serif; } .mono { font-family: monospace; } .tiny { font-size: 9px; } img { width: 160px; height: 100px; }</style></head>
+<body>
+  <!-- Each element below is one known problem the audit must report. -->
+  <p class="mono">한글 메타데이터</p>
+  <p class="tiny">TINY LABEL</p>
+  <img src="missing-image.png" alt="없는 이미지">
+  <img src="/_next/image?url=%2Fphoto.jpg&amp;w=640&amp;q=75" alt="Vercel 이미지 변환">
+  <p>본문 문장은 16px로 충분히 읽힙니다.</p>
+</body></html>

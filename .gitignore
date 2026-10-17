@@ -74,3 +74,4 @@ __pycache__/
 
 # design intelligence audit output (screenshots, scratch)
 /.design-audit/
+/.quality-review/
