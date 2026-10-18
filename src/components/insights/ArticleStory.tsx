@@ -53,7 +53,7 @@ export default function ArticleStory({ insight, title, terms, toc, color, midCta
             {insight.portfolio_usage || insight.interview_points?.length ? <div className="ml-article-career"><p className="ml-eyebrow">FROM INSIGHT TO CAREER</p>
               {insight.portfolio_usage ? <Section id="portfolio" title="포트폴리오에 활용하기"><Prose text={insight.portfolio_usage} /><Link href="/insight-lab" className="ml-text-link">Insight Lab에서 관점 정리하기 →</Link></Section> : null}
               {midCta("portfolio")}
-              {insight.interview_points?.length ? <Section id="interview" title="면접에서 이렇게 말해보세요"><InterviewSoundbites items={insight.interview_points} color={color} /><Link href="/interview" className="ml-text-link">면접 연습으로 연결하기 →</Link></Section> : null}
+              {insight.interview_points?.length ? <Section id="interview" title="면접에서 이렇게 말해보세요"><InterviewSoundbites items={insight.interview_points} color={color} /><Link href="/interview" className="ml-text-link">AI Interview에서 면접 연습하기 →</Link></Section> : null}
               {midCta("interview")}
             </div> : null}
             {terms.length ? <Section id="terms" title="이 글의 마케팅 용어"><dl className="ml-article-terms">{terms.map((t, i) => <div key={i}><dt>{t.term}</dt><dd>{t.definition}</dd></div>)}</dl><Link href="/glossary" className="ml-text-link">전체 마케팅 용어 사전 보기 →</Link></Section> : null}

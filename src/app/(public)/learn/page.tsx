@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function LearnPage() {
   return (
-    <CareerRoom eyebrow="03 / DAILY TREND QUIZ" title="읽은 것을, 오래 남도록." description="최근 마케팅 인사이트로 핵심 개념을 점검하세요. 정답보다 중요한 것은 해설에서 얻는 이해입니다.">
+    <CareerRoom eyebrow="03 / TREND QUIZ" title="읽은 것을, 오래 남도록." description="최근 마케팅 인사이트로 핵심 개념을 점검하세요. 정답보다 중요한 것은 해설에서 얻는 이해입니다.">
       <LearnQuiz />
     </CareerRoom>
   )

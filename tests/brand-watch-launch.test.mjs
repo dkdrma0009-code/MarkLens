@@ -375,7 +375,8 @@ test('12: sitemap lists /brands whenever Brand Watch loads and brand pages only 
     const sitemap = readFileSync('src/app/sitemap.ts', 'utf8')
     assert.match(sitemap, /brandWatchSitemapEntries\(await loadPublicBrandStates/)
     const nav = readFileSync('src/components/layout/navigation.ts', 'utf8')
-    assert.deepEqual([...nav.matchAll(/\{ href: "([^"]+)", label: "([^"]+)"/g)].map(match => match[2]), ['Insights', 'Trends', 'Brand Watch', 'Collections', 'Career Lab', 'Dictionary', 'Weekly'])
+    // IA V1 menu (Chapter B); the rendered menu is checked in tests/site-regressions.test.mjs.
+    assert.deepEqual([...nav.matchAll(/\{ href: "([^"]+)", label: "([^"]+)"/g)].map(match => [match[2], match[1]]), [['Insights', '/insights'], ['Brand Watch', '/brands'], ['Career Lab', '/practice'], ['Dictionary', '/glossary'], ['Weekly', '/newsletter']])
   } finally { await db.close() }
 })
 

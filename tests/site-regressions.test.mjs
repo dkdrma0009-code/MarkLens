@@ -5,12 +5,13 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 // Regressions found by the Site-Wide Audit V1: a subscribe form that claimed success on failure, and the Career Lab
-// menu that lost its active state on its own sub-pages. No network, no email: the API runs with stand-ins.
+// menu that lost its active state on its own sub-pages. Chapter B IA V1: the approved menu, footer and Career names,
+// checked on the rendered components. No network, no email: the API runs with stand-ins.
 const require = createRequire(import.meta.url)
 const ts = require('typescript')
 function load(file, mocks = {}) {
   const loaded = { exports: {} }
-  const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
   new Function('require', 'module', 'exports', code)(name => name in mocks ? mocks[name] : require(name), loaded, loaded.exports)
   return loaded.exports
 }
@@ -64,16 +65,67 @@ test('subscribe: every form that posts to /api/subscribe reads the shared result
   }
 })
 
+// Rendering: the real components to static HTML, with Next's Link, router and icons replaced by plain stand-ins.
+const { createElement } = require('react'), { renderToStaticMarkup } = require('react-dom/server')
+const Link = ({ href, children, ...rest }) => createElement('a', { href, ...Object.fromEntries(Object.entries(rest).filter(([, value]) => typeof value !== 'function')) }, children)
+const esm = value => ({ __esModule: true, default: value })
+const ui = { 'next/link': esm(Link), 'lucide-react': new Proxy({}, { get: () => () => null }), '@/lib/brand/WordmarkSvg': esm(() => null) }
+const navigation = load('src/components/layout/navigation.ts')
+const links = html => [...html.matchAll(/<a ([^>]*)>(.*?)<\/a>/g)].map(([, attrs, text]) => ({ href: attrs.match(/href="([^"]*)"/)?.[1], current: attrs.match(/aria-current="([^"]*)"/)?.[1], text: text.replace(/<[^>]+>/g, '') }))
+function renderMenu(pathname) {
+  const { default: PublicNavigation } = load('src/components/layout/PublicNavigation.tsx', { ...ui, 'next/navigation': { usePathname: () => pathname }, './navigation': navigation })
+  return links(renderToStaticMarkup(createElement(PublicNavigation, { className: 'ml-desktop-nav' })))
+}
+const MENU = [['Insights', '/insights'], ['Brand Watch', '/brands'], ['Career Lab', '/practice'], ['Dictionary', '/glossary'], ['Weekly', '/newsletter']]
+
+test('navigation: the menu renders the approved five items in order, without Trends or Collections', () => {
+  const menu = renderMenu('/')
+  assert.deepEqual(menu.map(link => [link.text, link.href]), MENU)
+  assert.ok(!menu.some(link => /Trends|Collections|#/.test(link.text + link.href)))
+  assert.deepEqual(menu.filter(link => link.current), []) // nothing is current on Home; Home is the wordmark
+})
+
 test('navigation: Career Lab stays active on its sub-pages and no other item lights up', () => {
-  const { PUBLIC_NAV_ITEMS, navCurrent } = load('src/components/layout/navigation.ts')
-  const active = (pathname, hash = '') => PUBLIC_NAV_ITEMS.filter(item => navCurrent(item, pathname, hash)).map(item => item.label)
-  for (const pathname of ['/practice', '/learn', '/interview', '/interview/prep', '/insight-lab']) assert.deepEqual(active(pathname), ['Career Lab'], pathname)
-  assert.equal(navCurrent(PUBLIC_NAV_ITEMS.find(item => item.label === 'Career Lab'), '/practice', ''), 'page')
-  assert.equal(navCurrent(PUBLIC_NAV_ITEMS.find(item => item.label === 'Career Lab'), '/learn', ''), 'true')
-  const expected = [['/insights', 'Insights'], ['/insights/some-story', 'Insights'], ['/brands', 'Brand Watch'], ['/brands/musinsa', 'Brand Watch'],
-    ['/glossary', 'Dictionary'], ['/newsletter', 'Weekly']]
-  for (const [pathname, label] of expected) assert.deepEqual(active(pathname), [label], pathname)
-  // Home anchors light up only on the home page with their hash; look-alike paths stay inactive.
-  assert.deepEqual(active('/', '#collections'), ['Collections']); assert.deepEqual(active('/', '#signals'), ['Trends']); assert.deepEqual(active('/'), [])
-  for (const pathname of ['/about', '/feedback', '/login', '/interviews', '/learning', '/practiced', '/insight-labs']) assert.deepEqual(active(pathname), [], pathname)
+  const active = pathname => renderMenu(pathname).filter(link => link.current).map(link => `${link.text}=${link.current}`)
+  assert.deepEqual(active('/practice'), ['Career Lab=page'])
+  for (const pathname of ['/learn', '/interview', '/interview/prep', '/insight-lab']) assert.deepEqual(active(pathname), ['Career Lab=true'], pathname)
+  const expected = [['/insights', 'Insights=page'], ['/insights/some-story', 'Insights=true'], ['/brands', 'Brand Watch=page'], ['/brands/musinsa', 'Brand Watch=true'],
+    ['/glossary', 'Dictionary=page'], ['/newsletter', 'Weekly=page']]
+  for (const [pathname, current] of expected) assert.deepEqual(active(pathname), [current], pathname)
+  for (const pathname of ['/', '/about', '/feedback', '/login', '/interviews', '/learning', '/practiced', '/insight-labs']) assert.deepEqual(active(pathname), [], pathname)
+})
+
+test('footer: no removed menu links, Career tools under their official names, Dictionary and Weekly kept', () => {
+  const { default: Footer } = load('src/components/layout/Footer.tsx', { ...ui, './navigation': navigation })
+  const footer = links(renderToStaticMarkup(createElement(Footer))).filter(link => link.href?.startsWith('/'))
+  assert.deepEqual(footer.map(link => [link.text, link.href]), [['', '/#main-content'], ['Insights', '/insights'], ['Dictionary', '/glossary'],
+    ['Career Lab', '/practice'], ['Insight Lab', '/insight-lab'], ['AI Interview', '/interview'], ['Trend Quiz', '/learn'],
+    ['MarkLens 소개', '/about'], ['Weekly', '/newsletter'], ['피드백', '/feedback'], ['RSS', '/feed.xml']])
+  assert.ok(!footer.some(link => /Trends|Collections|Learn$|#signals|#collections/.test(link.text + link.href)))
+})
+
+test('home: Signals and Collections keep their sections, anchors and category links', () => {
+  const data = load('src/components/home/data.ts', { '@/lib/images': { isHotlinkBlocked: () => false } })
+  const home = { ...ui, './data': data, './EditorialImage': esm(() => null) }
+  const { default: Signals } = load('src/components/home/Signals.tsx', home)
+  assert.match(renderToStaticMarkup(createElement(Signals, { insights: [], since: '2026-10-11T00:00:00Z', until: '2026-10-18T00:00:00Z' })), /<section id="signals"/)
+  const { default: CollectionShowcase } = load('src/components/home/CollectionShowcase.tsx', home)
+  const { default: Collections } = load('src/components/home/Collections.tsx', { ...home, './CollectionShowcase': esm(CollectionShowcase) })
+  const cover = category => ({ id: category, category, created_at: '2026-10-10T00:00:00Z', article: { source_name: 'MarkLens' } })
+  const html = renderToStaticMarkup(createElement(Collections, { collections: ['브랜딩', 'CRM'].map(category => ({ category, cover: cover(category) })) }))
+  assert.match(html, /<section id="collections"/)
+  assert.deepEqual([...new Set(links(html).map(link => link.href))], ['/insights?category=%EB%B8%8C%EB%9E%9C%EB%94%A9', '/insights?category=CRM'])
+})
+
+test('career: Career Lab and its tools use the official names; URLs unchanged; no "Daily" quiz', () => {
+  assert.deepEqual(navigation.CAREER_FEATURES.map(feature => [feature.name, feature.href]), [['Insight Lab', '/insight-lab'], ['AI Interview', '/interview'], ['Trend Quiz', '/learn']])
+  const { default: Practice } = load('src/app/(public)/practice/page.tsx', { ...ui, '@/components/career/career.css': {} })
+  const html = renderToStaticMarkup(createElement(Practice)), hrefs = links(html).map(link => link.href)
+  for (const label of ['INSIGHT LAB', 'AI INTERVIEW', 'TREND QUIZ', 'Insight Lab', 'AI Interview', 'Trend Quiz']) assert.ok(html.includes(label), label)
+  for (const href of ['/insight-lab', '/interview', '/interview/prep', '/learn']) assert.ok(hrefs.includes(href), href)
+  // Each tool page names itself by its official name (CareerRoom eyebrow); the prep page belongs to AI Interview.
+  for (const [file, eyebrow] of [['insight-lab/page.tsx', '01 / INSIGHT LAB'], ['interview/page.tsx', '02 / AI INTERVIEW'], ['interview/prep/page.tsx', '02 / AI INTERVIEW'], ['learn/page.tsx', '03 / TREND QUIZ']])
+    assert.ok(readFileSync(`src/app/(public)/${file}`, 'utf8').includes(`eyebrow="${eyebrow}"`), file)
+  const visible = ['src/app/(public)', 'src/components'].flatMap(dir => { const out = [], walk = d => { for (const name of readdirSync(d)) { const f = path.join(d, name); if (statSync(f).isDirectory()) walk(f); else if (f.endsWith('.tsx')) out.push(f) } }; walk(dir); return out })
+  for (const file of visible) assert.doesNotMatch(readFileSync(file, 'utf8'), /DAILY TREND QUIZ|Daily Trend Quiz|CREATIVE STRATEGY TRAINING/, file)
 })
