@@ -1,7 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Heart } from "lucide-react"
+import { trackEvent } from "@/lib/analytics"
+import { subscriptionOutcome, type SubscriptionOutcome } from "@/lib/newsletter/subscription-result"
+import { useNewsletterView } from "@/components/useNewsletterView"
+
+// Subscriber source for this form (subscribers.source, migration 013) and its analytics position.
+const SUBSCRIBE_SOURCE = "insight_feedback", SUBSCRIBE_POSITION = "inline-feedback"
 
 export default function ArticleFeedback({ insightId, color }: { insightId: string; color: string }) {
   const [liked, setLiked] = useState(false)
@@ -9,9 +15,11 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
   const [comment, setComment] = useState("")
   const [showComment, setShowComment] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [subscribed, setSubscribed] = useState(false)
+  const [subOutcome, setSubOutcome] = useState<SubscriptionOutcome | null>(null)
   const [email, setEmail] = useState("")
   const [subLoading, setSubLoading] = useState(false)
+  const subPending = useRef(false)
+  const subscribeRef = useNewsletterView(SUBSCRIBE_SOURCE, SUBSCRIBE_POSITION)
 
   async function sendFeedback(rating: string, c = "") {
     await fetch("/api/feedback", {
@@ -44,24 +52,30 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
     setShowComment(false)
   }
 
+  // Same contract as NewsletterInlineCta: success is shown only for what the API actually confirmed.
   async function handleSubscribe(e: React.FormEvent) {
     e.preventDefault()
+    if (subPending.current || subOutcome?.done) return
+    subPending.current = true
     setSubLoading(true)
+    setSubOutcome(null)
+    trackEvent("newsletter_submit", { location: SUBSCRIBE_SOURCE, position: SUBSCRIBE_POSITION })
+    let outcome: SubscriptionOutcome
     try {
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, source: SUBSCRIBE_SOURCE }),
       })
-      const data = await res.json()
-      if (data.alreadySubscribed) {
-        setSubscribed(true)
-      } else {
-        setSubscribed(true)
-      }
-    } finally {
-      setSubLoading(false)
+      outcome = subscriptionOutcome(res.status, await res.json().catch(() => null))
+    } catch {
+      outcome = subscriptionOutcome(0, null)
     }
+    setSubOutcome(outcome)
+    if (outcome.result === "already") trackEvent("newsletter_already", { location: SUBSCRIBE_SOURCE, position: SUBSCRIBE_POSITION })
+    if (outcome.result === "new") trackEvent("newsletter_subscribe", { location: SUBSCRIBE_SOURCE, position: SUBSCRIBE_POSITION })
+    subPending.current = false
+    setSubLoading(false)
   }
 
   return (
@@ -139,6 +153,7 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
 
       {/* 뉴스레터 구독 인라인 CTA */}
       <div
+        ref={subscribeRef}
         className="rounded-2xl p-6"
         style={{ backgroundColor: color + "10", border: `1px solid ${color}25` }}
       >
@@ -157,9 +172,9 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
           </div>
         </div>
 
-        {subscribed ? (
-          <p className="text-sm font-medium text-center" style={{ color }}>
-            확인 이메일을 보냈습니다 ✓
+        {subOutcome?.done ? (
+          <p className="text-sm font-medium text-center" style={{ color }} role="status">
+            {subOutcome.message}
           </p>
         ) : (
           <form onSubmit={handleSubscribe} className="flex gap-2">
@@ -179,6 +194,7 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
             >
               {subLoading ? "..." : "구독"}
             </button>
+            {subOutcome ? <p className="basis-full" role="alert">{subOutcome.message}</p> : null}
           </form>
         )}
       </div>

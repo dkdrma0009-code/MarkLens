@@ -374,8 +374,8 @@ test('12: sitemap lists /brands whenever Brand Watch loads and brand pages only 
     assert.deepEqual(brandsIndexMetadata(failed).robots, { index: false, follow: true })
     const sitemap = readFileSync('src/app/sitemap.ts', 'utf8')
     assert.match(sitemap, /brandWatchSitemapEntries\(await loadPublicBrandStates/)
-    const nav = readFileSync('src/components/layout/PublicNavigation.tsx', 'utf8')
-    assert.deepEqual([...nav.matchAll(/\{ href: "([^"]+)", label: "([^"]+)" \}/g)].map(match => match[2]), ['Insights', 'Trends', 'Brand Watch', 'Collections', 'Career Lab', 'Dictionary', 'Weekly'])
+    const nav = readFileSync('src/components/layout/navigation.ts', 'utf8')
+    assert.deepEqual([...nav.matchAll(/\{ href: "([^"]+)", label: "([^"]+)"/g)].map(match => match[2]), ['Insights', 'Trends', 'Brand Watch', 'Collections', 'Career Lab', 'Dictionary', 'Weekly'])
   } finally { await db.close() }
 })
 
