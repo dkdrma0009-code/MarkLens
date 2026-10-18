@@ -141,5 +141,5 @@ test('queue: sample-data findings are not asked, typography stays real, order is
   assert.equal(buildQueue(many).length, 5)
   // Decisions are worded for a person, with at most three choices.
   const decision = first.find(q => q.ids.includes('CONTENT-DATE-001'))
-  assert.deepEqual(decision.lines, ['화면 날짜: 10월 8일 (보도일)', '본문·포스터에 적힌 날짜: 10월 6일, 10월 19일']); assert.ok(decision.options.length <= 3)
+  assert.deepEqual(decision.lines, ['현재 화면 날짜: 10월 8일 (보도일)', '본문·포스터에 적힌 다른 날짜: 10월 6일, 10월 19일']); assert.ok(decision.options.length <= 3)
 })

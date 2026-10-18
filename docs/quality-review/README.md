@@ -111,9 +111,12 @@ New rules are added only when a real problem needs them.
 - `visionReview { required, status, files }`
 - `sections[]` (area, name, status, detail, ms)
 - `findings[]` (id, key, area, level, kind, scope, status, target, message, evidence, and question / reason / knownTitle when relevant)
-- `humanQueue[]` (key, kind, level, ids, title, lines, why, options)
+- `humanQueue[]` (key, kind, level, ids, title, lines, why, options, recommendation)
+- `reviewItems[]`: every item a person may need, with its status (OPEN / DEFERRED / ACKNOWLEDGED). `humanQueue` is
+  the OPEN part, capped at 5.
 
-`humanQueue` is the input a later integration (Notion, mail) would read; V1.1 only writes it.
+`reviewItems` is what the Notion Review Hub sync reads ([docs/review-hub/README.md](../review-hub/README.md)). The
+review itself never writes to Notion.
 
 ## Human queue (V1.1)
 

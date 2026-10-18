@@ -120,7 +120,7 @@ export function brandWatchFindings({ states, lineage, evidence, orphans = [] }) 
   const out = []
   const nameOf = slug => states.find(s => s.brand.slug === slug)?.brand.displayName ?? slug
   for (const state of states) {
-    const brand = state.brand.displayName
+    const brand = state.brand.displayName, before = out.length
     // Leaks: unknown fields or internal values in the public model, and facts whose Evidence is not approved + active.
     const extra = [...keysOf(state)].filter(key => !PUBLIC_KEYS.has(key))
     if (extra.length) out.push(finding('CONTENT-LEAK-001', red, brand, `공개 데이터에 허용되지 않은 필드가 있습니다: ${extra.join(', ')}`))
@@ -175,6 +175,8 @@ export function brandWatchFindings({ states, lineage, evidence, orphans = [] }) 
     for (const s of state.sources) if (!s.url || !s.provider || !s.title) out.push(finding('CONTENT-SOURCE-001', red, `${brand} · 출처 [${s.ref}]`, '출처의 주소·제공처·제목 중 빠진 것이 있습니다'))
     const urls = state.sources.map(s => s.url), dup = urls.filter((url, i) => urls.indexOf(url) !== i)
     if (dup.length) out.push(finding('CONTENT-SOURCE-002', yellow, brand, `같은 출처 주소가 두 번 이상 있습니다: ${[...new Set(dup)].join(', ')}`))
+    // The brand's Korean name is the place a person recognises (Review Hub "대상").
+    for (const f of out.slice(before)) f.place = state.brand.nameKo
   }
   // Lineage health from the existing evaluator (published objects only; retired ones are history).
   const label = { movement: '움직임', pattern: 'Pattern', take: 'Take', snapshot: 'Snapshot' }

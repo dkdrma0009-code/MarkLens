@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { brandWatchFindings, collectBrandWatch, fetchLocalInsights, insightFindings, loadSource, openLaunchDatabase } from './quality-review/content.mjs'
-import { applyKnown, buildQueue, keyOf, kindOf, scopeOf } from './quality-review/queue.mjs'
+import { applyKnown, buildQueue, keyOf, kindOf, reviewItems, scopeOf } from './quality-review/queue.mjs'
 
 const args = process.argv.slice(2)
 const opt = (flag, fallback) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : fallback }
@@ -19,6 +19,7 @@ const full = args.includes('--full'), out = path.resolve(opt('--out', '.quality-
 const brandRoute = opt('--brand-route', '/brands/{slug}'), brandsIndex = opt('--brands-index', '/brands')
 const knownFile = path.resolve(opt('--known', 'docs/quality-review/known-issues.json'))
 const insightsScope = opt('--insights-scope', 'sample') === 'real' ? 'REAL' : 'LOCAL_SAMPLE'
+const INSIGHT_PAGES = new Set(['home', 'insights', 'insight']) // pages built from the Insights database
 const LABELS = {
   'FUNC-IMAGE-001': '/_next/image 이미지 변환 사용 (Vercel 비용)', 'FUNC-IMAGE-002': '이미지 프록시 중복', 'FUNC-IMAGE-003': '깨진 이미지', 'FUNC-IMAGE-004': '주소 없는 이미지',
   'FUNC-PAGE-001': '콘솔 오류', 'FUNC-LAYOUT-001': '가로 넘침', 'DESIGN-TEXT-001': '작은 글자를 최소 기준(11px) 이상으로 올려야 합니다', 'DESIGN-TEXT-002': '한글이 고정폭 글꼴로 보입니다',
@@ -43,12 +44,12 @@ const run = (cmd, cmdArgs, env = {}) => new Promise(done => {
 const add = (id, area, level, target, message, extra = {}) => findings.push({ id, area, level, target, message, review: 'auto', ...extra })
 
 // ---------- Content ----------
-let brandNames = {}
+let brandNames = {}, brandKo = {}
 await section('content', 'Brand Watch (출시 데이터 5개 브랜드)', async () => {
   const handle = await openLaunchDatabase()
   try {
     const data = await collectBrandWatch(handle)
-    brandNames = Object.fromEntries(data.states.map(s => [s.brand.slug, s.brand.displayName]))
+    brandNames = Object.fromEntries(data.states.map(s => [s.brand.slug, s.brand.displayName])); brandKo = Object.fromEntries(data.states.map(s => [s.brand.slug, s.brand.nameKo]))
     const list = brandWatchFindings(data); findings.push(...list)
     const pub = data.states.filter(s => s.kind === 'available').map(s => s.brand.displayName), priv = data.states.filter(s => s.kind !== 'available').map(s => s.brand.displayName)
     if (!list.some(f => f.level === 'red')) passes.push(`Brand Watch 근거 연결: 끊긴 연결·공개 데이터 유출 없음 (공개 ${pub.join(', ')} / 비공개 ${priv.join(', ')})`)
@@ -72,6 +73,7 @@ const GROUPS = [
   ['캐시·갱신', /^(public-cache|revalidate-scope|insight-timestamp)\.test\.mjs$/],
   ['이미지 전송', /^public-images\.test\.mjs$/],
   ['Quality Review 검증', /^quality-review\.test\.mjs$/],
+  ['Review Hub 동기화', /^review-hub\.test\.mjs$/],
   ['뉴스레터·구독·기타', /\.test\.mjs$/],
 ]
 const files = readdirSync('tests').filter(name => name.endsWith('.test.mjs')), assigned = new Set()
@@ -113,7 +115,7 @@ else {
     if (!existsSync(path.join(dir, 'report.json'))) throw new Error(`design audit did not finish (exit ${code}): ${text.trim().split('\n').at(-1)}`)
     const pages = JSON.parse(readFileSync(path.join(dir, 'report.json'), 'utf8')), label = Object.fromEntries(routes.map(([name, l]) => [name, l]))
     for (const page of pages) for (const check of page.checks) {
-      const extra = { page: page.name, label: LABELS[check.id] }
+      const extra = { page: page.name, label: LABELS[check.id], place: INSIGHT_PAGES.has(page.name) ? (page.name === 'home' ? '홈' : '인사이트') : page.name === 'brands' ? 'Brand Watch' : brandKo[page.name] ?? page.name }
       // Small text keeps its texts, so a known issue (e.g. the footer) can be matched exactly and a new one is not hidden.
       if (check.id === 'DESIGN-TEXT-001') {
         const samples = [...page.fonts.metadata.samples, ...page.fonts.primary.samples].sort((a, b) => a.size - b.size), count = page.fonts.metadata.under11 + page.fonts.primary.under11
@@ -167,14 +169,13 @@ await section('functional', '캐시 설정', async () => {
 // ---------- Human queue ----------
 // Scope: Brand Watch content is the real launch dataset; Insights pages show whatever the local database holds
 // (sample data unless --insights-scope real). Known issues stop accepted findings from being asked again.
-const INSIGHT_PAGES = new Set(['home', 'insights', 'insight'])
 for (const f of findings) {
   const dataScope = f.target.startsWith('file:') ? 'TEST_FIXTURE' : (INSIGHT_PAGES.has(f.page) || f.id.startsWith('INSIGHT-')) ? insightsScope : 'REAL'
   Object.assign(f, { key: keyOf(f), kind: kindOf(f), scope: scopeOf(f, dataScope) })
 }
 const known = existsSync(knownFile) ? JSON.parse(readFileSync(knownFile, 'utf8')).issues : []
 const { findings: judged, quiet } = applyKnown(findings, known)
-const queue = buildQueue(judged)
+const queue = buildQueue(judged, { now: startedAt.toISOString() }), items = reviewItems(judged, { now: startedAt.toISOString() })
 // Vision review is reported as a status, never asked: required when design files changed in the last commit or the working tree.
 const changed = [(await run('git', ['diff', '--name-only', 'HEAD~1', 'HEAD'])).text, (await run('git', ['status', '--porcelain'])).text].join('\n')
 const designFiles = [...new Set(changed.split('\n').map(line => line.replace(/^.. /, '').trim()).filter(file => /^(src\/(components|app)\/.*\.(tsx|css)|public\/)/.test(file)))]
@@ -186,7 +187,7 @@ const reds = group(judged.filter(f => f.level === 'red')), open = group(judged.f
 const sample = group(judged.filter(f => f.level === 'yellow' && f.status === 'OPEN' && f.scope !== 'REAL')), accepted = group(judged.filter(f => f.level === 'yellow' && f.status !== 'OPEN'))
 const notes = judged.filter(f => f.level === 'info'), errors = sections.filter(s => s.status === 'ERROR' || s.status === 'SKIPPED')
 const where = g => g.targets.length > 3 ? `${g.targets.slice(0, 3).join(', ')} 외 ${g.targets.length - 3}곳` : g.targets.join(', ')
-const item = (q, i) => [`${i + 1}. ${q.level === 'red' ? '🔴' : '🟡'} **${q.title}**`, ...q.lines.map(text => `   - ${text}`), ...(q.why ? [`   - 왜: ${q.why}`] : []), ...(q.options.length ? [`   - 선택: ${q.options.map(o => `[${o}]`).join(' ')}`] : [])]
+const item = (q, i) => [`${i + 1}. ${q.level === 'red' ? '🔴' : '🟡'} **${q.title}**`, ...q.lines.map(text => `   - ${text}`), ...(q.why ? [`   - 왜: ${q.why}`] : []), ...(q.recommendation ? [`   - 추천: ${q.recommendation.choice} — ${q.recommendation.why}`] : []), ...(q.options.length ? [`   - 선택: ${q.options.map(o => `[${o}]`).join(' ')}`] : [])]
 const STATUS = { ACKNOWLEDGED: '확인됨', DEFERRED: '보류' }
 
 const md = [
@@ -213,6 +214,6 @@ const md = [
 writeFileSync(path.join(out, 'report.md'), md.join('\n'))
 writeFileSync(path.join(out, 'report.json'), JSON.stringify({ runAt: startedAt.toISOString(), mode: full ? 'full' : 'quick', base, knownFile: path.relative('.', knownFile),
   summary: { red: reds.length, yellow: open.length, green: passes.length, accepted: accepted.length, sampleOnly: sample.length }, visionReview, sections,
-  findings: judged.map(({ known: entry, ...f }) => ({ ...f, ...(entry ? { knownTitle: entry.title, knownReason: entry.reason } : {}) })), humanQueue: queue }, null, 1))
+  findings: judged.map(({ known: entry, ...f }) => ({ ...f, ...(entry ? { knownTitle: entry.title, knownReason: entry.reason } : {}) })), humanQueue: queue, reviewItems: items }, null, 1))
 console.log(`\n🔴 ${reds.length} · 🟡 ${open.length} · 🟢 ${passes.length} · 질문 ${queue.length}  →  ${path.relative('.', path.join(out, 'report.md'))}`)
 process.exitCode = reds.length ? 1 : 0
