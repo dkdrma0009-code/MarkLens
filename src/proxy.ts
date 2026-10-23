@@ -90,7 +90,7 @@ export async function proxy(request: NextRequest) {
 
   const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase()
   const userEmail = (user?.email ?? "").trim().toLowerCase()
-  const isAdmin = !!user && userEmail === adminEmail
+  const isAdmin = !!user && !!adminEmail && userEmail === adminEmail
 
   if (!isAdmin) {
     if (pathname.startsWith("/api/admin")) {

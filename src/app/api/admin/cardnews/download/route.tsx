@@ -16,7 +16,7 @@ async function isAuthorized(req: Request): Promise<boolean> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
+  return !!user && !!adminEmail && user.email?.trim().toLowerCase() === adminEmail
 }
 
 // 6장 PNG → ZIP (파일명 {slug}-01.png ~ -06.png)

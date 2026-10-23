@@ -6,7 +6,7 @@ export async function DELETE() {
   const supabase_auth = await createClient()
   const { data: { user } } = await supabase_auth.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  if (!user || user.email?.trim().toLowerCase() !== adminEmail) {
+  if (!user || !adminEmail || user.email?.trim().toLowerCase() !== adminEmail) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

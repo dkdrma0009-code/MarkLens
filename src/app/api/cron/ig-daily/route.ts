@@ -10,7 +10,7 @@ export const maxDuration = 300
 
 // 매일: ① IG/Threads 토큰 갱신(만료 방지) ② 자동발행 ON이면 미발행 카드뉴스 1건 발행
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  if (!user || user.email?.trim().toLowerCase() !== adminEmail) {
+  if (!user || !adminEmail || user.email?.trim().toLowerCase() !== adminEmail) {
     return new Response("Unauthorized", { status: 401 })
   }
 

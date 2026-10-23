@@ -12,7 +12,7 @@ async function isAuthorized(req: Request): Promise<boolean> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
+  return !!user && !!adminEmail && user.email?.trim().toLowerCase() === adminEmail
 }
 
 // 용어·꿀팁 카드뉴스 생성 — 기사 없이 '용어'만으로. 기존 cardnews 저장/렌더/편집을 그대로 재사용.

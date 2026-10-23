@@ -10,7 +10,7 @@ export const maxDuration = 300
 // - 발행(라이브 IG 게시)은 app_config.curation_auto_publish === "on" 일 때만.
 //   cardnews 의 ig_auto_publish 와 대칭 패턴. 기본 off — 예기치 않은 게시 방지.
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

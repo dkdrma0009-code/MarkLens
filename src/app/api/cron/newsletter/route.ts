@@ -7,7 +7,7 @@ export const maxDuration = 300
 // 기존 n8n "월요일 7:30" 워크플로를 Vercel 크론으로 이전.
 // 흐름: 초안 생성(generate) → 발송(send). 두 단계를 한 요청으로 묶는다.
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

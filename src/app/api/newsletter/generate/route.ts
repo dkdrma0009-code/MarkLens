@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-    const isAdmin = !!user && user.email?.trim().toLowerCase() === adminEmail
+    const isAdmin = !!user && !!adminEmail && user.email?.trim().toLowerCase() === adminEmail
     if (!isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

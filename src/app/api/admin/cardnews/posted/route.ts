@@ -8,7 +8,7 @@ async function isAuthorized(req: Request): Promise<boolean> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  return !!user && user.email?.trim().toLowerCase() === adminEmail
+  return !!user && !!adminEmail && user.email?.trim().toLowerCase() === adminEmail
 }
 
 // 인스타 업로드 완료 표시 토글 — posted=true면 지금 시각, false면 해제

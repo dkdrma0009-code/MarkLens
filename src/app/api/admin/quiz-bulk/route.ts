@@ -35,7 +35,7 @@ export async function POST() {
   const auth = await createClient()
   const { data: { user } } = await auth.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  if (!user || user.email?.trim().toLowerCase() !== adminEmail) {
+  if (!user || !adminEmail || user.email?.trim().toLowerCase() !== adminEmail) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

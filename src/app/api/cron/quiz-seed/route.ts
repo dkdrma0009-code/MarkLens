@@ -8,7 +8,7 @@ export const maxDuration = 300
 // Vercel 크론으로 보강 — cron/collect가 분석을 직접 돌리는 것과 같은 패턴.
 // learn/generate에 AI 폴백이 있어 풀이 stale해도 기능은 동작하지만, 풀이 신선하면 응답이 빠르고 비용↓.
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
