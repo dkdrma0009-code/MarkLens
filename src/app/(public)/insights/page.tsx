@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { createPublicClient } from "@/lib/supabase/server"
 import { PUBLIC_INSIGHT_CARD_SELECT, publicCard, type PublicInsightCard } from "@/lib/insights/public-select"
-import InsightsClient from "./InsightsClient"
+import InsightsClient, { InsightsFeed } from "./InsightsClient"
 
 export const metadata: Metadata = {
   title: "인사이트 — MarkLens",
@@ -23,6 +23,7 @@ export default async function InsightsPage() {
     .eq("articles.status", "published")
     .order("created_at", { ascending: false })
     .limit(200).returns<PublicInsightCard[]>()
+  const cards = (insights ?? []).map(publicCard)
 
   return (
     <div className="ml-insights">
@@ -32,9 +33,10 @@ export default async function InsightsPage() {
         <h1>마케팅의 변화를<br />더 깊게 읽습니다<span className="ml-blue">.</span></h1>
         <p className="ml-feed-deck">글로벌 트렌드의 맥락부터 실무에 적용할 관점까지.<br />매일 쌓이는 마케팅 인사이트를 탐색하세요.</p>
       </header>
-      {/* useSearchParams를 쓰는 클라이언트 컴포넌트는 정적 렌더 시 Suspense 경계 필요 */}
-      <Suspense fallback={null}>
-        <InsightsClient allInsights={(insights ?? []).map(publicCard)} />
+      {/* useSearchParams를 쓰는 클라이언트 컴포넌트는 정적 렌더 시 Suspense 경계 필요. 경계는 프리렌더에서 빠지므로
+          fallback 으로 "전체" 피드를 그대로 렌더해 HTML 에 목록을 담는다(빈 fallback 이면 목록이 JS 이후에만 생김 → CLS·크롤링). */}
+      <Suspense fallback={<InsightsFeed allInsights={cards} category="" />}>
+        <InsightsClient allInsights={cards} />
       </Suspense>
       </div>
     </div>

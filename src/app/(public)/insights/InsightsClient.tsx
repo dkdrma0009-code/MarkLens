@@ -12,7 +12,12 @@ const PAGE_SIZE = 12
 
 export default function InsightsClient({ allInsights }: { allInsights: PublicInsightCard[] }) {
   const searchParams = useSearchParams()
-  const category = searchParams.get("category") ?? ""
+  return <InsightsFeed allInsights={allInsights} category={searchParams.get("category") ?? ""} />
+}
+
+// The feed itself, without reading the URL: the page renders it with category "" as the Suspense fallback, so the
+// static HTML already holds the full list (useSearchParams opts its boundary out of prerendering).
+export function InsightsFeed({ allInsights, category }: { allInsights: PublicInsightCard[]; category: string }) {
   const [query, setQuery] = useState("")
   const categories = [...new Set([...CATEGORIES, ...allInsights.map(i => i.category).filter(Boolean)])]
   const filtered = allInsights.filter(insight => {
