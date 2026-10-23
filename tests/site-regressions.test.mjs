@@ -57,7 +57,8 @@ test('subscribe: every form that posts to /api/subscribe reads the shared result
   const files = [], walk = dir => { for (const name of readdirSync(dir)) { const file = path.join(dir, name); if (statSync(file).isDirectory()) walk(file); else if (/\.tsx?$/.test(name)) files.push(file) } }
   walk('src')
   const forms = files.filter(file => /fetch\(\s*["'`]\/api\/subscribe["'`]/.test(readFileSync(file, 'utf8')))
-  assert.ok(forms.length >= 3, `found ${forms.length} subscribe forms`)
+  // C-1: the Insight detail keeps one form (the Weekly CTA); the feedback block no longer has its own.
+  assert.ok(forms.length >= 2, `found ${forms.length} subscribe forms`)
   for (const file of forms) {
     const code = readFileSync(file, 'utf8')
     assert.match(code, /subscription(Result|Outcome)\(/, `${file} must judge the response with lib/newsletter/subscription-result`)

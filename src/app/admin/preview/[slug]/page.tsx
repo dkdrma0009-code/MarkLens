@@ -3,7 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
-import ArticleStory, { articleStoryToc, type ArticleStoryData } from "@/components/insights/ArticleStory"
+import ArticleStory, { type ArticleStoryData } from "@/components/insights/ArticleStory"
 import ArticleActions from "@/app/admin/articles/ArticleActions"
 import { ContentError, ContentStatus } from "@/components/admin-v2/ContentQueue"
 import "@/app/(public)/public.css"
@@ -28,7 +28,7 @@ export default async function AdminPreviewPage({ params }: { params: Promise<{ s
       {article?.id && <ArticleActions articleId={article.id} status={article.status || "unknown"} hasInsight={!!(insight.hook?.trim() && insight.summary?.trim())} title={title} />}
     </div>
     <div className="marklens-public"><article className="ml-article"><div className="ml-container">
-      <ArticleStory insight={insight} title={title} terms={terms} toc={articleStoryToc(insight,terms)} color="#164bff" preview />
+      <ArticleStory insight={insight} title={title} terms={terms} color="#164bff" preview />
     </div></article></div>
   </div>
 }

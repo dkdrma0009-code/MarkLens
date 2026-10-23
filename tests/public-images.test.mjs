@@ -43,6 +43,6 @@ test('rendered public/editorial and reused admin article preserve geometry, prio
  const article=renderToStaticMarkup(React.createElement(ArticleVisual,{article:blocked}))
  assert.ok(article.includes('Author'));assert.ok(!article.includes('musebyclios'));assert.ok(article.includes('ml-article-image'));assert.match(article,/src="https:\/\/images\.weserv\.nl\/\?url=images\.unsplash\.com%2Fphoto-example%3Ffit%3Dmax%26sig%3Dkeep&amp;w=1600/);assert.ok(article.includes('sizes="(max-width: 767px) calc(100vw - 40px)'));assert.ok(srcsetOf(article).some(c=>c.w===2560))
  const proxied=renderToStaticMarkup(React.createElement(EditorialImage,{insight:{article:{image_url:images.weservThumb(source,440)}},sizes:'96px'}));assert.ok(srcsetOf(proxied).every(c=>(c.url.match(/weserv/g)??[]).length===1))
- const empty=renderToStaticMarkup(React.createElement(ArticleVisual,{article:{image_url:blocked.image_url}}));assert.ok(empty.includes('기사 이미지 없음'));assert.ok(!empty.includes('<img'))
+ const empty=renderToStaticMarkup(React.createElement(ArticleVisual,{article:{image_url:blocked.image_url}}));assert.equal(empty,'') // C-1: no usable image means no placeholder art
  assert.equal(images.isHotlinkBlocked(blocked.image_url),true)
 })

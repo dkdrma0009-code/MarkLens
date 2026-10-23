@@ -8,7 +8,7 @@ import ArticleChat from "@/components/ArticleChat"
 import ArticleFeedback from "@/components/ArticleFeedback"
 import EditorialInsight from "@/components/insights/EditorialInsight"
 import NewsletterInlineCta from "@/components/NewsletterInlineCta"
-import { midCtaAfterSection, countParas, type BodySection } from "@/lib/insights/mid-cta"
+import { rankRelated } from "@/lib/insights/related"
 import ViewCounter from "@/components/ViewCounter"
 import ReadingProgress from "@/components/ReadingProgress"
 import type { Metadata } from "next"
@@ -105,8 +105,7 @@ export default async function InsightDetailPage({ params }: Props) {
 
   if (!insight) notFound()
 
-  // 관련 인사이트 — 같은 카테고리만 보는 대신 태그·키워드 겹침으로 관련도 랭킹.
-  // 후보를 넉넉히 받아 JS에서 점수화(겹침×2 + 같은 카테고리 보너스, 최신순 동점 처리).
+  // 관련 인사이트 — 후보를 넉넉히 받아 rankRelated 로 점수화(겹침×2 + 같은 카테고리, 점수 0 제외, 최신순 동점).
   // ISR 캐시라 이 연산은 빌드/재검증 시점에만 돈다.
   const { data: relatedPool } = await supabase
     .from("insights")
@@ -116,18 +115,7 @@ export default async function InsightDetailPage({ params }: Props) {
     .order("created_at", { ascending: false })
     .limit(60).returns<PublicInsightCard[]>()
 
-  const myTags = new Set(
-    [...(insight.tags ?? []), ...(insight.keywords ?? [])].map((s: string) => String(s).toLowerCase())
-  )
-  const related = (relatedPool ?? [])
-    .map((c) => {
-      const ct = [...((c.tags as string[]) ?? []), ...((c.keywords as string[]) ?? [])].map((s) => String(s).toLowerCase())
-      const overlap = ct.filter((t) => myTags.has(t)).length
-      return { c, score: overlap * 2 + (c.category === insight.category ? 1 : 0) }
-    })
-    .sort((a, b) => b.score - a.score) // 동점은 최신순(쿼리 정렬 + 안정 정렬)
-    .slice(0, 3)
-    .map((s) => publicCard(s.c))
+  const related = rankRelated(insight, relatedPool ?? []).map(publicCard)
 
   const article = insight.article
   const color = "#164bff"
@@ -146,33 +134,6 @@ export default async function InsightDetailPage({ params }: Props) {
     insight.why_it_matters && { q: "마케터에게 왜 중요한가?", a: String(insight.why_it_matters).slice(0, 600) },
     insight.practical_applications && { q: "실무에 어떻게 적용하나?", a: String(insight.practical_applications).slice(0, 600) },
   ].filter(Boolean) as { q: string; a: string }[]
-
-  // Existing anchors remain stable; only sections with stored content are shown.
-  const toc = [
-    insight.summary && { id: "summary", label: "핵심 요약" },
-    insight.key_takeaways?.length && { id: "takeaways", label: "무슨 일이 있었나" },
-    insight.why_it_matters && { id: "why", label: "왜 중요한가" },
-    insight.framework_analysis && { id: "framework", label: "MarkLens의 해석" },
-    insight.practical_applications && { id: "apply", label: "실전 적용법" },
-    insight.portfolio_usage && { id: "portfolio", label: "포트폴리오에 활용하기" },
-    insight.interview_points?.length && { id: "interview", label: "면접 한 마디" },
-    terms.length && { id: "terms", label: "마케팅 용어" },
-    (insight.quiz?.questions?.length || insight.quiz?.question) && { id: "learn", label: "학습 퀴즈" },
-  ].filter(Boolean) as { id: string; label: string }[]
-
-  const bodySections = [
-    insight.summary && { id: "summary", paras: 1 },
-    insight.key_takeaways?.length && { id: "takeaways", paras: insight.key_takeaways.length },
-    insight.why_it_matters && { id: "why", paras: countParas(insight.why_it_matters) },
-    insight.framework_analysis && { id: "framework", paras: countParas(insight.framework_analysis) },
-    insight.practical_applications && { id: "apply", paras: countParas(insight.practical_applications) },
-    insight.portfolio_usage && { id: "portfolio", paras: countParas(insight.portfolio_usage) },
-    insight.interview_points?.length && { id: "interview", paras: insight.interview_points.length },
-    terms.length && { id: "terms", paras: terms.length },
-    (insight.quiz?.questions?.length || insight.quiz?.question) && { id: "learn", paras: 1 },
-  ].filter(Boolean) as BodySection[]
-  const midCtaAfter = midCtaAfterSection(bodySections)
-  const midCta = (id: string) => midCtaAfter === id ? <div className="ml-article-newsletter ml-article-newsletter-mid"><NewsletterInlineCta variant="inline" location="insight_mid" /></div> : null
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -224,22 +185,24 @@ export default async function InsightDetailPage({ params }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <ReadingProgress color={color} />
       <div className="ml-container">
-        <ArticleStory insight={insight} title={title} terms={terms} toc={toc} color={color} midCta={midCta}>
-          <section className="ml-article-utility" aria-labelledby="feedback-title"><p className="ml-eyebrow">YOUR PERSPECTIVE</p><h2 id="feedback-title">이 인사이트에 대한 생각을 들려주세요.</h2><div className="ml-article-feedback"><ArticleFeedback insightId={insight.id} color={color} /></div></section>
+        <ArticleStory insight={insight} title={title} terms={terms} color={color}>
+          <div className="ml-article-ask ml-article-chat"><p>이 글에서 더 궁금한 점이 있나요?</p><ArticleChat color={color} context={[
+            insight.hook && `제목: ${insight.hook}`,
+            insight.summary && `핵심 요약: ${insight.summary}`,
+            insight.key_takeaways?.length && `핵심 포인트:\n${insight.key_takeaways.join('\n')}`,
+            insight.why_it_matters && `왜 중요한가: ${insight.why_it_matters}`,
+            insight.practical_applications && `실전 적용법: ${insight.practical_applications}`,
+            insight.interview_points?.length && `실생활 적용:\n${insight.interview_points.join('\n')}`,
+          ].filter(Boolean).join("\n\n")} /></div>
+          <section className="ml-article-utility" aria-label="이 인사이트에 대한 의견"><div className="ml-article-feedback"><ArticleFeedback insightId={insight.id} /></div></section>
         </ArticleStory>
-        {related.length ? <section className="ml-article-related" aria-labelledby="related-title"><div className="ml-section-heading"><div><p className="ml-eyebrow">KEEP READING</p><h2 id="related-title">함께 읽을 인사이트<span className="ml-blue">.</span></h2></div></div>{related.map(r => <EditorialInsight key={r.id} insight={r} />)}</section> : null}
+        {related.length
+          ? <section className="ml-article-related" aria-labelledby="related-title"><div className="ml-section-heading"><div><h2 id="related-title">함께 읽을 인사이트</h2></div></div>{related.map(r => <EditorialInsight key={r.id} insight={r} />)}</section>
+          : <section className="ml-article-next-empty" aria-labelledby="related-title"><h2 id="related-title">다음으로 읽기</h2><p>아직 이 글과 주제가 겹치는 인사이트가 없습니다.</p><Link href="/insights" className="ml-article-back"><ArrowLeft size={16} aria-hidden="true" /> 모든 인사이트 보기</Link></section>}
         <section className="ml-article-newsletter ml-article-newsletter-bottom" aria-labelledby="article-weekly-title"><div><p className="ml-eyebrow">MARKLENS WEEKLY</p><h2 id="article-weekly-title">다음 주의 관점을,<br />이번 주의 인사이트로.</h2><p>매주 월요일 7:30 · 무료 마케팅 브리핑</p></div><NewsletterInlineCta variant="weekly" location="insight_bottom" /></section>
-        <Link href="/insights" className="ml-article-back ml-article-end"><ArrowLeft size={16} aria-hidden="true" /> 모든 인사이트 보기</Link>
+        {related.length ? <Link href="/insights" className="ml-article-back ml-article-end"><ArrowLeft size={16} aria-hidden="true" /> 모든 인사이트 보기</Link> : null}
       </div>
       <ViewCounter slug={insight.slug} />
-      <div className="ml-article-chat"><ArticleChat color={color} context={[
-        insight.hook && `제목: ${insight.hook}`,
-        insight.summary && `핵심 요약: ${insight.summary}`,
-        insight.key_takeaways?.length && `핵심 포인트:\n${insight.key_takeaways.join('\n')}`,
-        insight.why_it_matters && `왜 중요한가: ${insight.why_it_matters}`,
-        insight.practical_applications && `실전 적용법: ${insight.practical_applications}`,
-        insight.interview_points?.length && `실생활 적용:\n${insight.interview_points.join('\n')}`,
-      ].filter(Boolean).join("\n\n")} /></div>
     </article>
   )
 }

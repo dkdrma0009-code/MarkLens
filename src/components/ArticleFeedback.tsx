@@ -1,25 +1,15 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Heart } from "lucide-react"
-import { trackEvent } from "@/lib/analytics"
-import { subscriptionOutcome, type SubscriptionOutcome } from "@/lib/newsletter/subscription-result"
-import { useNewsletterView } from "@/components/useNewsletterView"
 
-// Subscriber source for this form (subscribers.source, migration 013) and its analytics position.
-const SUBSCRIBE_SOURCE = "insight_feedback", SUBSCRIBE_POSITION = "inline-feedback"
-
-export default function ArticleFeedback({ insightId, color }: { insightId: string; color: string }) {
+// One-line reader feedback under the article. Subscribing lives in the page's single Weekly form, not here.
+export default function ArticleFeedback({ insightId }: { insightId: string }) {
   const [liked, setLiked] = useState(false)
   const [disliked, setDisliked] = useState(false)
   const [comment, setComment] = useState("")
   const [showComment, setShowComment] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [subOutcome, setSubOutcome] = useState<SubscriptionOutcome | null>(null)
-  const [email, setEmail] = useState("")
-  const [subLoading, setSubLoading] = useState(false)
-  const subPending = useRef(false)
-  const subscribeRef = useNewsletterView(SUBSCRIBE_SOURCE, SUBSCRIBE_POSITION)
 
   async function sendFeedback(rating: string, c = "") {
     await fetch("/api/feedback", {
@@ -52,152 +42,38 @@ export default function ArticleFeedback({ insightId, color }: { insightId: strin
     setShowComment(false)
   }
 
-  // Same contract as NewsletterInlineCta: success is shown only for what the API actually confirmed.
-  async function handleSubscribe(e: React.FormEvent) {
-    e.preventDefault()
-    if (subPending.current || subOutcome?.done) return
-    subPending.current = true
-    setSubLoading(true)
-    setSubOutcome(null)
-    trackEvent("newsletter_submit", { location: SUBSCRIBE_SOURCE, position: SUBSCRIBE_POSITION })
-    let outcome: SubscriptionOutcome
-    try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source: SUBSCRIBE_SOURCE }),
-      })
-      outcome = subscriptionOutcome(res.status, await res.json().catch(() => null))
-    } catch {
-      outcome = subscriptionOutcome(0, null)
-    }
-    setSubOutcome(outcome)
-    if (outcome.result === "already") trackEvent("newsletter_already", { location: SUBSCRIBE_SOURCE, position: SUBSCRIBE_POSITION })
-    if (outcome.result === "new") trackEvent("newsletter_subscribe", { location: SUBSCRIBE_SOURCE, position: SUBSCRIBE_POSITION })
-    subPending.current = false
-    setSubLoading(false)
-  }
-
   return (
-    <div className="space-y-4">
-      {/* 좋아요 카드 */}
-      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-6">
-        <p className="text-base font-semibold text-gray-900 dark:text-gray-100 text-center mb-5">
-          이 인사이트가 도움이 됐나요?
-        </p>
-
-        <div className="flex justify-center gap-3 mb-4">
-          {/* 좋아요 */}
-          <button
-            onClick={handleLike}
-            className={`flex flex-col items-center gap-1.5 px-8 py-4 rounded-2xl border-2 transition-all ${
-              liked
-                ? "border-rose-400 bg-rose-50 dark:bg-rose-950"
-                : "border-gray-100 dark:border-gray-800 hover:border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950"
-            }`}
-          >
-            <Heart
-              className={`w-6 h-6 transition-colors ${liked ? "fill-rose-500 text-rose-500" : "text-gray-300 dark:text-gray-600"}`}
-            />
-            <span className={`text-sm font-semibold transition-colors ${liked ? "text-rose-500" : "text-gray-400 dark:text-gray-500"}`}>
-              도움됐어요
-            </span>
+    <div className="ml-feedback">
+      <div className="ml-feedback-row">
+        <p id="feedback-question">이 인사이트가 도움이 됐나요?</p>
+        <div className="ml-feedback-buttons" role="group" aria-labelledby="feedback-question">
+          <button type="button" onClick={handleLike} aria-pressed={liked}>
+            <Heart aria-hidden="true" className={liked ? "is-on" : undefined} />
+            도움됐어요
           </button>
-
-          {/* 아쉬워요 */}
-          <button
-            onClick={handleDislike}
-            className={`flex flex-col items-center gap-1.5 px-8 py-4 rounded-2xl border-2 transition-all ${
-              disliked
-                ? "border-gray-400 bg-gray-50 dark:bg-gray-800"
-                : "border-gray-100 dark:border-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-            }`}
-          >
-            <span className={`text-2xl transition-all ${disliked ? "" : "opacity-40"}`}>😐</span>
-            <span className={`text-sm font-semibold transition-colors ${disliked ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-500"}`}>
-              아쉬워요
-            </span>
+          <button type="button" onClick={handleDislike} aria-pressed={disliked}>
+            <span aria-hidden="true">😐</span>
+            아쉬워요
           </button>
         </div>
-
-        {/* 좋아요 후 메시지 */}
-        {liked && (
-          <p className="text-center text-sm text-rose-500 font-medium">
-            ♥ 응원해주셔서 감사합니다!
-          </p>
-        )}
-
-        {/* 아쉬워요 코멘트 */}
-        {showComment && !submitted && (
-          <div className="mt-4 space-y-3">
-            <textarea
-              value={comment}
-              onChange={e => setComment(e.target.value)}
-              placeholder="어떤 점이 아쉬웠나요? (선택)"
-              className="w-full text-sm px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-gray-400 resize-none"
-              rows={3}
-            />
-            <button
-              onClick={submitComment}
-              className="w-full py-2.5 text-sm font-semibold rounded-xl bg-gray-900 dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity"
-            >
-              의견 보내기
-            </button>
-          </div>
-        )}
-
-        {submitted && (
-          <p className="text-center text-sm text-gray-500 mt-2">의견을 보내주셔서 감사합니다 🙏</p>
-        )}
       </div>
 
-      {/* 뉴스레터 구독 인라인 CTA */}
-      <div
-        ref={subscribeRef}
-        className="rounded-2xl p-6"
-        style={{ backgroundColor: color + "10", border: `1px solid ${color}25` }}
-      >
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-            style={{ backgroundColor: color }}>
-            ✦
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-              매주 월요일, 이런 인사이트를 이메일로 받아보세요
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              무료 · 언제든 취소 가능
-            </p>
-          </div>
+      {liked && <p className="ml-feedback-note" role="status">♥ 응원해주셔서 감사합니다!</p>}
+
+      {showComment && !submitted && (
+        <div className="ml-feedback-comment">
+          <textarea
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder="어떤 점이 아쉬웠나요? (선택)"
+            aria-label="아쉬운 점 (선택)"
+            rows={3}
+          />
+          <button type="button" onClick={submitComment}>의견 보내기</button>
         </div>
+      )}
 
-        {subOutcome?.done ? (
-          <p className="text-sm font-medium text-center" style={{ color }} role="status">
-            {subOutcome.message}
-          </p>
-        ) : (
-          <form onSubmit={handleSubscribe} className="flex gap-2">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="이메일 주소"
-              className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-gray-400"
-            />
-            <button
-              type="submit"
-              disabled={subLoading}
-              className="px-4 py-2 text-sm font-bold rounded-xl text-white disabled:opacity-50 whitespace-nowrap"
-              style={{ backgroundColor: color }}
-            >
-              {subLoading ? "..." : "구독"}
-            </button>
-            {subOutcome ? <p className="basis-full" role="alert">{subOutcome.message}</p> : null}
-          </form>
-        )}
-      </div>
+      {submitted && <p className="ml-feedback-note" role="status">의견을 보내주셔서 감사합니다 🙏</p>}
     </div>
   )
 }

@@ -18,6 +18,7 @@ export default function ArticleChat({ context, color }: { context: string; color
   const inputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50)
@@ -102,19 +103,23 @@ export default function ArticleChat({ context, color }: { context: string; color
 
   return (
     <>
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-lg hover:opacity-90 transition-all"
-          style={{ backgroundColor: color }}
-        >
-          <MessageCircle className="w-4 h-4" />
-          AI에게 물어보기
-        </button>
-      )}
+      {/* In-text entry (C-1): sits after the article instead of floating over it; the panel below is unchanged. */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-expanded={open}
+        aria-controls="article-chat-panel"
+        className="ml-article-ask-button"
+      >
+        AI에게 이 글에 대해 묻기 <span aria-hidden="true">→</span>
+      </button>
 
       {open && (
         <div
+          id="article-chat-panel"
+          role="dialog"
+          aria-label="AI에게 이 글에 대해 묻기"
           className="fixed bottom-6 right-6 z-50 w-80 md:w-96 flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden"
           style={{ height: "480px" }}
         >
@@ -124,7 +129,7 @@ export default function ArticleChat({ context, color }: { context: string; color
               <MessageCircle className="w-4 h-4 text-white" />
               <span className="text-sm font-bold text-white">AI에게 물어보세요</span>
             </div>
-            <button onClick={() => { setOpen(false); abortRef.current?.abort() }}
+            <button onClick={() => { setOpen(false); abortRef.current?.abort(); triggerRef.current?.focus() }}
               aria-label="채팅 닫기"
               className="text-white/80 hover:text-white transition-colors">
               <X className="w-4 h-4" />
