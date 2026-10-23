@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { checkAiBudget } from "@/lib/ai/budget"
 
 export const maxDuration = 60
 
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
   try {
     const limited = checkRateLimit(req, { key: "chat", limit: 30, windowMs: 60_000 })
     if (limited) return limited
+    const overBudget = await checkAiBudget(req, "chat") // global daily AI quota (migration 024)
+    if (overBudget) return overBudget
 
     const { messages, context } = await req.json()
     if (!messages || !Array.isArray(messages)) {

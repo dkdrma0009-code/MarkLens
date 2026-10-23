@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { generateText } from "@/lib/ai/llm"
+import { checkRateLimit } from "@/lib/rate-limit"
+import { checkAiBudget } from "@/lib/ai/budget"
 import { calcXP } from "@/types/insight-lab"
 import { getTechniquesForPrompt } from "@/lib/insight-lab/techniques"
 import type { InsightFeedback, InsightScores } from "@/types/insight-lab"
@@ -137,6 +139,12 @@ export async function POST(req: Request) {
     if (ch) articleText = `${ch.title}\n\n${ch.summary}`
   }
   if (!articleText) return NextResponse.json({ error: "기사 내용이 없습니다" }, { status: 400 })
+
+  // 비용 보호: 사용자당 분당 5회(인스턴스별 1차 방어) + 사용자 일일 한도·서비스 전체 일일 한도(migration 024)
+  const limited = checkRateLimit(req, { key: `insight-lab-evaluate:${user.id}`, limit: 5, windowMs: 60_000 })
+  if (limited) return limited
+  const overBudget = await checkAiBudget(req, "insight-lab", user.id)
+  if (overBudget) return overBudget
 
   // 심사 — 근거 포함 출력이 길어 토큰을 넉넉히(이전 1200은 truncation으로 "심사 실패"의 원인).
   // generateText(일반 모드)가 flash-lite의 JSON-모드 빈응답 문제 없이 더 안정적.

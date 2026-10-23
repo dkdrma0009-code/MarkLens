@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateQuestions, buildTrendDigest, type QuizQuestion } from "@/lib/ai/quiz"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { checkAiBudget } from "@/lib/ai/budget"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
 
   // 풀이 부족하면 AI로 보충 — 최근 인사이트 기반 트렌드 문제로 (기존 질문과 중복 배제)
   if (questions.length < n) {
+    // Only the AI top-up spends from the daily quota; when it is used up, the stored questions found so far are served.
+    const overBudget = await checkAiBudget(req, "learn")
+    if (overBudget) return questions.length ? NextResponse.json({ questions }) : overBudget
     const { data: insights } = await supabase
       .from("insights")
       .select("hook, summary, why_it_matters")

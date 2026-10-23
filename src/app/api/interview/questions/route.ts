@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { geminiJson } from "@/lib/ai/gemini"
 import { buildTrendDigest } from "@/lib/ai/quiz"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { checkAiBudget } from "@/lib/ai/budget"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -23,6 +24,8 @@ JSON만 반환: {"questions":[{"question":"...","kind":"trend"},{"question":"...
 export async function POST(req: Request) {
   const limited = checkRateLimit(req, { key: "interview-questions", limit: 10, windowMs: 60_000 })
   if (limited) return limited
+  const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
+  if (overBudget) return overBudget
 
   const { role: rawRole, count } = await req.json()
   const role = String(rawRole ?? "마케팅").slice(0, 100) // 프롬프트 주입 페이로드 상한

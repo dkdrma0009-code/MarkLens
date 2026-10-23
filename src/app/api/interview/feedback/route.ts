@@ -1,5 +1,6 @@
 import { geminiJson } from "@/lib/ai/gemini"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { checkAiBudget } from "@/lib/ai/budget"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -17,6 +18,8 @@ JSON만 반환: {"good":"...","improve":"...","model_answer":"...","star":{"s":t
 export async function POST(req: Request) {
   const limited = checkRateLimit(req, { key: "interview-feedback", limit: 20, windowMs: 60_000 })
   if (limited) return limited
+  const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
+  if (overBudget) return overBudget
 
   const { question, answer, role, context } = await req.json()
   if (!question || !answer) {

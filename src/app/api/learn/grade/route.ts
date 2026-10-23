@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { checkAiBudget } from "@/lib/ai/budget"
 import { generateText } from "@/lib/ai/llm"
 
 export async function POST(req: Request) {
@@ -21,7 +22,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ result: "correct" })
   }
 
-  // 2단계: AI 채점 (엄격하게)
+  // 2단계: AI 채점 (엄격하게) — 일일 AI 한도 안에서만
+  const overBudget = await checkAiBudget(req, "learn")
+  if (overBudget) return overBudget
   try {
     const text = await generateText({
       system: `채점자야. 아래 기준으로 엄격하게 채점해. 반드시 'correct' 또는 'incorrect' 중 하나만 반환해. 다른 말 절대 금지.

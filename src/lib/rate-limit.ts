@@ -5,7 +5,7 @@ import { NextResponse } from "next/server"
 // 단일 IP의 폭주(루프/스크립트 호출)와 우발적 AI 비용 폭증을 막는 1차 방어선으로 충분하다.
 const hits = new Map<string, number[]>()
 
-function clientId(req: Request): string {
+export function clientId(req: Request): string {
   const xff = req.headers.get("x-forwarded-for")
   if (xff) return xff.split(",")[0].trim()
   return req.headers.get("x-real-ip") ?? "unknown"
