@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { createPublicClient } from "@/lib/supabase/server"
+import { SITE_OG_IMAGE } from "@/lib/og"
 
 // 발행 인사이트에 쌓인 marketing_terms를 한 페이지로 집약 — "○○ 뜻" 검색·AI 인용(AEO) 타깃.
 export const revalidate = 3600
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   description:
     "마케팅 트렌드 분석에서 실제로 등장한 용어·약어를 한곳에. AEO·CRM·퍼포먼스 마케팅 등 실무 용어를 맥락과 함께 풀이합니다.",
   alternates: { canonical: "/glossary" },
-  openGraph: { title: "MarkLens Dictionary — 마케팅 언어를 정확하게", description: "실무에서 쓰는 마케팅 용어를 맥락과 함께 풀이합니다.", url: "/glossary", siteName: "MarkLens", type: "website" },
+  openGraph: { title: "MarkLens Dictionary — 마케팅 언어를 정확하게", description: "실무에서 쓰는 마케팅 용어를 맥락과 함께 풀이합니다.", url: "/glossary", siteName: "MarkLens", type: "website", images: [SITE_OG_IMAGE] },
 }
 
 function anchorId(term: string): string {

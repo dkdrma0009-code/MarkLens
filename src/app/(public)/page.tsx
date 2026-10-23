@@ -1,6 +1,7 @@
 import { PUBLIC_HOME_SELECT } from "@/lib/insights/public-select"
 import type { Metadata } from "next"
 import { createPublicClient } from "@/lib/supabase/server"
+import { SITE_OG_IMAGE } from "@/lib/og"
 import Hero from "@/components/home/Hero"
 import Pulse from "@/components/home/Pulse"
 import MainStory from "@/components/home/MainStory"
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
     url: "https://marklens.site",
     siteName: "MarkLens",
     type: "website",
+    images: [SITE_OG_IMAGE],
   },
 }
 

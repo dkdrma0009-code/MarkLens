@@ -1,9 +1,10 @@
 import type { Metadata } from "next"
 import type { PublicBrandState } from "./types"
+import { SITE_OG_IMAGE } from "@/lib/og"
 
 // Descriptions are fixed product copy plus, only when it exists, the reviewed Snapshot headline.
 // Nothing strategic is written for brands without a published Snapshot. Indexing follows the profile's
-// SEO status; Open Graph images come from the site-wide opengraph-image convention.
+// SEO status; the Open Graph image is the site-wide one, listed explicitly (a page openGraph replaces the parent's).
 export const BRANDS_INDEX_DESCRIPTION = "최근 공개 자료와 마케팅 움직임을 MarkLens가 연결해 읽습니다. 사실(FACT), 반복된 움직임(Observed Pattern), MarkLens의 해석을 구분해 보여줍니다."
 
 export function brandsIndexMetadata(states: readonly PublicBrandState[]): Metadata {
@@ -11,7 +12,7 @@ export function brandsIndexMetadata(states: readonly PublicBrandState[]): Metada
   return {
     title, description: BRANDS_INDEX_DESCRIPTION,
     alternates: { canonical: "/brands" },
-    openGraph: { title, description: BRANDS_INDEX_DESCRIPTION, url: "/brands", siteName: "MarkLens", type: "website" },
+    openGraph: { title, description: BRANDS_INDEX_DESCRIPTION, url: "/brands", siteName: "MarkLens", type: "website", images: [SITE_OG_IMAGE] },
     ...(brandsIndexLoaded(states) ? {} : { robots: { index: false, follow: true } }),
   }
 }
@@ -42,7 +43,7 @@ export function brandMetadata(state: PublicBrandState): Metadata {
   return {
     title, description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, siteName: "MarkLens", type: "website" },
+    openGraph: { title, description, url, siteName: "MarkLens", type: "website", images: [SITE_OG_IMAGE] },
     ...(state.kind === "available" && state.indexable ? {} : { robots: { index: false, follow: true } }),
   }
 }
