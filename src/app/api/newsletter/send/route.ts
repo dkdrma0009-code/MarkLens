@@ -44,6 +44,18 @@ export async function POST(req: Request) {
     : (await supabase.from("subscribers").select("email").eq("status", "active")).data
   if (!subscribers?.length) return NextResponse.json({ error: "No active subscribers" }, { status: 400 })
 
+  // 실발송은 보내기 "전"에 호를 sent 로 선점한다(조건부 UPDATE 1회) — 재시도·중복 클릭·타임아웃 후 재요청이 전체
+  // 구독자에게 같은 호를 다시 보내지 않도록. 한 통도 못 보냈을 때만 이전 상태로 되돌린다.
+  if (!testEmail) {
+    const now = new Date().toISOString()
+    const { data: claimed, error: claimError } = await supabase.from("newsletter_issues")
+      .update({ status: "sent", sent_at: now, approved_at: now })
+      .eq("id", issueId).or("status.is.null,status.neq.sent")
+      .select("id")
+    if (claimError) return NextResponse.json({ error: `발송 상태 기록 실패: ${claimError.message}` }, { status: 500 })
+    if (!claimed?.length) return NextResponse.json({ error: "이미 발송된 호입니다. 다시 보내지 않습니다." }, { status: 409 })
+  }
+
   const cleanTitle = issue.title.replace(/^#\d+\s*[—\-–]\s*/, "").trim()
   const subject = `[MarkLens] ${cleanTitle}`
   let sent = 0
@@ -63,10 +75,10 @@ export async function POST(req: Request) {
     })
   }
 
-  // 테스트 발송은 status 변경 안 함 (실발송만 sent 처리)
-  if (sent > 0 && !testEmail) {
+  // 테스트 발송은 status 변경 안 함. 실발송이 한 통도 나가지 않았으면 선점을 풀어 다시 보낼 수 있게 한다.
+  if (sent === 0 && !testEmail) {
     await supabase.from("newsletter_issues")
-      .update({ status: "sent", sent_at: new Date().toISOString(), approved_at: new Date().toISOString() })
+      .update({ status: issue.status, sent_at: issue.sent_at ?? null, approved_at: issue.approved_at ?? null })
       .eq("id", issueId)
   }
 
