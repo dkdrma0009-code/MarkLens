@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local, git-ignored output of tools/design-audit.mjs and design prototypes (docs/design-intelligence/README.md).
+    ".design-audit/**",
   ]),
 ]);
 
