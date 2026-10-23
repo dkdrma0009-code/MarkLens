@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import * as releaseGuard from '../src/lib/release/guard.mjs'
 
 // R-1: a weekly issue reaches each subscriber once. The real POST /api/newsletter/send runs with an in-memory
 // newsletter_issues/subscribers table and a stubbed Brevo; the claim is one conditional UPDATE, like SQL.
@@ -36,6 +37,7 @@ function setup({ status = 'pending_approval', brevoOk = true } = {}) {
     '@/app/api/unsubscribe/route': { generateUnsubscribeUrl: async email => 'https://x.test/u?e=' + email },
     '@/lib/newsletter/html': { buildNewsletterHtml: () => '<p>issue</p>' },
     '@/lib/api-auth': { isAdmin: async () => true },
+    '@/lib/release/guard.mjs': releaseGuard,
     'next/server': { NextResponse: { json: (body, init) => ({ status: init?.status ?? 200, body }) } },
   })
   const post = body => route.POST(new Request('https://x.test/api/newsletter/send', { method: 'POST', body: JSON.stringify(body) }))

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import * as releaseGuard from '../src/lib/release/guard.mjs'
 
 // Regressions found by the Site-Wide Audit V1: a subscribe form that claimed success on failure, and the Career Lab
 // menu that lost its active state on its own sub-pages. Chapter B IA V1: the approved menu, footer and Career names,
@@ -22,6 +23,7 @@ function subscribeApi({ rpc = { data: [{ result: 'issued', subscription_created:
   const sent = []
   const route = load('src/app/api/subscribe/route.ts', {
     'next/server': { NextResponse: { json: (body, init) => ({ status: init?.status ?? 200, body }) } },
+    '@/lib/release/guard.mjs': releaseGuard,
     '@/lib/rate-limit': { checkRateLimit: () => limited ? { status: 429, body: { error: '요청이 너무 많습니다' } } : null },
     '@/lib/supabase/admin': { createAdminClient: () => ({ rpc: async () => rpc }) },
     '@/lib/newsletter/confirmation-mail.mjs': { confirmationUrl: () => 'https://example.test/confirm', sendConfirmEmail: async to => { if (mailFails) throw new Error('send failed'); sent.push(to) } },

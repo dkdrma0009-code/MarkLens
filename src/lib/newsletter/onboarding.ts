@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
+import { blockedReason } from "@/lib/release/guard.mjs"
 
 // 온보딩 드립 시퀀스 — 구독 확인(웰컴=step0) 후 며칠에 걸쳐 활성화 메일을 보낸다.
 // subscribers.drip_step으로 진행 추적(0=웰컴만, 1·2=각 단계 발송 완료). 신규만 대상(기존은 99).
@@ -70,7 +71,7 @@ function wrap(body: string, unsubscribeUrl: string): string {
 }
 
 async function sendDrip(email: string, step: DripStep): Promise<boolean> {
-  if (!process.env.BREVO_API_KEY) return false
+  if (!process.env.BREVO_API_KEY || blockedReason("email")) return false
   const unsubscribeUrl = await generateUnsubscribeUrl(email)
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",

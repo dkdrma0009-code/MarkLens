@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { checkInstagram } from "@/lib/instagram"
 import { checkThreads } from "@/lib/threads"
 import { checkGa4 } from "@/lib/ga4"
+import { blockedReason, databaseIsolated, deployment, supabaseRef } from "@/lib/release/guard.mjs"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -74,9 +75,12 @@ export async function GET(req: Request) {
 
   const checks = { supabase, brevo, instagram, threads, ga4, env }
   const allOk = Object.values(checks).every(c => c.ok)
+  // How this deployment is classified by the release guard — the first thing to read on a Preview (names only).
+  const actions = ["db-write", "instagram", "threads", "email", "aws", "ai", "cron"] as const
+  const release = { deployment: deployment(), supabaseRef: supabaseRef(), databaseIsolated: databaseIsolated(), blocked: actions.filter(a => blockedReason(a)) }
 
   return NextResponse.json(
-    { ok: allOk, checkedAt: new Date().toISOString(), checks },
+    { ok: allOk, checkedAt: new Date().toISOString(), release, checks },
     { status: allOk ? 200 : 503 }
   )
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { sendAdminAlert } from "@/lib/alert"
+import { blockedReason } from "@/lib/release/guard.mjs"
 
 export const maxDuration = 300
 
@@ -10,6 +11,8 @@ export async function GET(req: Request) {
   if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const blocked = blockedReason("cron") // Preview never runs production jobs (collect, publish, mail)
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const secret = process.env.N8N_WEBHOOK_SECRET // generate/send가 받는 웹훅 시크릿 재사용

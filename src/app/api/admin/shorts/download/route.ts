@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isAdmin } from "@/lib/api-auth"
+import { blockedReason } from "@/lib/release/guard.mjs"
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3"
 
 export const maxDuration = 60
@@ -33,9 +34,9 @@ export async function GET(req: Request) {
 
   const buf = await res.arrayBuffer()
 
-  // 다운로드 후 S3에서 삭제 (비동기 — 응답 지연 없음)
+  // 다운로드 후 S3에서 삭제 (비동기 — 응답 지연 없음). Preview 는 운영 버킷을 바꾸지 않는다.
   const parsed = parseS3Url(outputFile)
-  if (parsed) {
+  if (parsed && !blockedReason("aws")) {
     const s3 = new S3Client({
       region: parsed.region,
       credentials: {

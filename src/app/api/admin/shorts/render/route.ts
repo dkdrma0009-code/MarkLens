@@ -4,6 +4,7 @@ import nodePath from "node:path"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 import { isAdmin } from "@/lib/api-auth"
+import { blockedReason } from "@/lib/release/guard.mjs"
 import { generateReelScript } from "@/lib/shorts/reel-script"
 import type { Slide } from "@/lib/cardnews/types"
 
@@ -128,6 +129,8 @@ export async function POST(req: Request) {
 
   // ── 프로덕션: Lambda 렌더 트리거 후 즉시 반환 ──
   if (process.env.NODE_ENV !== "development") {
+    const blocked = blockedReason("aws") // Preview: no paid Lambda render
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
     const functionName = process.env.REMOTION_FUNCTION_NAME
     const serveUrl = process.env.REMOTION_SERVE_URL
     if (!functionName || !serveUrl) {

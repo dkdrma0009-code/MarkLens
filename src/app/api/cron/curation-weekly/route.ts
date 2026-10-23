@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { generateCuration } from "@/lib/cardnews/curation-generate"
 import { publishCuration } from "@/lib/cardnews/curation-publish"
 import { NextResponse } from "next/server"
+import { blockedReason } from "@/lib/release/guard.mjs"
 
 export const maxDuration = 300
 
@@ -13,6 +14,8 @@ export async function GET(req: Request) {
   if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const blocked = blockedReason("cron") // Preview never runs production jobs (collect, publish, mail)
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const supabase = createAdminClient()
   const result: Record<string, unknown> = {}

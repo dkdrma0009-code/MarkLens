@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
 import { buildNewsletterHtml } from "@/lib/newsletter/html"
 import { isAdmin } from "@/lib/api-auth"
+import { blockedReason } from "@/lib/release/guard.mjs"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
   const secret = searchParams.get("secret")
   const isN8n = secret === process.env.N8N_WEBHOOK_SECRET
   if (!isN8n && !await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // Preview never mails anyone (test sends included); refused before the issue is claimed.
+  const blocked = blockedReason("email")
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const body = await req.json()
   const issueId = body.issueId ?? body.issue?.id

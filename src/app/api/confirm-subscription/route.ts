@@ -1,11 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { blockedReason } from "@/lib/release/guard.mjs"
 
 const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;"
 
 // 구독 확인 직후 보내는 웰컴 이메일 (첫인상 + 기대치 설정 + 사이트 유도)
 async function sendWelcomeEmail(email: string): Promise<void> {
-  if (!process.env.BREVO_API_KEY) return
+  if (!process.env.BREVO_API_KEY || blockedReason("email")) return
   const welcome = `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:40px 20px;background:#e8e5e0;${F}">

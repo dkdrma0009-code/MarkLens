@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { sendAdminAlert } from "@/lib/alert"
 import { runOnboardingDrip } from "@/lib/newsletter/onboarding"
+import { blockedReason } from "@/lib/release/guard.mjs"
 
 // Vercel Cron이 매일 UTC 00:00에 호출
 // CRON_SECRET 환경변수로 인증
@@ -11,6 +12,8 @@ export async function GET(req: Request) {
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const blocked = blockedReason("cron") // Preview never runs production jobs (collect, publish, mail)
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const secret = process.env.N8N_WEBHOOK_SECRET

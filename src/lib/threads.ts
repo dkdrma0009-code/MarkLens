@@ -1,6 +1,7 @@
 // Threads 콘텐츠 발행 (Threads API) — THREADS_ACCESS_TOKEN, THREADS_USER_ID 필요
 // 토큰은 app_config(DB) 우선, 없으면 env. 자동 갱신은 DB에 반영됨.
 import { createAdminClient } from "@/lib/supabase/admin"
+import { assertAllowed } from "@/lib/release/guard.mjs"
 
 const GRAPH = "https://graph.threads.net/v1.0"
 
@@ -22,6 +23,7 @@ async function creds(): Promise<{ token: string; userId: string } | null> {
 
 // 장수명 토큰 갱신 → app_config에 저장 (cron에서 주기 호출). 반환: 남은 유효일
 export async function refreshThreadsToken(): Promise<number> {
+  assertAllowed("threads")
   const token = await getThreadsToken()
   if (!token) throw new Error("THREADS_ACCESS_TOKEN 미설정")
   const res = await fetch(`https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${token}`)
@@ -111,6 +113,7 @@ export async function getThreadsInsights(): Promise<ThreadsInsights | null> {
 // 이미지 캐러셀 발행: 공개 이미지 URL 배열 + 텍스트 → 게시물 id (미설정 시 null)
 // onPublish runs right before the final threads_publish call: an error after it may mean the post went out.
 export async function publishThreadsCarousel(imageUrls: string[], text: string, onPublish?: () => void): Promise<string | null> {
+  assertAllowed("threads")
   const c = await creds()
   if (!c) return null
   const { token, userId } = c

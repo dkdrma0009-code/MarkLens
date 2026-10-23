@@ -4,6 +4,7 @@ import { publishReel } from "@/lib/instagram"
 import { renderCardnewsBuffers } from "@/lib/cardnews/render-buffers"
 import { CARDNEWS_BUCKET } from "@/lib/cardnews/publish"
 import { isAdmin } from "@/lib/api-auth"
+import { blockedReason } from "@/lib/release/guard.mjs"
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3"
 
 export const maxDuration = 300
@@ -82,9 +83,9 @@ export async function POST(req: Request) {
     if (dbErr) console.error("[shorts/reels] DB 기록 실패:", dbErr.message)
   }
 
-  // 발행 완료 후 S3 파일 삭제
+  // 발행 완료 후 S3 파일 삭제 (Preview 는 발행 단계에서 이미 거부되지만, 버킷 변경도 따로 막는다)
   const parsed = parseS3Url(outputFile)
-  if (parsed) {
+  if (parsed && !blockedReason("aws")) {
     const s3 = new S3Client({
       region: parsed.region,
       credentials: {

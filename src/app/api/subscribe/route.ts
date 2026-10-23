@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 import { confirmationUrl, sendConfirmEmail } from "@/lib/newsletter/confirmation-mail.mjs"
+import { assertAllowed } from "@/lib/release/guard.mjs"
 
 export async function POST(req: Request) {
   // 이메일 발송 비용·스팸 방지 — 정상 사용자는 1회로 충분, IP당 분당 3회
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
     const confirmUrl = confirmationUrl(email, token)
 
     try {
+      assertAllowed("email") // Preview: no real mail; the reader is told the mail was not sent
       await sendConfirmEmail(email, confirmUrl)
     } catch {
       // 이메일 발송 실패해도 구독은 유지, 재시도 안내

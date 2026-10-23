@@ -1,6 +1,7 @@
 // Instagram 콘텐츠 발행 — Instagram API with Instagram Login (graph.instagram.com)
 // 토큰은 app_config(DB) 우선, 없으면 env IG_ACCESS_TOKEN. 자동 갱신은 DB에 반영됨.
 import { createAdminClient } from "@/lib/supabase/admin"
+import { assertAllowed } from "@/lib/release/guard.mjs"
 
 const GRAPH = "https://graph.instagram.com/v21.0"
 
@@ -42,6 +43,7 @@ async function containerStatus(token: string, id: string): Promise<string> {
 // 캐러셀(여러 장) 발행: 공개 이미지 URL 배열 + 캡션 → 게시물 id
 // onPublish runs right before the final media_publish call: an error after it may mean the post went out.
 export async function publishCarousel(imageUrls: string[], caption: string, onPublish?: () => void): Promise<string> {
+  assertAllowed("instagram")
   const token = await getAccessToken()
   const userId = getUserId()
 
@@ -157,6 +159,7 @@ export async function getMediaInsight(
 
 // 숏츠 릴스 발행: 공개 S3 URL → Instagram Reels 게시물 id
 export async function publishReel(videoUrl: string, caption: string, coverUrl?: string): Promise<string> {
+  assertAllowed("instagram")
   const token = await getAccessToken()
   const userId = getUserId()
 
@@ -196,6 +199,7 @@ export async function publishReel(videoUrl: string, caption: string, coverUrl?: 
 
 // 장수명 토큰 갱신 → app_config에 저장 (cron에서 주기 호출). 반환: 남은 유효일
 export async function refreshIgToken(): Promise<number> {
+  assertAllowed("instagram")
   const token = await getAccessToken()
   const res = await fetch(`${GRAPH.replace("/v21.0", "")}/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`)
   const j = (await res.json()) as { access_token?: string; expires_in?: number; error?: unknown }

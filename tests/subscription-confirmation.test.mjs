@@ -5,6 +5,7 @@ import { test } from "node:test"
 import vm from "node:vm"
 import { webcrypto } from "node:crypto"
 import ts from "typescript"
+import * as releaseGuard from "../src/lib/release/guard.mjs"
 
 // Optional isolated PostgreSQL runtime, installed outside the repository.
 // PGLITE_MODULE=/absolute/path/to/@electric-sql/pglite node --test tests/subscription-confirmation.test.mjs
@@ -25,6 +26,7 @@ function loadRoute(file, db, delivery) {
     "@/lib/newsletter/confirmation-mail.mjs": mail,
     "@/lib/supabase/admin": { createAdminClient: () => db },
     "@/lib/rate-limit": { checkRateLimit: () => null },
+    "@/lib/release/guard.mjs": releaseGuard,
     "next/server": { NextResponse: { json: (body, options) => Response.json(body, options) } },
   }
   const code = ts.transpileModule(readFileSync(file, "utf8"), {

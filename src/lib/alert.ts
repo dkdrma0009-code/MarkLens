@@ -1,8 +1,10 @@
-// cron 실패 시 어드민 이메일 알림 — Brevo transactional API 재사용
+import { blockedReason } from "@/lib/release/guard.mjs"
+
+// cron 실패 시 어드민 이메일 알림 — Brevo transactional API 재사용 (Preview 에서는 보내지 않음)
 export async function sendAdminAlert(subject: string, message: string): Promise<void> {
   const adminEmail = process.env.ADMIN_EMAIL
   const apiKey = process.env.BREVO_API_KEY
-  if (!adminEmail || !apiKey) return
+  if (!adminEmail || !apiKey || blockedReason("email")) return
 
   await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
