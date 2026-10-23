@@ -12,6 +12,8 @@
 !/scripts/deploy-shorts-site.mjs
 !/scripts/fetch-stock-clips.mjs
 !/scripts/recover-legacy-pending-subscribers.mjs
+# Release checks (no credentials; names and read-only SQL only)
+!/scripts/release/
 # 긁은 릴스 원본은 커밋 안 함 (용량·재생성 가능)
 /scripts/output/
 
