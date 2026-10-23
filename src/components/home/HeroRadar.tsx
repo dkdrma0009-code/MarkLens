@@ -14,7 +14,6 @@ export default function HeroRadar({ stories, visuals }: { stories: RadarStory[];
   const media = useRef<HTMLDivElement>(null)
   const controls = useRef<HTMLDivElement>(null)
   const cycle = useRef({ index: 0, remaining: 6000, started: 0 })
-  const selected = stories[active]
 
   useEffect(() => {
     const element = media.current
@@ -52,29 +51,25 @@ export default function HeroRadar({ stories, visuals }: { stories: RadarStory[];
   }
   const move = (direction: number) => setActive(index => (index + direction + stories.length) % stories.length)
 
-  return <>
-    <div className="ml-hero-visual ml-radar-media" ref={media} {...interaction}>
-      <div className="ml-hero-visual-top"><span>THE EDITORIAL LENS</span><span className="ml-hangul">{selected.category}</span></div>
-      <Link href={selected.href} className="ml-hero-image-link" aria-label={selected.title}>
-        <div className="ml-radar-frames">{visuals.map((visual, index) => <div key={stories[index].id} className={`ml-radar-frame${active === index ? " ml-radar-frame-active" : ""}`} aria-hidden={active !== index}>{visual}</div>)}</div>
+  // C-2 Panel B: the same stories, rotation and controls in one compact panel. The controls come before the stories (the
+  // carousel order assistive technology expects). Inactive stories stay mounted (their thumbnails load once) but are
+  // inert and hidden from assistive technology, so only the shown story is reachable.
+  return <aside className="ml-hero-panel" aria-labelledby="hero-panel-title" ref={media} {...interaction}>
+    <h2 id="hero-panel-title" className="ml-hero-panel-label">오늘의 인사이트</h2>
+    {stories.length > 1 ? <div className="ml-radar-controls" ref={controls}>
+      <div className="ml-radar-progress" aria-hidden="true"><span key={active} /></div>
+      <span className="ml-radar-count" aria-hidden="true">{String(active + 1).padStart(2, "0")} / {String(stories.length).padStart(2, "0")}</span><span className="sr-only">{`전체 ${stories.length}개 중 ${active + 1}번째 이야기`}</span>
+      <button type="button" onClick={() => move(-1)} aria-label="이전 이야기"><ArrowLeft size={16} aria-hidden="true" /></button>
+      <button type="button" onClick={() => setPaused(value => !value)} aria-label={paused ? "자동 넘김 시작" : "자동 넘김 일시정지"} aria-pressed={paused}>{paused ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}</button>
+      <button type="button" onClick={() => move(1)} aria-label="다음 이야기"><ArrowRight size={16} aria-hidden="true" /></button>
+    </div> : null}
+    <div className="ml-hero-stories">{stories.map((item, index) => <article key={item.id} className="ml-hero-story" data-active={active === index} aria-hidden={active !== index || undefined} inert={active !== index}>
+      <Link href={item.href} className="ml-hero-story-link">
+        <span className="ml-hero-story-thumb">{visuals[index]}</span>
+        <span className="ml-hero-story-text"><span className="ml-hero-story-category">{item.category}</span><h3>{item.title}</h3></span>
+        <ArrowUpRight size={18} aria-hidden="true" />
       </Link>
-      <div className="ml-hero-caption" key={selected.id}><span className="ml-eyebrow">IN FOCUS</span><Link href={selected.href}>{selected.title} <ArrowUpRight size={18} aria-hidden="true" /></Link></div>
-    </div>
-    {stories.length > 1 ? <aside className="ml-hero-radar" aria-labelledby="radar-title" {...interaction}>
-      <div className="ml-radar-label"><span className="ml-signal-dot" aria-hidden="true" /><p className="ml-eyebrow">ON THE RADAR</p></div>
-      <h2 id="radar-title">지금, 읽어야 할<br />다음 이야기.</h2>
-      {stories.slice(1).map((item, index) => <article key={item.id} className={active === index + 1 ? "ml-radar-current" : undefined}>
-        <p className="ml-category">{item.category}</p><h3><Link href={item.href}>{item.title}<ArrowUpRight size={16} aria-hidden="true" /></Link></h3><p className="ml-radar-meta">{item.source} · <time dateTime={item.dateTime}>{item.date}</time></p>
-      </article>)}
-      <div className="ml-radar-controls" ref={controls}>
-        <div className="ml-radar-progress" aria-hidden="true"><span key={active} /></div>
-        <div><span className="ml-radar-count" aria-label={`선택된 이야기 ${active + 1}, 전체 ${stories.length}`}>{String(active + 1).padStart(2, "0")} / {String(stories.length).padStart(2, "0")}</span>
-          <button type="button" onClick={() => move(-1)} aria-label="이전 Radar 이야기"><ArrowLeft size={14} aria-hidden="true" /></button>
-          <button type="button" onClick={() => setPaused(value => !value)} aria-label={paused ? "Radar 자동 재생 시작" : "Radar 자동 재생 일시정지"} aria-pressed={paused}>{paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}</button>
-          <button type="button" onClick={() => move(1)} aria-label="다음 Radar 이야기"><ArrowRight size={14} aria-hidden="true" /></button>
-        </div>
-      </div>
-      <Link href="/insights" className="ml-text-link">새로운 관점 탐색 <ArrowRight size={16} aria-hidden="true" /></Link>
-    </aside> : null}
-  </>
+      <p className="ml-hero-story-meta">{item.source} · <time dateTime={item.dateTime}>{item.date}</time></p>
+    </article>)}</div>
+  </aside>
 }

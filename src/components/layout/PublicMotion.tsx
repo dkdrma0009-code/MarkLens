@@ -30,9 +30,6 @@ export default function PublicMotion() {
     const ease = tokens.getPropertyValue("--ease-editorial").trim()
     const seen = new WeakSet<Element>()
     const running = new Map<Element, Animation>()
-    let hero: HTMLElement | null = null
-    let heroTop = 0
-    let heroHeight = 1
     let frame = 0
     let previousY = window.scrollY
     let compact = previousY > 64
@@ -67,13 +64,7 @@ export default function PublicMotion() {
       }
     }, { threshold: .1 })
 
-    const measureHero = () => {
-      hero = root.querySelector<HTMLElement>(".ml-hero-image-link")
-      if (hero) {
-        const rect = hero.getBoundingClientRect()
-        heroTop = rect.top + window.scrollY
-        heroHeight = rect.height
-      }
+    const measure = () => {
       signals = root.querySelector<HTMLElement>(".ml-signals")
       signalRows = Array.from(root.querySelectorAll<HTMLElement>(".ml-signal-list article"))
       mainImage = root.querySelector<HTMLElement>(".ml-main-image .ml-image")
@@ -89,10 +80,6 @@ export default function PublicMotion() {
       else if (Math.abs(y - previousY) > 3) compact = y > previousY
       previousY = y
       header?.classList.toggle("ml-header-compact", compact)
-      if (hero && desktop.matches && !reduced.matches) {
-        const depth = Math.max(0, Math.min(18, (y / (heroTop + heroHeight)) * 18))
-        hero.style.setProperty("--ml-depth", `${depth.toFixed(2)}px`)
-      }
       if (desktop.matches && !document.hidden) {
         const readingY = y + window.innerHeight * .45
         const current = signalGeometry.findLastIndex(row => row.top <= readingY)
@@ -112,7 +99,7 @@ export default function PublicMotion() {
       }
     }
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(updateScroll) }
-    const onResize = () => { measureHero(); onScroll() }
+    const onResize = () => { measure(); onScroll() }
     const discover = (node: Element) => {
       const elements = node.matches(REVEAL_SELECTOR) ? [node] : []
       elements.push(...node.querySelectorAll(REVEAL_SELECTOR))
@@ -121,7 +108,7 @@ export default function PublicMotion() {
         seen.add(element)
         if (!reduced.matches) observer.observe(element)
       }
-      if (!hero || !signals) measureHero()
+      if (!signals) measure()
     }
     discover(root)
     // App Router streaming and load-more can append markup after this island mounts.
@@ -143,7 +130,6 @@ export default function PublicMotion() {
         running.forEach(animation => animation.cancel())
         running.clear()
       }
-      hero?.style.removeProperty("--ml-depth")
       mainImage?.style.removeProperty("--ml-main-depth")
       onScroll()
     }
@@ -163,7 +149,6 @@ export default function PublicMotion() {
       root.removeEventListener("focusin", showFocused)
       reduced.removeEventListener("change", stopMotion)
       desktop.removeEventListener("change", stopMotion)
-      hero?.style.removeProperty("--ml-depth")
       mainImage?.style.removeProperty("--ml-main-depth")
       signalRows.forEach(row => row.classList.remove("ml-signal-active"))
       signals?.style.removeProperty("--signal-step")

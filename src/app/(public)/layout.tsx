@@ -6,6 +6,7 @@ import "./remaining.css"
 import "./motion.css"
 import "./composition.css"
 import "./continuous.css"
+import "./hero.css"
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (

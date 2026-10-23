@@ -117,6 +117,28 @@ test('home: Signals and Collections keep their sections, anchors and category li
   assert.deepEqual([...new Set(links(html).map(link => link.href))], ['/insights?category=%EB%B8%8C%EB%9E%9C%EB%94%A9', '/insights?category=CRM'])
 })
 
+test('home hero (C-2): approved copy and CTAs, one high-priority cover with a phone source, every story kept, nothing invented', () => {
+  const data = load('src/components/home/data.ts', { '@/lib/images': { isHotlinkBlocked: () => false } })
+  const { default: HeroCover } = load('src/components/home/HeroCover.tsx')
+  const { default: HeroRadar } = load('src/components/home/HeroRadar.tsx', ui)
+  const { default: Hero } = load('src/components/home/Hero.tsx', { ...ui, './data': data, './EditorialImage': esm(() => null), './HeroCover': esm(HeroCover), './HeroRadar': esm(HeroRadar) })
+  const story = n => ({ id: `s${n}`, slug: `story-${n}`, hook: `이야기 ${n}`, category: '브랜딩', is_featured: false, created_at: '2026-10-20T00:00:00Z', article: { title: `Story ${n}`, source_name: '출처' } })
+  const render = props => renderToStaticMarkup(createElement(Hero, { children: null, ...props }))
+  const html = render({ story: story(1), radar: [story(2), story(3)] })
+  assert.match(html, /<h1 id="hero-title">.*트렌드를 읽고,.*실무로 옮기다/)
+  assert.deepEqual(links(html).filter(link => !link.href.startsWith('/insights/')).map(link => [link.text.trim(), link.href]), [['최신 인사이트 읽기', '/insights'], ['Brand Watch 보기', '/brands']])
+  assert.equal((html.match(/fetchPriority="high"/g) ?? []).length, 1)
+  assert.match(html, /<source media="\(max-width: 600px\)"[^>]*hero-v3-mobile-1170\.webp 1170w/)
+  // Radar: all stories stay in the page with their rotation controls; only the shown one is reachable.
+  for (const n of [1, 2, 3]) assert.ok(html.includes(`href="/insights/story-${n}"`), `story ${n}`)
+  assert.equal((html.match(/inert=""/g) ?? []).length, 2)
+  for (const label of ['이전 이야기', '자동 넘김 일시정지', '다음 이야기']) assert.ok(html.includes(`aria-label="${label}"`), label)
+  assert.match(html, /AI로 생성한 가상 인물/)
+  assert.doesNotMatch(render({ story: story(1), radar: [] }), /aria-label="다음 이야기"/)
+  const empty = render({ story: undefined, radar: [] })
+  assert.match(empty, /발행된 인사이트를 준비하고 있습니다/); assert.doesNotMatch(empty, /href="\/insights\//)
+})
+
 test('career: Career Lab and its tools use the official names; URLs unchanged; no "Daily" quiz', () => {
   assert.deepEqual(navigation.CAREER_FEATURES.map(feature => [feature.name, feature.href]), [['Insight Lab', '/insight-lab'], ['AI Interview', '/interview'], ['Trend Quiz', '/learn']])
   const { default: Practice } = load('src/app/(public)/practice/page.tsx', { ...ui, '@/components/career/career.css': {} })
