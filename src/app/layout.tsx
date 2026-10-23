@@ -6,21 +6,11 @@ import ThemeProvider from "@/components/ThemeProvider";
 import AudienceAnalytics from "@/components/AudienceAnalytics";
 import { PRODUCTION_SITE_URL } from "@/lib/tracked-url";
 import "./globals.css";
+// 한글 본문 — Pretendard 공식 dynamic subset(self-host). 페이지에 나온 글자의 조각만 받는다 → html.ml-font-pretendard 가 --font-sans 를 정한다.
+import "./pretendard.css";
 
-// 한글 본문 — Pretendard (self-host woff2)
-const pretendard = localFont({
-  src: [
-    { path: "../../public/fonts/Pretendard-Regular.woff2", weight: "400", style: "normal" },
-    { path: "../../public/fonts/Pretendard-Medium.woff2", weight: "500", style: "normal" },
-    { path: "../../public/fonts/Pretendard-SemiBold.woff2", weight: "600", style: "normal" },
-    { path: "../../public/fonts/Pretendard-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-sans",
-  display: "swap",
-  fallback: ["Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
-});
-
-// 제목 — Gmarket Sans (self-host woff2), 본문과 대비되는 지오메트릭 디스플레이
+// 제목 — Gmarket Sans (self-host woff2), 본문과 대비되는 지오메트릭 디스플레이.
+// preload 하지 않는다: 굵기마다 360KB 전체 파일이라, 실제로 그 굵기가 쓰이는 페이지에서만 받게 한다.
 const gmarketSans = localFont({
   src: [
     { path: "../../public/fonts/GmarketSansMedium.woff2", weight: "500", style: "normal" },
@@ -28,6 +18,7 @@ const gmarketSans = localFont({
   ],
   variable: "--font-heading",
   display: "swap",
+  preload: false,
   fallback: ["Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
 });
 
@@ -75,7 +66,7 @@ export default function RootLayout({
       lang="ko"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`${pretendard.variable} ${gmarketSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`ml-font-pretendard ${gmarketSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <AudienceAnalytics deployment={process.env.VERCEL_ENV ?? process.env.NEXT_PUBLIC_VERCEL_ENV} />

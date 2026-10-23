@@ -41,6 +41,12 @@ const nextConfig: NextConfig = {
       { source: "/competitions/:path*", destination: "/insights", permanent: true },
     ]
   },
+  // Pretendard dynamic subset — 버전이 경로에 들어간 고정 파일이라 1년 immutable 캐시(next/font 미디어와 같은 정책).
+  async headers() {
+    return [
+      { source: "/fonts/pretendard-1.3.9/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+    ]
+  },
 };
 
 export default nextConfig;
