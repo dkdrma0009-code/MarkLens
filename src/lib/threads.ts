@@ -109,7 +109,8 @@ export async function getThreadsInsights(): Promise<ThreadsInsights | null> {
 }
 
 // 이미지 캐러셀 발행: 공개 이미지 URL 배열 + 텍스트 → 게시물 id (미설정 시 null)
-export async function publishThreadsCarousel(imageUrls: string[], text: string): Promise<string | null> {
+// onPublish runs right before the final threads_publish call: an error after it may mean the post went out.
+export async function publishThreadsCarousel(imageUrls: string[], text: string, onPublish?: () => void): Promise<string | null> {
   const c = await creds()
   if (!c) return null
   const { token, userId } = c
@@ -132,5 +133,6 @@ export async function publishThreadsCarousel(imageUrls: string[], text: string):
   }
 
   // 4) 발행
+  onPublish?.()
   return tPost(token, `${userId}/threads_publish`, { creation_id: carouselId })
 }

@@ -40,7 +40,8 @@ async function containerStatus(token: string, id: string): Promise<string> {
 }
 
 // 캐러셀(여러 장) 발행: 공개 이미지 URL 배열 + 캡션 → 게시물 id
-export async function publishCarousel(imageUrls: string[], caption: string): Promise<string> {
+// onPublish runs right before the final media_publish call: an error after it may mean the post went out.
+export async function publishCarousel(imageUrls: string[], caption: string, onPublish?: () => void): Promise<string> {
   const token = await getAccessToken()
   const userId = getUserId()
 
@@ -66,6 +67,7 @@ export async function publishCarousel(imageUrls: string[], caption: string): Pro
   }
 
   // 4) 발행
+  onPublish?.()
   return igPost(token, `${userId}/media_publish`, { creation_id: carouselId })
 }
 

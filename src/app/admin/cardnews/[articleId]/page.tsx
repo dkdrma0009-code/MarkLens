@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ContentError } from "@/components/admin-v2/ContentQueue"
 import SocialStudio from "@/components/admin-v2/social/SocialStudio"
 import type { Slide } from "@/lib/cardnews/types"
+import { publishStateFields } from "@/components/admin-v2/social/types"
 
 export const dynamic = "force-dynamic"
 export default async function CardnewsPage({ params, searchParams }: { params: Promise<{ articleId: string }>; searchParams: Promise<{ format?: string }> }) {
@@ -25,6 +26,6 @@ export default async function CardnewsPage({ params, searchParams }: { params: P
     <div className="social-page-heading"><div><p>SOCIAL STUDIO</p><h2>{insight.data.hook || article.data.title}</h2><span>{insight.data.category} / {article.data.source_name}</span></div></div>
     <SocialStudio initialFormat={format} initialCategory={record?.category || insight.data.category || "마케팅"} row={{ articleId, hook: insight.data.hook, title: article.data.title, category: insight.data.category, createdAt: article.data.created_at,
       cardAt: record?.updated_at || null, postedAt: record?.posted_at || null, reelsPostedAt: record?.reels_posted_at || null, scheduledAt: record?.scheduled_at || null, igPostId: record?.ig_post_id || null,
-      usePhoto: !!article.data.image_url, slides: (record?.slides as Slide[]) || null, caption: record?.caption || null }} />
+      usePhoto: !!article.data.image_url, slides: (record?.slides as Slide[]) || null, caption: record?.caption || null, ...publishStateFields(record) }} />
   </div>
 }

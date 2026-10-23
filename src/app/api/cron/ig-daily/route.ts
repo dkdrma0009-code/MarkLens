@@ -70,12 +70,14 @@ export async function GET(req: Request) {
 
   // ⑤ 예약 발행 — scheduled_at <= now AND posted_at IS NULL 인 카드뉴스 발행
   // (publish_status='skipped_stale' 은 제외 — 발행 멈춤 스테일로 종결한 건 재발행 안 함)
+  // Instagram 발행 상태는 미시도(null)·실패(failed)만 — 발행 중·확인 필요는 자동 재발행하지 않는다(migration 023).
   const { data: scheduled } = await supabase
     .from("cardnews")
     .select("article_id")
     .lte("scheduled_at", new Date().toISOString())
     .is("posted_at", null)
     .is("publish_status", null)
+    .or("ig_publish_state.is.null,ig_publish_state.eq.failed")
   for (const item of scheduled ?? []) {
     try {
       await publishCardnews(item.article_id)

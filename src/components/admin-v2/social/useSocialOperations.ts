@@ -147,7 +147,7 @@ export default function useSocialOperations({ initialRows, autoPublish, initialT
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "처리 실패")
-      patchRow(r.articleId, { postedAt: data.postedAt })
+      patchRow(r.articleId, { postedAt: data.postedAt, igPublishState: next ? "published" : null, igPublishError: null })
       toast.success(next ? "인스타 업로드 완료로 표시" : "업로드 표시 해제")
       return true
     } catch (e) {
@@ -412,21 +412,49 @@ export default function useSocialOperations({ initialRows, autoPublish, initialT
     } finally { setRowBusy(articleId, false) }
   }
 
-  async function publishToInstagram(r: CardnewsRow) {
+  // channel "threads": manual retry of a failed Threads cross-post (Instagram already published).
+  async function publishToInstagram(r: CardnewsRow, channel: "instagram" | "threads" = "instagram") {
     if (!setRowBusy(r.articleId, true)) return
     try {
       const res = await fetch("/api/admin/cardnews/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: r.articleId }),
+        body: JSON.stringify({ articleId: r.articleId, channel }),
       })
       const data = await res.json()
+      // The server reports the state it actually left (published / failed / needs review), success or not.
+      if (data.state) patchRow(r.articleId, data.state)
       if (!res.ok) throw new Error(data.error ?? "발행 실패")
-      patchRow(r.articleId, { postedAt: new Date().toISOString(), igPostId: data.postId })
-      toast.success("인스타그램 발행 완료! 🎉")
+      if (channel === "instagram") patchRow(r.articleId, { postedAt: new Date().toISOString(), igPostId: data.postId })
+      toast.success(channel === "threads" ? "Threads 발행 완료" : "인스타그램 발행 완료! 🎉")
       return true
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "발행 실패")
+      return false
+    } finally {
+      setRowBusy(r.articleId, false)
+    }
+  }
+
+  // Recovery of a channel that needs review: the admin checked the platform and records what they found.
+  async function resolvePublish(r: CardnewsRow, channel: "instagram" | "threads", action: "published" | "release", postId?: string) {
+    if (!setRowBusy(r.articleId, true)) return false
+    try {
+      const res = await fetch("/api/admin/cardnews/publish-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: r.articleId, channel, action, postId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "상태 기록 실패")
+      const ig = channel === "instagram"
+      patchRow(r.articleId, action === "published"
+        ? ig ? { igPublishState: "published", igPublishError: null, igPostId: postId, postedAt: r.postedAt ?? new Date().toISOString() } : { threadsPublishState: "published", threadsPublishError: null, threadsPostId: postId }
+        : ig ? { igPublishState: "failed", igPublishClaimedAt: null } : { threadsPublishState: "failed", threadsPublishClaimedAt: null })
+      toast.success(action === "published" ? "게시됨으로 기록했습니다" : "재시도 가능으로 해제했습니다")
+      return true
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "상태 기록 실패")
       return false
     } finally {
       setRowBusy(r.articleId, false)
@@ -437,6 +465,6 @@ export default function useSocialOperations({ initialRows, autoPublish, initialT
     generateOne, generateMissing, togglePosted, schedulePost, toggleAuto, openReelPreview,
     reelPreview, setReelPreview, saveReelSettings, resetReelSettings, generateShorts,
     shortsModal, setShortsModal, downloadShorts, publishReels,
-    diagnoseModal, setDiagnoseModal, diagnose, applyHook, publishToInstagram, patchRow }
+    diagnoseModal, setDiagnoseModal, diagnose, applyHook, publishToInstagram, resolvePublish, patchRow }
 }
 export type SocialOperations = ReturnType<typeof useSocialOperations>

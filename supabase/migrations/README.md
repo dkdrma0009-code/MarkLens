@@ -30,6 +30,13 @@ recovery utility in DRY RUN; separately approved EXECUTE reissues fresh confirma
 mail to eligible legacy pending only. No automatic data backfill or batch email. Existing active subscribers remain unchanged. Keep 005/006 privilege
 sweeps before 016 (do not grant these functions to anon/authenticated).
 
+## Card news channel publish state
+
+`023_cardnews_channel_publish_state.sql` — per-channel (Instagram, Threads) publish state, claim time, error,
+Threads post id/time on `cardnews`. Additive only. **Apply before deploying** the matching
+`src/lib/cardnews/publish.ts`; without it every card news publish stops with an error (nothing is posted twice).
+This pass only writes the migration; it does not apply it to production.
+
 ## 주의
 
 - **005 → 006 순서 필수**: 005가 광범위하게 GRANT ALL 한 뒤, 006이 anon/authenticated만 최소 권한으로 좁힌다. 005 없이 006만 돌리면 의도와 다르게 동작한다.

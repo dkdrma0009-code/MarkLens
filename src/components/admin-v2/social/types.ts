@@ -1,10 +1,20 @@
 import type { Slide } from "@/lib/cardnews/types"
 
-export interface CardnewsRow {
+export interface CardnewsRow extends PublishStateFields {
   articleId: string; hook: string | null; title: string | null; category: string | null; createdAt: string
   cardAt: string | null; postedAt: string | null; reelsPostedAt: string | null; scheduledAt: string | null
   usePhoto: boolean; igPostId?: string | null; igStats?: { likes: number; reach: number; saved: number } | null
   slides?: Slide[] | null; caption?: string | null
+}
+// Per-channel publish state (migration 023); absent before it is applied.
+export interface PublishStateFields {
+  igPublishState?: string | null; igPublishClaimedAt?: string | null; igPublishError?: string | null
+  threadsPublishState?: string | null; threadsPublishClaimedAt?: string | null; threadsPublishError?: string | null; threadsPostId?: string | null
+}
+export function publishStateFields(card?: Record<string, unknown> | null): PublishStateFields {
+  const text = (key: string) => (typeof card?.[key] === "string" ? card[key] as string : null)
+  return { igPublishState: text("ig_publish_state"), igPublishClaimedAt: text("ig_publish_claimed_at"), igPublishError: text("ig_publish_error"),
+    threadsPublishState: text("threads_publish_state"), threadsPublishClaimedAt: text("threads_publish_claimed_at"), threadsPublishError: text("threads_publish_error"), threadsPostId: text("threads_post_id") }
 }
 export interface CurationRow {
   id: string; week_of: string; caption: string | null; posted_at: string | null; ig_post_id: string | null
