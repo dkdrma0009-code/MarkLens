@@ -129,10 +129,14 @@ test('home hero (C-2): approved copy and CTAs, one high-priority cover with a ph
   assert.deepEqual(links(html).filter(link => !link.href.startsWith('/insights/')).map(link => [link.text.trim(), link.href]), [['최신 인사이트 읽기', '/insights'], ['Brand Watch 보기', '/brands']])
   assert.equal((html.match(/fetchPriority="high"/g) ?? []).length, 1)
   assert.match(html, /<source media="\(max-width: 600px\)"[^>]*hero-v3-mobile-1170\.webp 1170w/)
-  // Radar: all stories stay in the page with their rotation controls; only the shown one is reachable.
+  // Panel: all stories stay in the page with source and date; only the shown one is reachable; previous / next only.
   for (const n of [1, 2, 3]) assert.ok(html.includes(`href="/insights/story-${n}"`), `story ${n}`)
   assert.equal((html.match(/inert=""/g) ?? []).length, 2)
-  for (const label of ['이전 이야기', '자동 넘김 일시정지', '다음 이야기']) assert.ok(html.includes(`aria-label="${label}"`), label)
+  assert.equal((html.match(/출처 · <time dateTime="2026-10-20T00:00:00Z">/g) ?? []).length, 3)
+  for (const label of ['이전 이야기', '다음 이야기']) assert.ok(html.includes(`aria-label="${label}"`), label)
+  assert.doesNotMatch(html, /자동 넘김|aria-pressed/)
+  // No automatic advance: the panel has no timer, observer or progress bar (it changes only on previous / next).
+  assert.doesNotMatch(readFileSync('src/components/home/HeroRadar.tsx', 'utf8'), /setTimeout|setInterval|IntersectionObserver|ml-radar-progress/)
   assert.match(html, /AI로 생성한 가상 인물/)
   assert.doesNotMatch(render({ story: story(1), radar: [] }), /aria-label="다음 이야기"/)
   const empty = render({ story: undefined, radar: [] })

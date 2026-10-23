@@ -1,7 +1,4 @@
 /* Additional motion only; the approved editorial composition stays in composition.css. */
-.marklens-public .ml-radar-progress { height: 2px; background: #383a42; overflow: hidden; }
-.marklens-public .ml-radar-progress > span { display: block; height: 100%; background: #89a5ff; transform-origin: left; transform: scaleX(0); animation: ml-radar-timer 6s linear both paused; }
-.marklens-public .ml-radar-controls[data-running="true"] .ml-radar-progress > span { animation-play-state: running; }
 .marklens-public .ml-radar-controls button, .marklens-public .ml-pulse-toggle { display: grid; place-items: center; width: 28px; height: 28px; color: #b6bed0; background: transparent; border: 1px solid #454b58; cursor: pointer; }
 .marklens-public .ml-radar-controls button:is(:hover, :focus-visible), .marklens-public .ml-pulse-toggle:is(:hover, :focus-visible) { color: #fff; border-color: #89a5ff; }
 .marklens-public .ml-pulse-stream { min-width: 0; position: relative; }
@@ -71,12 +68,10 @@
   .marklens-public .ml-home .ml-pulse-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-right: 0; }
   .marklens-public .ml-home .ml-pulse-items article { width: auto; }
   .marklens-public .ml-home .ml-pulse-duplicate, .marklens-public .ml-pulse-toggle { display: none; }
-  .marklens-public .ml-radar-progress > span { animation: none; transform: scaleX(1); }
   .marklens-public .ml-main-image .ml-image, .marklens-public .ml-signal-mark { transform: none !important; }
 }
 @media (max-width: 1023px) and (prefers-reduced-motion: reduce) { .marklens-public .ml-home .ml-pulse-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 767px) and (prefers-reduced-motion: reduce) { .marklens-public .ml-home .ml-pulse-items { grid-template-columns: 1fr; } }
-@keyframes ml-radar-timer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes ml-pulse-flow { to { transform: translateX(-50%); } }
 @keyframes ml-paper-settle { from { transform: translateY(16px); } to { transform: none; } }
 @keyframes ml-paper-back-a { from { transform: rotate(0) translate(0, 16px); } to { transform: rotate(-2deg) translate(-6px, 4px); } }
