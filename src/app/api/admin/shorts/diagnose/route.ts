@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   const [{ data: card }, { data: insight }, { data: snap }] = await Promise.all([
     sb.from("cardnews").select("slides, ig_post_id").eq("article_id", articleId).single(),
     sb.from("insights").select("hook, category").eq("article_id", articleId).single(),
-    sb.from("follower_snapshots").select("followers").eq("platform", "instagram").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    sb.from("follower_snapshots").select("followers").eq("platform", "instagram").order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
   ])
   if (!card?.ig_post_id) {
     return NextResponse.json({ error: "아직 인스타에 발행되지 않았습니다. 발행 후 지표가 쌓이면 진단할 수 있어요." }, { status: 400 })
