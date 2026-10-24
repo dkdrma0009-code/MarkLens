@@ -38,10 +38,14 @@ R-3 시점: 로컬에서 할 수 있는 준비와 검증은 끝났다. 남은 �
    1. 새 Supabase 프로젝트를 만든다. 운영과 같은 리전을 권장한다. 비용(2026-10 Supabase 문서 기준, 생성 전 대시보드에서 재확인):
       - Free 조직: Owner/Admin인 모든 조직을 합쳐 활성 무료 프로젝트 2개까지 무료. 1주일 비활성 시 일시 정지.
       - Pro 조직: 월 $25에 포함된 컴퓨트 크레딧 $10은 프로젝트 1개분이다. 추가 프로젝트는 Micro 기준 약 $10/월이고 시간 단위로 과금된다. 컴퓨트는 지출 상한(Spend Cap) 대상이 아니다. 일시 정지하거나 삭제하면 과금이 멈춘다.
-   2. `node scripts/release/build-preview-sql.mjs > preview-init.sql` → Preview 프로젝트 SQL Editor에서 한 번 실행한다. 이미 초기화된 DB면 첫 줄에서 멈춘다(재실행 방지). 운영 데이터는 복사하지 않는다 — 시드는 합성 기사 3건·퀴즈 2건(`example.test`)과 자동 발행 꺼짐 설정뿐이다.
+   2. `node scripts/release/build-preview-sql.mjs > preview-init.sql` → Preview 프로젝트 SQL Editor에서 한 번 실행한다.
+      - `public` 스키마에 테이블이 하나라도 있으면(운영, 이미 초기화된 Preview) 첫 문장에서 멈추고 아무것도 바꾸지 않는다.
+      - 마지막 결과는 읽기 전용 마이그레이션 점검(23행)이며 모두 `true`여야 한다. 이 결과를 `preview-schema.csv`로 내려받는다.
+      - 운영 데이터는 복사하지 않는다. 시드는 합성 기사 3건·퀴즈 2건(`example.test`), 자동 발행 꺼짐 설정, Preview 표식(`app_config.marklens_environment = preview`)뿐이다.
    3. Storage: 번들이 운영과 같은 public 버킷 4개(`ad-assets`, `ad-clips`, `cardnews-ig`, `stock-posters`)를 만든다. Storage 화면에서 생성됐는지만 확인한다.
    4. Auth: 테스트 관리자 사용자 1명을 만들고(이 주소가 Preview `ADMIN_EMAIL`), URL 설정의 Site URL·Redirect URL에 Preview 주소와 `/auth/callback`을 넣는다.
-   - **게이트:** Preview 프로젝트 ref ≠ 운영 ref. Preview SQL Editor에서 `check-production-schema.sql` 결과가 모두 `true` → `preview-schema.csv`.
+   5. 프로젝트 URL·anon·service_role 키와 `ADMIN_EMAIL`을 작업 폴더의 `.env.preview.local`(Git 제외)에 넣고 `node scripts/release/verify-preview-db.mjs .env.preview.local`로 확인한다. 이 도구는 운영이거나 증명할 수 없는 주소면 요청을 하나도 보내지 않고 멈추며, Preview 표식·마이그레이션 객체·시드 건수·anon 권한·버킷·관리자 계정을 GET 요청으로만 확인한다.
+   - **게이트:** Preview 프로젝트 ref ≠ 운영 ref, 번들 마지막 결과가 모두 `true`, `verify-preview-db.mjs` FAIL 0.
 5. **Preview 환경 변수(승인 필요)** — 매트릭스(`README.md` 2장)대로 **Preview 범위에만** 넣는다. `MARKLENS_DEPLOYMENT=preview` 필수. IG·Threads·Brevo·AWS·GA4 자격 증명은 넣지 않는다.
 6. **게이트 실행**
    ```

@@ -3,7 +3,9 @@
 BEGIN;
 
 INSERT INTO public.app_config (key, value) VALUES
-  ('ig_auto_publish', 'off'), ('site_publish_auto', 'off'), ('curation_auto_publish', 'off')
+  ('ig_auto_publish', 'off'), ('site_publish_auto', 'off'), ('curation_auto_publish', 'off'),
+  -- marks this database as a Preview one; scripts/release/verify-preview-db.mjs requires it (production has no such row)
+  ('marklens_environment', 'preview')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.articles (id, title, url, source, source_name, status, published_at, site_published_at) VALUES

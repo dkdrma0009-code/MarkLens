@@ -35,8 +35,19 @@ test('preview init: builds a fresh database, refuses a non-empty one, and the re
   const db = new PGlite()
   try {
     await db.exec(SUPABASE_STUBS)
-    await db.exec(previewInitSql())
+    // The SQL Editor shows the last result: the read-only migration check, every row true.
+    const last = (await db.exec(previewInitSql())).at(-1).rows
+    assert.equal(last.length, 23); assert.deepEqual(last.filter(r => !r.present).map(r => r.migration), [])
     await assert.rejects(db.exec(previewInitSql()), /already exist/)
+    assert.equal((await db.query(`SELECT value FROM public.app_config WHERE key = 'marklens_environment'`)).rows[0].value, 'preview')
+
+    // Any table in public (production has dozens) stops the bundle at its first statement, before any change.
+    const other = new PGlite()
+    try {
+      await other.exec(SUPABASE_STUBS + ' CREATE TABLE public.anything (id int);')
+      await assert.rejects(other.exec(previewInitSql()), /Tables already exist in schema public/)
+      assert.deepEqual((await other.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`)).rows.map(r => r.tablename), ['anything'])
+    } finally { await other.close() }
 
     const present = (await db.query(readFileSync('scripts/release/check-production-schema.sql', 'utf8'))).rows
     assert.deepEqual(present.filter(r => !r.present).map(r => r.migration), [])
