@@ -1,65 +1,90 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { verifyPreviewDb } from '../scripts/release/verify-preview-db.mjs'
+import { verifyPreviewDb, PUBLIC_READ, ROLE_DENIED, RPC_DENIED } from '../scripts/release/verify-preview-db.mjs'
 
-// R-3: verify-preview-db.mjs confirms from an env file alone that its project is the initialised Preview database.
-// It must never send a request to production or to a URL it cannot prove is not production.
+// R-3: verify-preview-db.mjs confirms from an env file alone that its project is the initialised Preview database and that
+// anon / authenticated see only what they should. It never sends a request to production or to an unprovable URL.
 const PREVIEW = 'https://previewtestproject01.supabase.co'
-const env = { NEXT_PUBLIC_SUPABASE_URL: PREVIEW, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-secret-1', SUPABASE_SERVICE_ROLE_KEY: 'service-secret-2', ADMIN_EMAIL: 'preview-admin@example.test' }
+const env = { NEXT_PUBLIC_SUPABASE_URL: PREVIEW, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-secret-1', SUPABASE_SERVICE_ROLE_KEY: 'service-secret-2', ADMIN_EMAIL: 'preview-admin@example.test', ADMIN_PASSWORD: 'password-secret-3' }
 const tables = ['articles', 'insights', 'subscribers', 'newsletter_issues', 'newsletter_events', 'insight_challenges', 'insight_sessions', 'content_metrics', 'curations', 'app_config', 'cardnews', 'feedback', 'follower_snapshots', 'quiz_questions', 'site_feedback', 'brand_entities', 'brand_watch_profiles', 'brand_takes', 'ai_usage']
 const cols = { newsletter_issues: ['topic_headline', 'approved_at'], subscribers: ['drip_step', 'source', 'confirmation_token'], cardnews: ['reel_settings', 'ig_publish_state', 'threads_publish_state'], insights: ['legacy_slug', 'hook', 'marketing_terms', 'quiz', 'video_url'], articles: ['site_published_at', 'fallback_image'], brand_takes: ['confidence'] }
-const rpcs = ['issue_subscription_confirmation', 'brand_watch_approve_evidence', 'brand_watch_publish_pattern', 'brand_watch_mark_meaningful_update', 'consume_ai_quota', 'random_quiz']
+const serviceRpcs = ['issue_subscription_confirmation', 'brand_watch_approve_evidence', 'brand_watch_publish_pattern', 'brand_watch_mark_meaningful_update', 'consume_ai_quota', 'random_quiz', 'confirm_subscription', 'recover_legacy_pending_subscription']
 
-// A fresh, correctly initialised Preview project as PostgREST, Storage and Auth would answer; `tweak` breaks one thing.
+// A correctly initialised Preview project as PostgREST, Storage and Auth answer each role; `tweak` breaks one thing.
 function fakePreview(tweak = {}) {
   const seen = []
   const fetchImpl = async (url, init) => {
-    seen.push({ url, method: init.method, key: init.headers.apikey })
-    const u = new URL(url), json = (body, status = 200, range) => new Response(JSON.stringify(body), { status, headers: range ? { 'content-range': range } : {} })
-    if (u.pathname === '/rest/v1/' ) {
+    const u = new URL(url), bearer = init.headers.Authorization.replace('Bearer ', '')
+    const role = bearer === 'service-secret-2' ? 'service' : bearer === 'user-jwt' ? 'authenticated' : 'anon'
+    seen.push({ url, method: init.method, role, path: u.pathname })
+    const json = (body, status = 200, range) => new Response(JSON.stringify(body), { status, headers: range ? { 'content-range': range } : {} })
+    if (u.pathname === '/auth/v1/token') return JSON.parse(init.body).password === 'password-secret-3' && !tweak.badPassword ? json({ access_token: 'user-jwt' }) : json({ error: 'invalid_grant' }, 400)
+    if (u.pathname === '/rest/v1/') {
+      if (role !== 'service') {
+        if (tweak.noRoleSpec) return json({ message: 'not allowed' }, 401)
+        return json({ definitions: {}, paths: Object.fromEntries(['random_quiz', ...(tweak.exposedRpc ? [tweak.exposedRpc] : [])].map(f => [`/rpc/${f}`, {}])) })
+      }
       const definitions = Object.fromEntries(tables.filter(t => t !== tweak.dropTable).map(t => [t, { properties: Object.fromEntries((cols[t] ?? ['id']).map(c => [c, {}])) }]))
       if (tweak.competitions) definitions.competitions = { properties: {} }
-      return json({ definitions, paths: Object.fromEntries(rpcs.map(f => [`/rpc/${f}`, {}])) })
+      return json({ definitions, paths: Object.fromEntries(serviceRpcs.map(f => [`/rpc/${f}`, {}])) })
     }
-    if (u.pathname === '/rest/v1/app_config') return json(tweak.noMarker ? [] : [{ value: 'preview' }])
-    const counts = { articles: 3, insights: 3, quiz_questions: 2, subscribers: tweak.subscribers ?? 0 }
     const table = u.pathname.replace('/rest/v1/', '')
-    if (table === 'subscribers' && init.headers.apikey === 'anon-secret-1') return json({ code: '42501', message: 'permission denied for table subscribers' }, 401)
+    if (role !== 'service') {
+      if (PUBLIC_READ.includes(table)) return json([], 200, `0-0/${table === 'insights' ? 3 : 0}`)
+      if (table === tweak.leak) return json([{}], 200, '0-0/1')
+      return json({ code: '42501', message: `permission denied for table ${table}` }, 401)
+    }
+    if (table === 'app_config') return json(tweak.noMarker ? [] : [{ value: 'preview' }])
+    const counts = { articles: 3, insights: 3, quiz_questions: 2, subscribers: tweak.subscribers ?? 0 }
     if (table in counts) return json([], 200, `0-0/${counts[table]}`)
-    if (u.pathname === '/storage/v1/bucket') return json(['ad-assets', 'ad-clips', 'cardnews-ig', 'stock-posters'].map(id => ({ id, public: id !== tweak.privateBucket })))
+    if (u.pathname === '/storage/v1/bucket') return role === 'service' ? json(['ad-assets', 'ad-clips', 'cardnews-ig', 'stock-posters'].map(id => ({ id, public: id !== tweak.privateBucket }))) : json([])
     if (u.pathname === '/auth/v1/admin/users') return json({ users: tweak.noAdmin ? [] : [{ email: 'preview-admin@example.test' }] })
     return json({}, 404)
   }
   return { fetchImpl, seen }
 }
-const failed = results => results.filter(r => r.level === 'FAIL').map(r => r.name)
+const levels = results => Object.fromEntries(results.filter(r => r.level !== 'PASS').map(r => [r.name, r.level]))
 
-test('verify: a correctly initialised Preview passes; every request is a GET to that project', async () => {
+test('verify: a correctly initialised Preview passes for service, anon and the signed-in admin; nothing secret printed', async () => {
   const { fetchImpl, seen } = fakePreview()
   const results = await verifyPreviewDb(env, fetchImpl)
-  assert.deepEqual(failed(results), [])
-  assert.ok(seen.length >= 8)
-  assert.ok(seen.every(r => r.method === 'GET' && r.url.startsWith(PREVIEW + '/')))
-  assert.ok(!JSON.stringify(results).includes('secret'), 'a key was printed')
+  assert.deepEqual(levels(results), {})
+  assert.ok(seen.every(r => r.url.startsWith(PREVIEW + '/')))
+  assert.deepEqual(seen.filter(r => r.method !== 'GET').map(r => r.path), ['/auth/v1/token']) // the one sign-in, nothing else written
+  for (const role of ['anon', 'authenticated']) for (const t of ROLE_DENIED) assert.ok(seen.some(r => r.role === role && r.path === `/rest/v1/${t}`), `${role} ${t}`)
+  assert.ok(!JSON.stringify(results).includes('secret') && !JSON.stringify(results).includes('user-jwt'), 'a credential was printed')
 })
 
-test('verify: production or an unprovable URL is refused before any request', async () => {
+test('verify: production, an unprovable URL or the wrong Preview ref is refused before any request', async () => {
   for (const url of ['https://ndehtnchkgvpjbxlkazk.supabase.co', 'https://db.example.com', '', 'http://127.0.0.1:54321']) {
     const { fetchImpl, seen } = fakePreview()
     const results = await verifyPreviewDb({ ...env, NEXT_PUBLIC_SUPABASE_URL: url }, fetchImpl)
     assert.equal(seen.length, 0, url)
-    assert.deepEqual(failed(results), ['Preview project (not production, provable)'], url)
+    assert.deepEqual(levels(results), { 'Preview project (not production, provable)': 'FAIL' }, url)
   }
+  const { fetchImpl, seen } = fakePreview()
+  assert.deepEqual(levels(await verifyPreviewDb({ ...env, MARKLENS_PREVIEW_REF: 'umysmkhttlupmhttjzwi' }, fetchImpl)), { 'ref matches the expected Preview project': 'FAIL' })
+  assert.equal(seen.length, 0)
 })
 
-test('verify: a missing migration, marker, parity step, bucket, admin or real data each fail', async () => {
+test('verify: each broken piece fails; what cannot be checked is UNKNOWN, never PASS', async () => {
   const cases = {
-    dropTable: ['ai_usage', 'tables of migrations 001–024 and 001a'], noMarker: [true, 'environment marker = preview (seeded by the Preview bundle)'],
-    competitions: [true, 'production parity: competitions dropped'], privateBucket: ['ad-clips', 'storage buckets (4, public)'],
-    noAdmin: [true, 'test admin user exists in Preview Auth'], subscribers: [12, 'synthetic seed only (3 articles, 3 insights, 2 quiz questions, 0 subscribers)'],
+    dropTable: ['ai_usage', { 'tables of migrations 001–024 and 001a': 'FAIL' }],
+    noMarker: [true, { 'environment marker = preview (seeded by the Preview bundle)': 'FAIL' }],
+    competitions: [true, { 'production parity: competitions dropped': 'FAIL' }],
+    privateBucket: ['ad-clips', { 'storage buckets (4, public)': 'FAIL' }],
+    noAdmin: [true, { 'test admin user exists in Preview Auth': 'FAIL' }],
+    subscribers: [12, { 'synthetic seed only (3 articles, 3 insights, 2 quiz questions, 0 subscribers)': 'FAIL' }],
+    leak: ['subscribers', { [`anon: denied on ${ROLE_DENIED.length} sensitive tables`]: 'FAIL', [`authenticated: denied on ${ROLE_DENIED.length} sensitive tables`]: 'FAIL' }],
+    exposedRpc: ['consume_ai_quota', { 'anon: service-only commands not executable': 'FAIL', 'authenticated: service-only commands not executable': 'FAIL' }],
+    noRoleSpec: [true, { 'anon: service-only commands not executable': 'UNKNOWN', 'authenticated: service-only commands not executable': 'UNKNOWN' }],
+    badPassword: [true, { 'test admin signs in (Preview Auth)': 'FAIL' }],
   }
-  for (const [key, [value, name]] of Object.entries(cases)) {
+  for (const [key, [value, expected]] of Object.entries(cases)) {
     const { fetchImpl } = fakePreview({ [key]: value })
-    assert.deepEqual(failed(await verifyPreviewDb(env, fetchImpl)), [name], key)
+    assert.deepEqual(levels(await verifyPreviewDb(env, fetchImpl)), expected, key)
   }
+  const { fetchImpl } = fakePreview()
+  assert.deepEqual(levels(await verifyPreviewDb({ ...env, ADMIN_PASSWORD: undefined }, fetchImpl)), { 'authenticated role': 'UNKNOWN' })
+  assert.ok(RPC_DENIED.includes('consume_ai_quota'))
 })
