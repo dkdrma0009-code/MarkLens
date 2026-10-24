@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import * as releaseGuard from '../src/lib/release/guard.mjs'
 
 // R-2: every public AI route takes a slot from a per-client and a service-wide daily quota (migration 024) before it
 // calls a paid model; over quota → 429, quota unreadable → 503, quota not yet migrated → today's behaviour.
@@ -19,7 +20,7 @@ const rateLimit = load('src/lib/rate-limit.ts', { 'next/server': server })
 function budgetWith(answers) {
   const calls = []
   const db = { rpc: async (fn, args) => { calls.push(args); const a = answers.shift(); return typeof a === 'object' ? { data: null, error: a } : { data: a, error: null } } }
-  const mod = load('src/lib/ai/budget.ts', { 'next/server': server, '@/lib/supabase/admin': { createAdminClient: () => db }, '@/lib/rate-limit': rateLimit })
+  const mod = load('src/lib/ai/budget.ts', { 'next/server': server, '@/lib/supabase/admin': { createAdminClient: () => db }, '@/lib/rate-limit': rateLimit, '@/lib/release/guard.mjs': releaseGuard })
   return { ...mod, calls }
 }
 const req = (ip = '203.0.113.7') => new Request('https://x/api/chat', { method: 'POST', headers: { 'x-forwarded-for': ip } })
@@ -30,7 +31,7 @@ test('limits: defaults sized from existing flows, overridable per feature throug
   assert.deepEqual(aiDailyLimits('chat=10, global=500, bogus=1, learn=-3, interview=x'), { ...DEFAULT_AI_DAILY_LIMITS, chat: 10, global: 500 })
 })
 
-test('quota: per-client then service-wide; 429 when either is spent, 503 when unreadable, pass-through before migration 024', async () => {
+test('quota: per-client then service-wide; 429 when either is spent; 503 whenever the call cannot be counted (fail closed)', async () => {
   let b = budgetWith([true, true])
   assert.equal(await b.checkAiBudget(req(), 'chat'), null)
   assert.deepEqual(b.calls.map(c => [c.p_scope, c.p_window_seconds, c.p_limit]), [['feature:chat', 86400, 100], ['global', 86400, 3000]])
@@ -44,9 +45,8 @@ test('quota: per-client then service-wide; 429 when either is spent, 503 when un
   res = await b.checkAiBudget(req(), 'learn')
   assert.equal(res.status, 429); assert.match(res.body.error, /오늘 AI 기능 사용량이 많아/)
 
-  b = budgetWith([{ code: 'PGRST202', message: 'Could not find the function public.consume_ai_quota' }])
-  assert.equal(await b.checkAiBudget(req(), 'chat'), null)
-  for (const error of [{ code: '08006', message: 'connection failure' }, { code: 'PREVIEW_WRITE_BLOCKED', message: 'Preview 환경: …' }]) {
+  // Migration 024 missing, permission denied, database down, Preview DB guard: no paid call may start.
+  for (const error of [{ code: 'PGRST202', message: 'Could not find the function public.consume_ai_quota' }, { code: '42501', message: 'permission denied for function consume_ai_quota' }, { code: '08006', message: 'connection failure' }, { code: 'PREVIEW_DB_BLOCKED', message: 'Preview 환경: …' }]) {
     b = budgetWith([error])
     res = await b.checkAiBudget(req(), 'chat')
     assert.equal(res.status, 503, error.code)
@@ -54,6 +54,14 @@ test('quota: per-client then service-wide; 429 when either is spent, 503 when un
   b = budgetWith([true, true])
   await b.checkAiBudget(req(), 'insight-lab', 'user-123')
   assert.equal(b.calls[0].p_key, 'user:user-123')
+
+  // Emergency stop: refused before the quota is even read.
+  process.env.AI_KILL_SWITCH = 'on'
+  try {
+    b = budgetWith([true, true])
+    res = await b.checkAiBudget(req(), 'chat')
+    assert.equal(res.status, 503); assert.match(res.body.error, /AI_KILL_SWITCH/); assert.equal(b.calls.length, 0)
+  } finally { delete process.env.AI_KILL_SWITCH }
 })
 
 test('routes: every public AI endpoint checks the quota before its first paid call; Insight Lab after login and validation', async () => {

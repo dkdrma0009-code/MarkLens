@@ -1,26 +1,29 @@
-// Release guard (R-2): a Preview deployment must never change production data or reach the outside world on
-// production's behalf. Production and local runs are untouched; every Preview check fails closed.
+// Release guard (R-2, R-3): a Preview deployment must never touch production data or reach the outside world on
+// production's behalf. Production and local runs are untouched (except the AI kill switch); every Preview check fails
+// closed.
 //
-// Deployment: VERCEL_ENV=production → production. Any other Vercel deployment (VERCEL_ENV preview/development, or
-// VERCEL set without a recognised VERCEL_ENV) → preview. MARKLENS_DEPLOYMENT=preview opts any host into the guards
-// (local QA). Otherwise → local.
-// A Preview may write to Supabase only when NEXT_PUBLIC_SUPABASE_URL is a <ref>.supabase.co project that is not a known
-// production project. Publishing, mail, AWS rendering/deletion and crons are always refused in Preview; paid AI only
-// with PREVIEW_ALLOW_AI=true.
+// Deployment: VERCEL_ENV=production → production, unless VERCEL_TARGET_ENV contradicts it. Any other Vercel deployment
+// (VERCEL_ENV preview/development/unknown, or VERCEL set without VERCEL_ENV) → preview. MARKLENS_DEPLOYMENT=preview opts
+// any host into the guards (local QA). Otherwise → local.
+// A Preview may use Supabase at all (read, write, auth) only when the database is provably not production: a
+// <ref>.supabase.co project that is not a known production project, or a loopback address (local QA). Publishing, mail,
+// AWS rendering/deletion and crons are always refused in Preview; paid AI only with PREVIEW_ALLOW_AI=true.
+// AI_KILL_SWITCH=on stops every paid AI call in every deployment (public routes, admin and cron jobs alike).
 
 /** Production Supabase project refs (a public project id, documented in supabase/migrations/README.md; not a secret). */
 export const PRODUCTION_SUPABASE_REFS = ["ndehtnchkgvpjbxlkazk"]
 
-/** @typedef {"db-write" | "instagram" | "threads" | "email" | "aws" | "ai" | "cron"} GuardedAction */
+/** @typedef {"database" | "instagram" | "threads" | "email" | "aws" | "ai" | "cron"} GuardedAction */
 /** @typedef {"production" | "preview" | "local"} Deployment */
 /** @typedef {Record<string, string | undefined>} Env */
 
-const LABEL = { "db-write": "DB 쓰기", instagram: "Instagram 게시", threads: "Threads 게시", email: "이메일 발송", aws: "AWS 렌더·저장소 변경", ai: "유료 AI 호출", cron: "예약 작업(Cron)" }
+const LABEL = { database: "DB 접근", instagram: "Instagram 게시", threads: "Threads 게시", email: "이메일 발송", aws: "AWS 렌더·저장소 변경", ai: "유료 AI 호출", cron: "예약 작업(Cron)" }
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]", "::1"])
 
 /** @param {Env} [env] @returns {Deployment} */
 export function deployment(env = process.env) {
   if (env.MARKLENS_DEPLOYMENT === "preview") return "preview"
-  if (env.VERCEL_ENV === "production") return "production"
+  if (env.VERCEL_ENV === "production") return env.VERCEL_TARGET_ENV && env.VERCEL_TARGET_ENV !== "production" ? "preview" : "production"
   if (env.VERCEL_ENV || env.VERCEL) return "preview"
   return "local"
 }
@@ -37,15 +40,22 @@ export function supabaseRef(env = process.env) {
 
 /** True only when the database is provably not a production project. @param {Env} [env] */
 export function databaseIsolated(env = process.env) {
+  try {
+    if (LOOPBACK.has(new URL((env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim()).hostname)) return true
+  } catch { /* not a URL: not provable */ }
   const ref = supabaseRef(env)
   const production = [...PRODUCTION_SUPABASE_REFS, ...(env.MARKLENS_PRODUCTION_SUPABASE_REFS ?? "").split(",").map(s => s.trim()).filter(Boolean)]
   return !!ref && !production.includes(ref)
 }
 
+/** @param {Env} [env] */
+export const aiKillSwitch = (env = process.env) => env.AI_KILL_SWITCH === "on"
+
 /** Why this action is refused here, or null when it may run. @param {GuardedAction} action @param {Env} [env] */
 export function blockedReason(action, env = process.env) {
+  if (action === "ai" && aiKillSwitch(env)) return "AI 기능이 일시 중지되어 있습니다(AI_KILL_SWITCH)."
   if (deployment(env) !== "preview") return null
-  if (action === "db-write") return databaseIsolated(env) ? null : "Preview 환경: 운영 DB일 수 있는 Supabase에는 쓰지 않습니다(격리된 Preview DB 필요)."
+  if (action === "database") return databaseIsolated(env) ? null : "Preview 환경: 운영 DB일 수 있는 Supabase에는 접근하지 않습니다(격리된 Preview DB 필요)."
   if (action === "ai") return env.PREVIEW_ALLOW_AI === "true" ? null : "Preview 환경: 유료 AI 호출이 차단되어 있습니다(PREVIEW_ALLOW_AI 미설정)."
   return `Preview 환경: ${LABEL[action]}이(가) 차단되어 있습니다.`
 }
@@ -87,10 +97,11 @@ export function egressAction(url, method = "GET") {
   return rule.paths?.some(p => p.test(parsed.pathname + parsed.search)) ? rule.action : null
 }
 
-/** Wraps fetch so a Preview cannot reach side-effect or paid hosts even from a call site without its own check.
+/** Wraps fetch so a Preview cannot reach side-effect or paid hosts even from a call site without its own check (and,
+ *  with AI_KILL_SWITCH=on, no deployment can reach a paid AI host).
  *  @param {typeof fetch} fetchImpl @param {Env} [env] @returns {typeof fetch} */
 export function guardFetch(fetchImpl, env = process.env) {
-  if (deployment(env) !== "preview") return fetchImpl
+  if (deployment(env) !== "preview" && !aiKillSwitch(env)) return fetchImpl
   return function guardedFetch(input, init) {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
     const method = init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET")

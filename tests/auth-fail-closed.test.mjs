@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import * as releaseGuard from '../src/lib/release/guard.mjs'
 
 // R-1: an environment without CRON_SECRET or ADMIN_EMAIL (a fresh Preview, a typo) must deny, not match
 // "Bearer undefined" or a signed-in user without an email. The real modules run with their imports stubbed.
@@ -12,7 +13,7 @@ const stub = new Proxy(function () {}, { get: (_, key) => key === '__esModule' ?
 function load(file, mocks = {}) {
   const loaded = { exports: {} }
   const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
-  new Function('require', 'module', 'exports', code)(name => name in mocks ? mocks[name] : name.startsWith('@/') || name.startsWith('.') ? stub : require(name), loaded, loaded.exports)
+  new Function('require', 'module', 'exports', code)(name => name in mocks ? mocks[name] : name === '@/lib/release/guard.mjs' ? releaseGuard : name.startsWith('@/') || name.startsWith('.') ? stub : require(name), loaded, loaded.exports)
   return loaded.exports
 }
 const json = (body, init) => ({ status: init?.status ?? 200, body })

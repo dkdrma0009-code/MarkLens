@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import * as guard from '../src/lib/release/guard.mjs'
@@ -32,23 +33,30 @@ test('classification: only VERCEL_ENV=production is production; any other Vercel
   assert.equal(guard.deployment({ VERCEL: '1' }), 'preview') // on Vercel without a recognised environment: fail closed
   assert.equal(guard.deployment({ VERCEL_ENV: 'production', MARKLENS_DEPLOYMENT: 'preview' }), 'preview')
   assert.equal(guard.deployment({}), 'local')
+  assert.equal(guard.deployment({ VERCEL: '1', VERCEL_ENV: 'production', VERCEL_TARGET_ENV: 'staging' }), 'preview') // contradictory signals: fail closed
+  assert.equal(guard.deployment({ VERCEL: '1', VERCEL_ENV: 'production', VERCEL_TARGET_ENV: 'production' }), 'production')
+  assert.equal(guard.deployment({ VERCEL: '1', VERCEL_ENV: 'Production' }), 'preview')
   assert.equal(guard.supabaseRef({ NEXT_PUBLIC_SUPABASE_URL: PROD_URL }), 'ndehtnchkgvpjbxlkazk')
   for (const url of [PROD_URL, undefined, '', 'https://db.example.com', 'not a url']) assert.equal(guard.databaseIsolated({ NEXT_PUBLIC_SUPABASE_URL: url }), false, String(url))
   assert.equal(guard.databaseIsolated({ NEXT_PUBLIC_SUPABASE_URL: TEST_URL }), true)
+  for (const url of ['http://127.0.0.1:54321', 'http://localhost:54321']) assert.equal(guard.databaseIsolated({ NEXT_PUBLIC_SUPABASE_URL: url }), true, url) // local QA database
   assert.equal(guard.databaseIsolated({ NEXT_PUBLIC_SUPABASE_URL: TEST_URL, MARKLENS_PRODUCTION_SUPABASE_REFS: 'previewtestproject01' }), false)
 })
 
 test('policy matrix: the seven Preview scenarios and production', () => {
-  const ACTIONS = ['db-write', 'instagram', 'threads', 'email', 'aws', 'ai', 'cron']
+  const ACTIONS = ['database', 'instagram', 'threads', 'email', 'aws', 'ai', 'cron']
   const allowed = env => ACTIONS.filter(a => !guard.blockedReason(a, env))
-  assert.deepEqual(allowed(preview(TEST_URL)), ['db-write'])                     // 1. Preview + test DB: test writes only
+  assert.deepEqual(allowed(preview(TEST_URL)), ['database'])                     // 1. Preview + test DB: test writes only
   assert.deepEqual(allowed(preview(PROD_URL)), [])                                // 2. Preview + production DB: nothing
   assert.ok(guard.blockedReason('instagram', preview(TEST_URL)))                   // 3. IG publish refused even with keys
   assert.ok(guard.blockedReason('email', preview(TEST_URL)))                       // 4. Brevo send refused
   assert.deepEqual(allowed({ VERCEL: '1' }), [])                                  // 5. misconfigured: no env, no DB → fail closed
-  assert.deepEqual(allowed(preview(TEST_URL, { PREVIEW_ALLOW_AI: 'true' })), ['db-write', 'ai'])
+  assert.deepEqual(allowed(preview(TEST_URL, { PREVIEW_ALLOW_AI: 'true' })), ['database', 'ai'])
   assert.deepEqual(allowed(production), ACTIONS)                                  // 6. production unchanged
   assert.deepEqual(allowed({}), ACTIONS)                                          //    local unchanged
+  // AI_KILL_SWITCH stops paid AI everywhere, production included, and nothing else.
+  assert.deepEqual(allowed({ ...production, AI_KILL_SWITCH: 'on' }), ACTIONS.filter(a => a !== 'ai'))
+  assert.deepEqual(allowed(preview(TEST_URL, { PREVIEW_ALLOW_AI: 'true', AI_KILL_SWITCH: 'on' })), ['database'])
   assert.throws(() => guard.assertAllowed('cron', preview(TEST_URL)), err => err instanceof guard.ReleaseGuardError && err.status === 403 && err.action === 'cron')
 })
 
@@ -74,6 +82,11 @@ test('egress: a Preview cannot reach posting, mail or paid AI hosts; reads and p
   // The SDKs MarkLens builds per request take the global fetch at construction, so the egress guard covers them too.
   for (const file of ['node_modules/@anthropic-ai/sdk/client.js', 'node_modules/openai/client.js']) assert.match(readFileSync(file, 'utf8'), /this\.fetch = options\.fetch \?\? Shims\.getDefaultFetch\(\)/)
   assert.match(readFileSync('src/instrumentation.ts', 'utf8'), /globalThis\.fetch = guardFetch\(globalThis\.fetch\)/)
+  // Kill switch in production: AI hosts refused, every other request untouched.
+  const killed = guard.guardFetch(base, { ...production, AI_KILL_SWITCH: 'on' })
+  await assert.rejects(killed('https://api.anthropic.com/v1/messages', { method: 'POST' }), guard.ReleaseGuardError)
+  await killed('https://api.brevo.com/v3/smtp/email', { method: 'POST' }); await killed('https://graph.instagram.com/v21.0/1/media_publish', { method: 'POST' })
+  assert.equal(sent.length, 6)
 })
 
 // A minimal supabase-js-shaped client that records what reached it.
@@ -88,24 +101,53 @@ function fakeSupabase() {
   }
   return { client, reached }
 }
-const { guardWrites } = load('src/lib/supabase/guard.ts')
+const { guardDatabase } = load('src/lib/supabase/guard.ts')
 
-test('database: Preview on a production-suspect project blocks every write path; reads, auth and read-only RPCs pass', async () => {
+test('database: a Preview on a production-suspect project reads, writes and authenticates nothing; isolated databases pass', async () => {
   await withEnv(preview(PROD_URL), async () => {
     const { client, reached } = fakeSupabase()
-    const db = guardWrites(client)
-    for (const write of [db.from('subscribers').insert({}), db.from('insights').update({}).eq('id', 1), db.from('cardnews').upsert({}).select().single(), db.from('articles').delete().eq('id', 1), db.rpc('issue_subscription_confirmation', {}), db.storage.from('cardnews-ig').upload('a', 'b'), db.storage.createBucket('x')]) {
-      const res = await write
-      assert.equal(res.error?.code, 'PREVIEW_WRITE_BLOCKED'); assert.equal(res.data, null)
+    const db = guardDatabase(client)
+    for (const call of [db.from('subscribers').select('email'), db.from('insights').select('*').eq('id', 1), db.from('subscribers').insert({}), db.from('insights').update({}).eq('id', 1), db.from('cardnews').upsert({}).select().single(), db.from('articles').delete().eq('id', 1), db.rpc('issue_subscription_confirmation', {}), db.rpc('random_quiz', {}), db.storage.from('cardnews-ig').upload('a', 'b'), db.storage.createBucket('x')]) {
+      const res = await call
+      assert.equal(res.error?.code, 'PREVIEW_DB_BLOCKED'); assert.equal(res.data, null)
     }
-    assert.deepEqual((await db.from('insights').select('*').eq('id', 1)).data, [{ id: 1 }])
-    await db.rpc('random_quiz', {})
-    assert.deepEqual(db.storage.from('cardnews-ig').getPublicUrl('p').data, { publicUrl: 'https://x/p' })
-    assert.deepEqual((await db.auth.getUser()).data, { user: null })
-    assert.deepEqual(reached, ['select insights', 'rpc random_quiz'])
+    const auth = await db.auth.getUser()
+    assert.equal(auth.data.user, null); assert.equal(auth.error.code, 'PREVIEW_DB_BLOCKED')
+    assert.deepEqual(reached, [])
   })
-  for (const env of [production, {}, preview(TEST_URL)]) await withEnv(env, () => { const { client } = fakeSupabase(); assert.equal(guardWrites(client), client) })
-  for (const file of ['src/lib/supabase/admin.ts', 'src/lib/supabase/server.ts']) assert.ok((readFileSync(file, 'utf8').match(/guardWrites\(/g) ?? []).length >= (file.endsWith('server.ts') ? 2 : 1), file)
+  for (const env of [production, {}, preview(TEST_URL), preview('http://127.0.0.1:54321')]) await withEnv(env, () => { const { client } = fakeSupabase(); assert.equal(guardDatabase(client), client) })
+  for (const file of ['src/lib/supabase/admin.ts', 'src/lib/supabase/server.ts']) assert.ok((readFileSync(file, 'utf8').match(/guardDatabase\(/g) ?? []).length >= (file.endsWith('server.ts') ? 2 : 1), file)
+})
+
+test('admin: a Preview without an isolated database never opens the admin area (no production session lookup)', async () => {
+  let authLookups = 0
+  const server = { NextResponse: Object.assign(function (body, init) { return { status: init?.status ?? 200, body } }, { json: (body, init) => ({ status: init?.status ?? 200, body }), next: () => ({ status: 200, cookies: { set() {} }, headers: { set() {} } }), redirect: url => ({ status: 307, url: String(url) }) }) }
+  const { proxy } = load('src/proxy.ts', { 'next/server': server, '@supabase/ssr': { createServerClient: () => ({ auth: { getUser: async () => { authLookups++; return { data: { user: { email: 'admin@example.test' } } } } } }) }, '@/lib/insights/legacy-redirects.json': {} })
+  const request = pathname => ({ nextUrl: { pathname, searchParams: new URLSearchParams(), protocol: 'https:', clone() { return { ...this } } }, url: 'https://x' + pathname, cookies: { getAll: () => [] } })
+  await withEnv({ ...preview(PROD_URL), ADMIN_EMAIL: 'admin@example.test' }, async () => {
+    assert.equal((await proxy(request('/api/admin/health'))).status, 503)
+    assert.equal((await proxy(request('/admin/cardnews'))).status, 503)
+  })
+  assert.equal(authLookups, 0)
+  await withEnv({ ...production, ADMIN_EMAIL: 'admin@example.test' }, async () => { assert.equal((await proxy(request('/admin'))).status, 200) })
+  assert.equal(authLookups, 1)
+})
+
+test('browser: login and Insight Lab sign-in use the build-time verdict; a blocked Preview never creates a client', async () => {
+  let created = 0
+  const ssr = { createBrowserClient: () => { created++; return { auth: { signInWithOtp: async () => ({ error: null }) } } } }
+  const browser = () => load('src/lib/supabase/client.ts', { '@supabase/ssr': ssr, './guard': load('src/lib/supabase/guard.ts') })
+  process.env.MARKLENS_BROWSER_DB_BLOCKED = 'Preview 환경: …'
+  try {
+    const db = browser().createClient()
+    for (const res of [await db.auth.signInWithPassword({ email: 'a@example.test', password: 'x' }), await db.auth.signInWithOtp({ email: 'a@example.test' }), await db.from('insight_sessions').insert({})]) assert.equal(res.error.code, 'PREVIEW_DB_BLOCKED')
+    assert.equal(created, 0)
+  } finally { delete process.env.MARKLENS_BROWSER_DB_BLOCKED }
+  assert.equal((await browser().createClient().auth.signInWithOtp({})).error, null); assert.equal(created, 1)
+  // The verdict is computed once, at build, from the same guard; both browser sign-in paths go through createClient.
+  assert.match(readFileSync('next.config.ts', 'utf8'), /MARKLENS_BROWSER_DB_BLOCKED: blockedReason\("database"\) \?\? ""/)
+  for (const file of ['src/app/login/page.tsx', 'src/app/(public)/insight-lab/_components/AuthGate.tsx']) assert.match(readFileSync(file, 'utf8'), /from "@\/lib\/supabase\/client"/, file)
+  assert.equal(execSync('git grep -l createBrowserClient -- src', { encoding: 'utf8' }).trim(), 'src/lib/supabase/client.ts')
 })
 
 test('call sites: Instagram, Threads, mail, AWS render and crons refuse in Preview before any request; production proceeds', async () => {
@@ -149,7 +191,7 @@ test('call sites: Instagram, Threads, mail, AWS render and crons refuse in Previ
 test('card news in Preview: a production-suspect DB refuses the claim; an isolated test DB records a retryable failure, nothing posted', async () => {
   const posted = []
   const mod = db => load('src/lib/cardnews/publish.ts', {
-    '@/lib/supabase/admin': { createAdminClient: () => guardWrites(db) },
+    '@/lib/supabase/admin': { createAdminClient: () => guardDatabase(db) },
     './render-buffers': { renderCardnewsBuffers: async () => ({ buffers: [Buffer.from('a')], caption: 'c' }) },
     '@/lib/instagram': { publishCarousel: async () => { guard.assertAllowed('instagram'); posted.push('ig'); return 'ig-1' } },
     '@/lib/threads': { publishThreadsCarousel: async () => { guard.assertAllowed('threads'); posted.push('th'); return 'th-1' } },

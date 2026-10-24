@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import legacyRedirects from "@/lib/insights/legacy-redirects.json"
+import { blockedReason } from "@/lib/release/guard.mjs"
 
 // 옛 한글 슬러그 → 새 ASCII 슬러그 (Phase 2 마이그레이션 산출물, published 480건)
 const legacyMap = legacyRedirects as Record<string, string>
@@ -61,6 +62,14 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2) 관리자 auth (기존 로직) — /admin, /api/admin 만
+  // Preview 가 운영일 수 있는 Supabase 를 가리키면 관리자 영역은 열지 않는다(운영 세션·데이터 혼용 방지, R-3).
+  if (blockedReason("database")) {
+    const message = "Preview 환경: 격리된 Preview DB 없이 관리자 기능을 열지 않습니다."
+    return pathname.startsWith("/api/admin")
+      ? NextResponse.json({ error: message }, { status: 503 })
+      : new NextResponse(message, { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } })
+  }
+
   // 응답 객체를 미리 생성 — setAll에서 쿠키/헤더를 여기에 기록
   const response = NextResponse.next()
 

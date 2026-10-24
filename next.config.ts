@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { blockedReason } from "./src/lib/release/guard.mjs";
 
 // cache-bust: 2026-06-08
 const nextConfig: NextConfig = {
@@ -6,6 +7,11 @@ const nextConfig: NextConfig = {
   // 루트로 오인돼 next/font 모듈 해시가 서버/클라 불일치(하이드레이션 에러)나는 것 방지
   turbopack: {
     root: __dirname,
+  },
+  // Preview 격리(R-3): 브라우저는 배포 환경 변수를 볼 수 없으므로 빌드 시점의 DB 차단 판정을 번들에 넣는다.
+  // Vercel 에서는 한 배포의 빌드·런타임 환경이 같다. 운영·로컬·격리된 Preview 에서는 빈 문자열(차단 없음).
+  env: {
+    MARKLENS_BROWSER_DB_BLOCKED: blockedReason("database") ?? "",
   },
   // 이미지 최적화는 weserv(리사이즈·WebP)가 담당 — Vercel Image Optimization은 쓰지 않는다.
   // 전역 unoptimized로 새 next/image가 추가돼도 변환을 소비하지 않게 하고,

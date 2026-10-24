@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import * as releaseGuard from '../src/lib/release/guard.mjs'
 const require=createRequire(import.meta.url)
 const ts=require('typescript'), React=require('react'), {renderToStaticMarkup}=require('react-dom/server')
 function load(file,mocks={}) {
@@ -10,7 +11,7 @@ function load(file,mocks={}) {
  new Function('require','module','exports','__dirname',code)(name=>name in mocks?mocks[name]:require(name),loaded,loaded.exports,process.cwd())
  return loaded.exports
 }
-const images=load('src/lib/images.ts'), config=load('next.config.ts').default.images
+const images=load('src/lib/images.ts'), config=load('next.config.ts',{'./src/lib/release/guard.mjs':releaseGuard}).default.images
 const CdnImage=load('src/components/media/CdnImage.tsx',{'@/lib/images':images})
 const EditorialImage=load('src/components/home/EditorialImage.tsx',{'@/lib/images':images,'@/components/media/CdnImage':CdnImage}).default
 const ArticleVisual=load('src/components/insights/ArticleVisual.tsx',{'@/lib/images':images,'@/components/media/CdnImage':CdnImage}).default
