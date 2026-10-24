@@ -3,6 +3,8 @@
 Supabase는 마이그레이션 CLI 없이 **대시보드 → SQL Editor에 직접 붙여넣어 실행**하는 방식으로 운영한다.
 새 DB를 처음부터 구축하거나 재현할 때는 **아래 번호 순서대로** 각 파일을 실행한다.
 
+> **R-3:** 이 번호들만으로는 빈 DB가 만들어지지 않는다(cardnews·app_config 등 일부 테이블은 대시보드에서 만들어졌다). Preview·로컬 DB는 `node scripts/release/build-preview-sql.mjs`가 내는 번들(001 → `supabase/preview/001a_unmanaged_tables.sql` → 002…024 → 합성 시드)로 만든다. `supabase/preview/`는 **운영에 적용하지 않는다.** 절차는 `docs/release/preview-runbook.md`.
+
 | 순서 | 파일 | 목적 | 의존 |
 |---|---|---|---|
 | 001 | `001_schema.sql` | 기반 테이블 (articles, insights, categories, newsletter_issues, subscribers, rss_sources, analytics_events) + 기본 grant | — |
