@@ -13,7 +13,9 @@ export function parseEnv(text) {
 
 /** @param {Record<string, string>} env @param {"preview" | "production"} target @returns {{ level: "PASS" | "FAIL" | "WARN", name: string, detail: string }[]} */
 export function envChecks(env, target) {
-  const set = name => typeof env[name] === "string" && env[name].trim() !== ""
+  // "disabled-in-preview" is the inert value a branch-scoped Preview variable uses to shadow a credential inherited from
+  // every Preview (docs/release/preview-runbook.md); it counts as not set.
+  const set = name => typeof env[name] === "string" && env[name].trim() !== "" && env[name].trim() !== "disabled-in-preview"
   const host = name => { try { return new URL(env[name]).hostname } catch { return null } }
   const results = []
   const check = (level, name, ok, detail) => results.push({ level: ok ? "PASS" : level, name, detail })

@@ -46,14 +46,17 @@ R-3 시점: 로컬에서 할 수 있는 준비와 검증은 끝났다. 남은 �
    4. Auth: 테스트 관리자 사용자 1명을 만들고(이 주소가 Preview `ADMIN_EMAIL`), URL 설정의 Site URL·Redirect URL에 Preview 주소와 `/auth/callback`을 넣는다.
    5. 프로젝트 URL·anon·service_role 키와 `ADMIN_EMAIL`을 작업 폴더의 `.env.preview.local`(Git 제외)에 넣고 `node scripts/release/verify-preview-db.mjs .env.preview.local`로 확인한다. 이 도구는 운영이거나 증명할 수 없는 주소면 요청을 하나도 보내지 않고 멈추며, Preview 표식·마이그레이션 객체·시드 건수·anon 권한·버킷·관리자 계정을 GET 요청으로만 확인한다.
    - **게이트:** Preview 프로젝트 ref ≠ 운영 ref, 번들 마지막 결과가 모두 `true`, `verify-preview-db.mjs` FAIL 0.
-5. **Preview 환경 변수(승인 필요)** — 매트릭스(`README.md` 2장)대로 **Preview 범위에만** 넣는다. `MARKLENS_DEPLOYMENT=preview` 필수. IG·Threads·Brevo·AWS·GA4 자격 증명은 넣지 않는다.
-6. **게이트 실행**
+5. **Preview 환경 변수(승인 필요)** — 매트릭스(`README.md` 2장)대로 **이 브랜치의 Preview 범위에만**(target preview + gitBranch) 넣는다. `MARKLENS_DEPLOYMENT=preview` 필수.
+   - Vercel은 원격에 있는 브랜치에만 브랜치 범위 변수를 허용한다. 그래서 브랜치를 먼저 올리되, `vercel.json`의 `git.deploymentEnabled`로 **이 브랜치만 자동 배포를 보류**한 커밋을 올린다(빌드 자체가 생기지 않음을 확인).
+   - 모든 Preview가 물려받는 운영 자격 증명(AWS, Remotion, GA4, Shotstack, Unsplash 등)은 운영 값을 건드리지 않고, 이 브랜치 범위에 같은 이름의 무효값 `disabled-in-preview`를 넣어 가린다(게이트는 이 값을 "없음"으로 본다).
+   - `ADMIN_PASSWORD`는 로컬 검증용이며 Vercel에 넣지 않는다(앱 코드가 쓰지 않는다).
+6. **게이트 실행** — 이 브랜치가 실제로 받는 값(브랜치 값이 일반 Preview 값을 덮어쓴 결과)을 내려받아 돌린다.
    ```
-   vercel env pull .env.preview.local --environment=preview
-   npm run release:preflight -- --target preview --env .env.preview.local --schema preview-schema.csv --run-tests --run-build
+   npm run release:preflight -- --target preview --env <내려받은 env> --schema preview-schema.csv --run-tests --run-build
    ```
    - PASS여야 다음 단계로 간다. `HEAD pushed`, `contains origin/master`의 WARN은 Preview에서는 허용된다.
-   - `--run-build`는 현재 셸의 환경으로 빌드한다. Preview 값으로 빌드하려면 그 env 파일을 셸에 불러온 뒤 실행한다.
+   - `--run-build`는 현재 셸의 환경으로 빌드한다. Preview 값을 셸에 불러온 뒤 실행한다(빌드는 Preview DB만 읽는다). 단위 테스트는 배포 판정 변수를 뺀 중립 환경에서 돈다.
+   - PASS면 보류를 푸는 커밋을 올려 첫 Preview를 만든다.
 
 ## 7–11. Preview 배포·검증 (승인 후)
 

@@ -120,6 +120,13 @@ function gitState() {
   } catch { return null }
 }
 
+/** The environment unit tests run in: this shell's, without the variables that classify a deployment. */
+export function unitTestEnv(env) {
+  const out = { ...env }
+  for (const k of ["MARKLENS_DEPLOYMENT", "VERCEL", "VERCEL_ENV", "VERCEL_TARGET_ENV", "AI_KILL_SWITCH", "PREVIEW_ALLOW_AI"]) delete out[k]
+  return out
+}
+
 function run(command, args, env = process.env) {
   // npx is a .cmd shim on Windows and needs a shell; node itself must not go through one (its path has spaces).
   const res = spawnSync(command, args, { encoding: "utf8", shell: process.platform === "win32" && command === "npx", env, maxBuffer: 64 * 1024 * 1024 })
@@ -138,7 +145,9 @@ async function main(argv) {
     const tsc = run("npx", ["tsc", "--noEmit"]); runs.typecheck = { ok: tsc.status === 0, detail: tsc.status === 0 ? "" : "tsc 오류" }
     const lint = run("npx", ["eslint"]); runs.lint = { ok: lint.status === 0, detail: lint.status === 0 ? "" : "eslint 오류" }
     const files = readdirSync("tests").filter(f => f.endsWith(".test.mjs")).map(f => `tests/${f}`)
-    const tests = run(process.execPath, ["--test", ...files])
+    // Unit tests describe the code under a neutral (local) classification; a shell carrying the target's deployment
+    // variables (e.g. MARKLENS_DEPLOYMENT=preview for --run-build) would turn the guards on inside them.
+    const tests = run(process.execPath, ["--test", ...files], unitTestEnv(process.env))
     const count = key => Number(new RegExp(`^# ${key} (\\d+)`, "m").exec(tests.out)?.[1] ?? 0)
     runs.tests = { ok: tests.status === 0 && count("fail") === 0 && count("pass") > 0, skipped: count("skipped"), detail: `${count("pass")} pass, ${count("fail")} fail` }
   }

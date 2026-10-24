@@ -79,3 +79,13 @@ test('cli: npm run release:preflight prints names and verdicts only, exits 0/1/2
     assert.equal(spawnSync(process.execPath, ['scripts/release/preflight.mjs'], { encoding: 'utf8' }).status, 64)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
+
+test('gate: unit tests run without the deployment classification of the shell; inert Preview overrides count as unset', async () => {
+  const { unitTestEnv } = await import('../scripts/release/preflight.mjs')
+  const { envChecks } = await import('../scripts/release/env-checks.mjs')
+  const shell = { PATH: 'p', MARKLENS_DEPLOYMENT: 'preview', VERCEL: '1', VERCEL_ENV: 'preview', VERCEL_TARGET_ENV: 'preview', AI_KILL_SWITCH: 'on', PREVIEW_ALLOW_AI: 'true', NEXT_PUBLIC_SUPABASE_URL: 'u' }
+  assert.deepEqual(unitTestEnv(shell), { PATH: 'p', NEXT_PUBLIC_SUPABASE_URL: 'u' })
+  assert.equal(shell.MARKLENS_DEPLOYMENT, 'preview') // the build still gets the target's variables
+  const levels = Object.fromEntries(envChecks({ ...previewEnv, AWS_ACCESS_KEY_ID: 'disabled-in-preview', IG_ACCESS_TOKEN: 'disabled-in-preview', BREVO_API_KEY: 'real-looking-key' }, 'preview').map(r => [r.name, r.level]))
+  assert.equal(levels.AWS_ACCESS_KEY_ID, 'PASS'); assert.equal(levels.IG_ACCESS_TOKEN, 'PASS'); assert.equal(levels.BREVO_API_KEY, 'WARN')
+})
