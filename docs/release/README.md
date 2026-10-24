@@ -11,7 +11,8 @@ Preview 검증과 Production 출시를 사고 없이 진행하기 위한 기준 
 | `npm run release:preflight` (`scripts/release/preflight.mjs`) | 배포 전 단일 게이트: git·환경 변수·차단 시뮬레이션·스키마·AI 준비·tsc·eslint·테스트·빌드. PASS / FAIL / UNKNOWN | 없음(파일 입력) |
 | `scripts/release/preflight-env.mjs` | 환경 변수 파일만 점검(게이트의 env 항목과 같은 규칙) | 없음 |
 | `scripts/release/check-production-schema.sql` | 마이그레이션 001–024 적용 여부. SELECT 1개 | 읽기 전용 |
-| `scripts/release/describe-unmanaged-schema.sql` | 저장소 밖에서 만들어진 테이블·함수·권한·버킷의 실제 정의 | 읽기 전용 |
+| `scripts/release/describe-unmanaged-schema.sql` | 저장소 밖에서 만들어진 테이블의 실제 정의(컬럼·제약·인덱스·트리거·RLS·정책·권한·함수·의존 객체·버킷). SELECT 1개, 결과 1개 | 읽기 전용 |
+| `scripts/release/compare-unmanaged-schema.mjs` | 위 결과 CSV를 Preview 번들(PGlite)의 같은 조회와 비교. 항목마다 만든 파일을 추적해 "001a 추론 오류"와 "운영에 아직 없는 마이그레이션"을 구분 | 없음(CSV 입력) |
 | `scripts/release/build-preview-sql.mjs` | 빈 Preview DB 하나를 만드는 SQL 번들(001 → 001a → 002…024 → 합성 시드) | 없음(stdout 출력) |
 
 ## 1. 환경 구분과 차단 정책

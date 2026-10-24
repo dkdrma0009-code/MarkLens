@@ -17,17 +17,26 @@ R-3 시점: 로컬에서 할 수 있는 준비와 검증은 끝났다. 남은 �
 `app_config`, `cardnews`, `feedback`, `follower_snapshots`, `quiz_questions`, `site_feedback`, `competitions`, `insights`의 `hook`·`marketing_terms`·`quiz`·`video_url` 컬럼, `random_quiz()` 함수. 마이그레이션 001–024만으로는 빈 DB가 만들어지지 않는다(006이 이 테이블들에 권한을 준다).
 
 - `supabase/preview/001a_unmanaged_tables.sql`이 이 객체들을 **코드에서 추론해** 정의한다(Preview·로컬 전용, 운영에 적용 금지).
-- 운영의 실제 정의와 같은지는 **미확인**이다. 운영 SQL Editor에서 `scripts/release/describe-unmanaged-schema.sql`(읽기 전용)을 실행해 비교하고, 다르면 001a를 실제 정의에 맞춘다. 특히 `authenticated` 역할 권한(Insight Lab 사용자 세션 쓰기)이 운영과 같아야 Preview 결과를 믿을 수 있다.
+- 운영의 실제 정의와 같은지는 **미확인**이다. 3단계 절차로 비교하고, 다르면 001a를 실제 정의에 맞춘다. 특히 `authenticated` 역할 권한(Insight Lab 사용자 세션 쓰기)이 운영과 같아야 Preview 결과를 믿을 수 있다.
 
 ## 1–6. 준비
 
 1. **복구 지점 기록** — 현재 Production 배포 id와 `origin/master` 커밋을 기록한다(Vercel 대시보드). 롤백 대상이다.
 2. **Git** — `release/brand-watch-v1`이 `origin/master`를 모두 포함하고 작업 트리가 깨끗해야 한다(게이트 `[git]`).
-3. **운영 스키마 확인(읽기 전용, 승인 필요)** — 운영 SQL Editor에서 실행해 결과를 CSV로 내려받는다. 값·개인정보는 나오지 않는다.
-   - `check-production-schema.sql` → `production-schema.csv`
-   - `describe-unmanaged-schema.sql` → 001a와 비교
+3. **운영 스키마 확인(읽기 전용, B 승인됨)** — 두 파일 모두 시스템 카탈로그만 읽는 SELECT 1개다. 데이터 행, 쓰기, 설정 변경은 없고 정책식의 문자열은 `'…'`로 가려진다.
+   1. Supabase 대시보드 → **운영 프로젝트** → SQL Editor → New query.
+   2. 결과 행 수 제한을 끈다(또는 가장 큰 값). 잘린 다운로드는 비교 도구가 거부한다(마지막 `99 end` 행이 행 수를 담는다).
+   3. `scripts/release/check-production-schema.sql` 전체를 붙여 넣고 Run → 결과 Export/Download CSV → `production-schema.csv`(23행).
+   4. 새 쿼리에 `scripts/release/describe-unmanaged-schema.sql` 전체를 붙여 넣고 Run → Download CSV → `production-describe.csv`.
+   5. 비교(로컬):
+      ```
+      PGLITE_MODULE=<@electric-sql/pglite 경로> node scripts/release/compare-unmanaged-schema.mjs production-describe.csv production-schema.csv
+      ```
+      객체별 MATCH / MISMATCH. 운영에 아직 없는 저장소 마이그레이션(예: 023) 항목은 불일치가 아니라 "NOT APPLIED"로 따로 표시된다. 불일치가 있으면 `supabase/preview/001a_unmanaged_tables.sql`을 운영 정의에 맞추고 `tests/preview-db.test.mjs`를 다시 돌린다.
 4. **Preview DB 만들기(승인 필요)**
-   1. 새 Supabase 프로젝트를 만든다. 운영과 같은 리전을 권장한다. 비용은 조직 플랜에 따라 다르다(무료 프로젝트 한도 2개, 유료 플랜은 프로젝트당 컴퓨트 과금) — 생성 전에 확인한다.
+   1. 새 Supabase 프로젝트를 만든다. 운영과 같은 리전을 권장한다. 비용(2026-10 Supabase 문서 기준, 생성 전 대시보드에서 재확인):
+      - Free 조직: Owner/Admin인 모든 조직을 합쳐 활성 무료 프로젝트 2개까지 무료. 1주일 비활성 시 일시 정지.
+      - Pro 조직: 월 $25에 포함된 컴퓨트 크레딧 $10은 프로젝트 1개분이다. 추가 프로젝트는 Micro 기준 약 $10/월이고 시간 단위로 과금된다. 컴퓨트는 지출 상한(Spend Cap) 대상이 아니다. 일시 정지하거나 삭제하면 과금이 멈춘다.
    2. `node scripts/release/build-preview-sql.mjs > preview-init.sql` → Preview 프로젝트 SQL Editor에서 한 번 실행한다. 이미 초기화된 DB면 첫 줄에서 멈춘다(재실행 방지). 운영 데이터는 복사하지 않는다 — 시드는 합성 기사 3건·퀴즈 2건(`example.test`)과 자동 발행 꺼짐 설정뿐이다.
    3. Storage: `ad-assets` 버킷을 public으로 만든다(`cardnews-ig`는 코드가 처음 쓸 때 만든다).
    4. Auth: 테스트 관리자 사용자 1명을 만들고(이 주소가 Preview `ADMIN_EMAIL`), URL 설정의 Site URL·Redirect URL에 Preview 주소와 `/auth/callback`을 넣는다.
