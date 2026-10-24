@@ -2,14 +2,19 @@
 // R-3: confirms that an env file's Supabase project IS the initialised Preview database — before any of its keys reach
 // Vercel — and that each role sees only what it should. Against that project only; refuses a production or unprovable
 // URL before sending anything.
-//   node scripts/release/verify-preview-db.mjs .env.preview.local
+//   node scripts/release/verify-preview-db.mjs .env.preview.local [--schema preview-schema.csv]
 // Requests are GETs, except one: with ADMIN_PASSWORD in the env file it signs the test admin in (POST /auth/v1/token on
 // the Preview project) to check the authenticated role. Without it those checks are UNKNOWN, never PASS.
+// Whether a role may run a service-only function is probed with GET /rpc/<fn>: PostgREST runs GET in a read-only
+// transaction, so a denied role gets "permission denied" (42501) and a permitted one a read-only error (25006) — nothing
+// is ever written. Migrations that only add triggers (017, 022) are invisible over REST: --schema takes the bundle's
+// final SQL check (23 rows) to confirm them; without it that item is UNKNOWN.
 // Prints names, counts and verdicts — never a key, password, token or row value other than the environment marker.
 // Exit code 0 all PASS, 1 any FAIL, 2 otherwise (something UNKNOWN).
 import { readFileSync } from "node:fs"
 import { pathToFileURL } from "node:url"
 import { parseEnv } from "./env-checks.mjs"
+import { parseSchema } from "./preflight.mjs"
 import { databaseIsolated, supabaseRef } from "../../src/lib/release/guard.mjs"
 
 // Objects each migration leaves behind, as PostgREST exposes them to the service role (tables/columns, RPCs).
@@ -18,7 +23,8 @@ const EXPECTED = {
     "app_config", "cardnews", "feedback", "follower_snapshots", "quiz_questions", "site_feedback", "brand_entities", "brand_watch_profiles", "brand_takes", "ai_usage"],
   columns: { newsletter_issues: ["topic_headline", "approved_at"], subscribers: ["drip_step", "source", "confirmation_token"], cardnews: ["reel_settings", "ig_publish_state", "threads_publish_state"],
     insights: ["legacy_slug", "hook", "marketing_terms", "quiz", "video_url"], articles: ["site_published_at", "fallback_image"], brand_takes: ["confidence"] },
-  rpcs: ["issue_subscription_confirmation", "brand_watch_approve_evidence", "brand_watch_publish_pattern", "brand_watch_mark_meaningful_update", "consume_ai_quota", "random_quiz"],
+  // 022's brand_watch_mark_meaningful_update is a trigger function: PostgREST never exposes those (see --schema).
+  rpcs: ["issue_subscription_confirmation", "brand_watch_approve_evidence", "brand_watch_publish_pattern", "consume_ai_quota", "random_quiz"],
   absent: ["competitions"],
   buckets: ["ad-assets", "ad-clips", "cardnews-ig", "stock-posters"],
 }
@@ -28,10 +34,10 @@ export const PUBLIC_READ = ["articles", "categories", "insights", "newsletter_is
 export const ROLE_DENIED = ["subscribers", "app_config", "ai_usage", "cardnews", "feedback", "site_feedback", "follower_snapshots", "newsletter_events", "analytics_events",
   "quiz_questions", "content_metrics", "curations", "rss_sources", "brand_entities", "brand_evidence", "brand_takes", "brand_watch_profiles", "source_items"]
 // Commands only the service role may run (paid AI quota, subscription tokens, Brand Watch review).
-export const RPC_DENIED = ["consume_ai_quota", "issue_subscription_confirmation", "confirm_subscription", "recover_legacy_pending_subscription", "brand_watch_approve_evidence", "brand_watch_publish_pattern", "brand_watch_mark_meaningful_update"]
+export const RPC_DENIED = ["consume_ai_quota", "issue_subscription_confirmation", "confirm_subscription", "recover_legacy_pending_subscription", "brand_watch_approve_evidence", "brand_watch_publish_pattern", "brand_watch_reject_evidence"]
 
-/** @param {Record<string, string>} env @param {typeof fetch} fetchImpl */
-export async function verifyPreviewDb(env, fetchImpl = fetch) {
+/** @param {Record<string, string>} env @param {typeof fetch} fetchImpl @param {{ migration: string, present: boolean }[] | null} [schema] */
+export async function verifyPreviewDb(env, fetchImpl = fetch, schema = null) {
   const results = []
   const add = (level, name, detail = "") => results.push({ level, name, detail })
   const check = (name, ok, detail = "") => add(ok ? "PASS" : "FAIL", name, detail)
@@ -62,6 +68,11 @@ export async function verifyPreviewDb(env, fetchImpl = fetch) {
   const missingRpcs = EXPECTED.rpcs.filter(f => !paths.includes(`/rpc/${f}`))
   check("migration functions (RPC)", !missingRpcs.length, missingRpcs.join(", "))
   check("production parity: competitions dropped", EXPECTED.absent.every(t => !defs[t]))
+  if (!schema) add("UNKNOWN", "trigger-only migrations 017, 022", "not visible over REST — pass --schema with the bundle's final SQL check")
+  else {
+    const missing = schema.filter(r => !r.present).map(r => r.migration)
+    check("SQL check: all migrations present (incl. trigger-only 017, 022)", schema.length === 23 && !missing.length, missing.length ? `missing: ${missing.join(", ")}` : `${schema.length} rows`)
+  }
 
   const counts = { articles: await count("articles"), insights: await count("insights"), quiz_questions: await count("quiz_questions"), subscribers: await count("subscribers") }
   check("synthetic seed only (3 articles, 3 insights, 2 quiz questions, 0 subscribers)", counts.articles === 3 && counts.insights === 3 && counts.quiz_questions === 2 && counts.subscribers === 0, JSON.stringify(counts))
@@ -81,11 +92,23 @@ export async function verifyPreviewDb(env, fetchImpl = fetch) {
     const leaked = []
     for (const t of ROLE_DENIED) { const r = await get(`/rest/v1/${t}?select=*&limit=1`, anon, { bearer }); if (r.status < 300) leaked.push(t) }
     check(`${role}: denied on ${ROLE_DENIED.length} sensitive tables`, !leaked.length, leaked.length ? `READABLE: ${leaked.join(", ")}` : "")
-    const roleSpec = await get("/rest/v1/", anon, { bearer, headers: { Accept: "application/openapi+json" } })
-    if (roleSpec.status === 200 && roleSpec.body?.paths) {
-      const exposed = RPC_DENIED.filter(f => `/rpc/${f}` in roleSpec.body.paths)
-      check(`${role}: service-only commands not executable`, !exposed.length, exposed.length ? `EXPOSED: ${exposed.join(", ")}` : "")
-    } else add("UNKNOWN", `${role}: service-only commands not executable`, `API description not available to ${role} (HTTP ${roleSpec.status})`)
+    // GET /rpc/<fn> with the function's own argument names (from the service role's API description), read-only.
+    const executable = [], unclear = []
+    for (const f of RPC_DENIED) {
+      const post = spec.body?.paths?.[`/rpc/${f}`]?.post
+      const bodySchema = post?.parameters?.find(p => p.in === "body")?.schema
+      const props = bodySchema?.properties ?? spec.body?.definitions?.[bodySchema?.$ref?.split("/").pop()]?.properties
+      if (!props) { unclear.push(`${f} (not described)`); continue }
+      const dummy = d => /int/.test(d.format ?? d.type) ? "1" : (d.format ?? d.type) === "boolean" ? "false" : d.format === "uuid" ? "00000000-0000-0000-0000-000000000000" : /time|date/.test(d.format ?? "") ? "2000-01-01" : "x"
+      const query = Object.entries(props).map(([n, d]) => `${n}=${encodeURIComponent(dummy(d))}`).join("&")
+      const r = await get(`/rest/v1/rpc/${f}?${query}`, anon, { bearer })
+      if (r.body?.code === "42501") continue // permission denied for function — as required
+      if (r.status < 300 || r.body?.code === "25006") executable.push(f) // ran (stopped only by the read-only transaction)
+      else unclear.push(`${f} (HTTP ${r.status} ${r.body?.code ?? ""})`)
+    }
+    if (executable.length) check(`${role}: service-only commands not executable`, false, `EXECUTABLE: ${executable.join(", ")}`)
+    else if (unclear.length) add("UNKNOWN", `${role}: service-only commands not executable`, unclear.join("; "))
+    else check(`${role}: service-only commands not executable`, true, `${RPC_DENIED.length} denied`)
   }
 
   const buckets = await get("/storage/v1/bucket", service)
@@ -102,9 +125,11 @@ export async function verifyPreviewDb(env, fetchImpl = fetch) {
   return results
 }
 
-async function main([file]) {
-  if (!file) { console.error("usage: node scripts/release/verify-preview-db.mjs <env-file>"); process.exit(64) }
-  const results = await verifyPreviewDb(parseEnv(readFileSync(file, "utf8")))
+async function main(argv) {
+  const file = argv[0], schemaAt = argv.indexOf("--schema")
+  if (!file || file.startsWith("--")) { console.error("usage: node scripts/release/verify-preview-db.mjs <env-file> [--schema <check.csv>]"); process.exit(64) }
+  const schema = schemaAt > 0 ? parseSchema(readFileSync(argv[schemaAt + 1], "utf8")) : null
+  const results = await verifyPreviewDb(parseEnv(readFileSync(file, "utf8")), fetch, schema)
   for (const r of results) console.log(`${r.level.padEnd(7)} ${r.name.padEnd(76)} ${r.detail}`)
   const failed = results.filter(r => r.level === "FAIL").length, unknown = results.filter(r => r.level === "UNKNOWN").length
   console.log(`\n${failed ? `${failed} FAIL` : unknown ? `${unknown} UNKNOWN — not verified` : "Preview database verified"}`)
