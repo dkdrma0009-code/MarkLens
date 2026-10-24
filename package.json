@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky",
-    "shorts:deploy": "node scripts/deploy-shorts-site.mjs"
+    "shorts:deploy": "node scripts/deploy-shorts-site.mjs",
+    "release:preflight": "node scripts/release/preflight.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",

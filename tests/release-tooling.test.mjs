@@ -22,8 +22,11 @@ function preflight(env, target) {
 }
 
 test('preflight: an isolated Preview passes; a Preview on the production project or domain fails; values never printed', () => {
-  const ok = preflight({ ...base, NEXT_PUBLIC_SUPABASE_URL: 'https://previewtestproject01.supabase.co', NEXT_PUBLIC_SITE_URL: 'https://marklens-git-release.vercel.app' }, 'preview')
+  const ok = preflight({ ...base, NEXT_PUBLIC_SUPABASE_URL: 'https://previewtestproject01.supabase.co', NEXT_PUBLIC_SITE_URL: 'https://marklens-git-release.vercel.app', MARKLENS_DEPLOYMENT: 'preview' }, 'preview')
   assert.equal(ok.code, 0, ok.out)
+  // R-3: the Preview must force its own classification rather than rely on Vercel exposing VERCEL_ENV at runtime.
+  const unforced = preflight({ ...base, NEXT_PUBLIC_SUPABASE_URL: 'https://previewtestproject01.supabase.co', NEXT_PUBLIC_SITE_URL: 'https://marklens-git-release.vercel.app' }, 'preview')
+  assert.equal(unforced.code, 1); assert.match(unforced.out, /FAIL\s+MARKLENS_DEPLOYMENT \(preview\)/)
   const shared = preflight({ ...base, NEXT_PUBLIC_SUPABASE_URL: 'https://ndehtnchkgvpjbxlkazk.supabase.co', NEXT_PUBLIC_SITE_URL: 'https://marklens.site', IG_ACCESS_TOKEN: SECRET, BREVO_API_KEY: SECRET }, 'preview')
   assert.equal(shared.code, 1)
   assert.match(shared.out, /FAIL\s+NEXT_PUBLIC_SUPABASE_URL \(isolation\)/); assert.match(shared.out, /FAIL\s+NEXT_PUBLIC_SITE_URL \(host\)/)
@@ -34,7 +37,7 @@ test('preflight: an isolated Preview passes; a Preview on the production project
   assert.equal(prod.code, 0, prod.out)
   const forced = preflight({ ...base, NEXT_PUBLIC_SUPABASE_URL: 'https://ndehtnchkgvpjbxlkazk.supabase.co', NEXT_PUBLIC_SITE_URL: 'https://marklens.site', MARKLENS_DEPLOYMENT: 'preview' }, 'production')
   assert.equal(forced.code, 1); assert.match(forced.out, /FAIL\s+MARKLENS_DEPLOYMENT/)
-  for (const run of [ok, shared, missing, prod, forced]) assert.ok(!run.out.includes(SECRET), 'a value was printed')
+  for (const run of [ok, unforced, shared, missing, prod, forced]) assert.ok(!run.out.includes(SECRET), 'a value was printed')
 })
 
 test('schema check: read-only, and it tells present migrations from missing ones', { skip: !process.env.PGLITE_MODULE }, async () => {
