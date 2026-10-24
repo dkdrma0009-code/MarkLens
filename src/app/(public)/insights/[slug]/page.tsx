@@ -1,4 +1,5 @@
-import { PUBLIC_INSIGHT_DETAIL_SELECT, PUBLIC_INSIGHT_CARD_SELECT, publicCard, type PublicInsightDetail, type PublicInsightCard } from "@/lib/insights/public-select"
+import { cache } from "react"
+import { PUBLIC_INSIGHT_DETAIL_SELECT, publicCard, type PublicInsightDetail } from "@/lib/insights/public-select"
 import ArticleStory from "@/components/insights/ArticleStory"
 import { createPublicClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
@@ -9,6 +10,7 @@ import ArticleFeedback from "@/components/ArticleFeedback"
 import EditorialInsight from "@/components/insights/EditorialInsight"
 import NewsletterInlineCta from "@/components/NewsletterInlineCta"
 import { rankRelated } from "@/lib/insights/related"
+import { relatedCandidates } from "@/lib/insights/related-pool"
 import ViewCounter from "@/components/ViewCounter"
 import ReadingProgress from "@/components/ReadingProgress"
 import type { Metadata } from "next"
@@ -38,37 +40,33 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-// slug 로 못 찾으면 legacy_slug(옛 한글 슬러그)로 재조회한다. 슬러그 ASCII 마이그레이션 후
-// 옛 URL(검색 인덱싱분)이 안 깨지게 하는 폴백. legacy_slug 컬럼이 아직 없을 때(마이그레이션 전)도
-// try/catch 로 안전하게 slug-only 로 떨어진다.
-async function resolveInsight(
-  supabase: ReturnType<typeof createPublicClient>,
-  slug: string,
-  select: string,
-) {
-  const s = decodeURIComponent(slug)
-  const { data } = await supabase.from("insights").select(select).eq("slug", s).maybeSingle()
-  if (data) return data
-  try {
-    const legacy = await supabase.from("insights").select(select).eq("legacy_slug", s).maybeSingle()
-    return legacy.data ?? null
-  } catch {
-    return null
+// slug 또는 legacy_slug(옛 한글 슬러그)로 한 번에 찾는다 — 슬러그 ASCII 마이그레이션 후 옛 URL(검색 인덱싱분)이
+// 안 깨지게 하는 폴백. 두 행이 걸리면 slug 일치가 우선이다(기존: slug 조회 → 없을 때만 legacy 조회).
+// 받은 행은 slug·legacy_slug 가 실제로 일치하는지 다시 확인한다 — 일치하는 행이 없으면 다른 글이 아니라 404.
+// legacy_slug 컬럼이 없는 DB(012 전) 등으로 OR 조회가 실패하면 slug 만으로 다시 찾는다.
+// generateMetadata 와 페이지가 같은 렌더에서 함께 부르므로 React cache 로 한 번만 조회한다.
+const getInsight = cache(async (slug: string): Promise<PublicInsightDetail | null> => {
+  let s = slug
+  try { s = decodeURIComponent(slug) } catch { /* 잘못된 % 인코딩: 그대로 찾는다(없으면 404) */ }
+  const supabase = createPublicClient()
+  const quoted = `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+  const { data, error } = await supabase.from("insights").select(`${PUBLIC_INSIGHT_DETAIL_SELECT},legacy_slug`)
+    .or(`slug.eq.${quoted},legacy_slug.eq.${quoted}`).limit(2).returns<(PublicInsightDetail & { legacy_slug: string | null })[]>()
+  if (!error) {
+    const rows = data.map(({ legacy_slug: legacySlug, ...insight }) => ({ legacySlug, insight }))
+    return (rows.find((row) => row.insight.slug === s) ?? rows.find((row) => row.legacySlug === s))?.insight ?? null
   }
-}
+  const bySlug = await supabase.from("insights").select(PUBLIC_INSIGHT_DETAIL_SELECT).eq("slug", s).maybeSingle<PublicInsightDetail>()
+  return bySlug.data ?? null
+})
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase = createPublicClient()
-  const insight = await resolveInsight(
-    supabase, slug,
-    "hook, summary, category, article:articles(title, image_url, source_name)",
-  ) as { hook?: string; summary?: string; category?: string; article?: unknown } | null
+  const insight = await getInsight(slug)
 
   if (!insight) return {}
 
-  const article = insight.article as { title?: string; image_url?: string } | null
-  const title = insight.hook ?? article?.title ?? "MarkLens 인사이트"
+  const title = insight.hook ?? insight.article?.title ?? "MarkLens 인사이트"
   const description = insight.summary ?? "글로벌 마케팅 트렌드에서 선별한 실무 인사이트"
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   // 공유 이미지는 동적 브랜드 OG 카드(hook 텍스트 + 카테고리 컬러)를 사용.
@@ -98,24 +96,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function InsightDetailPage({ params }: Props) {
   const { slug } = await params
-  const supabase = createPublicClient()
 
-  // slug → 없으면 legacy_slug 폴백(옛 한글 URL 보존). decodeURIComponent 로 %EB.. 도 매칭.
-  const insight = await resolveInsight(supabase, slug, PUBLIC_INSIGHT_DETAIL_SELECT) as PublicInsightDetail | null
+  // slug 또는 legacy_slug(옛 한글 URL 보존). generateMetadata 와 같은 조회를 공유한다.
+  const insight = await getInsight(slug)
 
   if (!insight) notFound()
 
-  // 관련 인사이트 — 후보를 넉넉히 받아 rankRelated 로 점수화(겹침×2 + 같은 카테고리, 점수 0 제외, 최신순 동점).
-  // ISR 캐시라 이 연산은 빌드/재검증 시점에만 돈다.
-  const { data: relatedPool } = await supabase
-    .from("insights")
-    .select(PUBLIC_INSIGHT_CARD_SELECT)
-    .eq("articles.status", "published")
-    .neq("id", insight.id)
-    .order("created_at", { ascending: false })
-    .limit(60).returns<PublicInsightCard[]>()
-
-  const related = rankRelated(insight, relatedPool ?? []).map(publicCard)
+  // 관련 인사이트 — 최신 발행 60개 후보를 rankRelated 로 점수화(겹침×2 + 같은 카테고리, 점수 0 제외, 최신순 동점).
+  // 후보는 모든 상세가 공유하는 캐시(related-pool)에서 온다 — 상세마다 60행을 다시 받지 않는다.
+  const related = rankRelated(insight, await relatedCandidates(insight.id)).map(publicCard)
 
   const article = insight.article
   const color = "#164bff"
