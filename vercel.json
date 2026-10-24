@@ -20,10 +20,5 @@
       "path": "/api/cron/curation-weekly",
       "schedule": "0 0 * * 1"
     }
-  ],
-  "git": {
-    "deploymentEnabled": {
-      "release/brand-watch-v1": false
-    }
-  }
+  ]
 }
