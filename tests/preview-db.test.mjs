@@ -16,14 +16,15 @@ const SUPABASE_STUBS = `CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE
   CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
   CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
   CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'anon' $$;
-  CREATE SCHEMA storage; CREATE TABLE storage.buckets (id text PRIMARY KEY, public boolean);`
+  CREATE SCHEMA storage; CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean);`
 
 test('preview init: order is 001, dashboard tables, 002…024, seed', () => {
   const files = previewInitFiles()
   assert.equal(files[0], 'supabase/migrations/001_schema.sql')
   assert.equal(files[1], 'supabase/preview/001a_unmanaged_tables.sql')
-  assert.equal(files.at(-1), 'supabase/preview/900_seed_synthetic.sql')
-  assert.deepEqual(files.slice(2, -1).map(f => f.split('/').pop().slice(0, 3)), Array.from({ length: files.length - 3 }, (_, i) => String(i + 2).padStart(3, '0')))
+  // After the migrations: the synthetic seed, then the production-parity step (R-3 B).
+  assert.deepEqual(files.slice(-2), ['supabase/preview/900_seed_synthetic.sql', 'supabase/preview/950_production_parity.sql'])
+  assert.deepEqual(files.slice(2, -2).map(f => f.split('/').pop().slice(0, 3)), Array.from({ length: files.length - 4 }, (_, i) => String(i + 2).padStart(3, '0')))
   const seed = readFileSync('supabase/preview/900_seed_synthetic.sql', 'utf8')
   assert.doesNotMatch(seed, /@(?!example\.test)[a-z0-9-]+\.[a-z]/i, 'no real addresses in the seed')
   assert.match(seed, /\('ig_auto_publish', 'off'\)/)
@@ -56,7 +57,10 @@ test('preview init: builds a fresh database, refuses a non-empty one, and the re
     const describe = (await db.query(readFileSync('scripts/release/describe-unmanaged-schema.sql', 'utf8'))).rows
     assert.ok(describe.some(r => r.section === '1 column' && r.object === 'insights' && r.name === 'hook'))
     assert.ok(describe.some(r => r.section === '9 function body' && r.detail.includes('quiz_questions')))
-    assert.deepEqual(describe.filter(r => r.section === '0 table').map(r => r.detail), Array(7).fill('present'))
+    // Production's end state (R-3 B): competitions dropped, its four public buckets, random_quiz executable through PUBLIC only.
+    assert.deepEqual(describe.filter(r => r.section === '0 table').map(r => `${r.object}:${r.detail}`), ['app_config:present', 'cardnews:present', 'competitions:MISSING', 'feedback:present', 'follower_snapshots:present', 'quiz_questions:present', 'site_feedback:present'])
+    assert.deepEqual(describe.filter(r => r.section === '12 bucket').map(r => r.object), ['ad-assets', 'ad-clips', 'cardnews-ig', 'stock-posters'])
+    assert.deepEqual(describe.filter(r => r.section === '9 function execute').map(r => r.name), ['PUBLIC'])
   } finally { await db.close() }
 })
 
@@ -117,4 +121,33 @@ test('compare: matches itself; tells a wrong inference from a migration producti
     assert.equal(full.status, 0, full.stdout + full.stderr); assert.match(full.stdout, /001a matches production/)
     assert.equal(run(write('cut.csv', rows.slice(0, 50))).status, 2)
   } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('code uses only columns production has: follower_snapshots (R-3 B found an order by a missing created_at)', () => {
+  const ddl = /CREATE TABLE IF NOT EXISTS public\.follower_snapshots \(([\s\S]*?)\n\);/.exec(readFileSync('supabase/preview/001a_unmanaged_tables.sql', 'utf8'))[1]
+  const columns = new Set([...ddl.matchAll(/^\s+([a-z_]+) /gm)].map(m => m[1]))
+  assert.deepEqual([...columns].sort(), ['followers', 'id', 'platform', 'recorded_at'])
+  const calls = spawnSync('git', ['grep', '-h', '-A3', 'from("follower_snapshots")', '--', 'src'], { encoding: 'utf8' }).stdout
+  // One query = from the from(...) call to the end of its chain: the rest of that line up to the next query on it, plus
+  // the following lines that continue the chain (start with '.').
+  const chains = []
+  for (const block of calls.split(/\n--\n/)) {
+    let chain = null
+    for (const line of block.split('\n')) {
+      const at = line.indexOf('from("follower_snapshots")')
+      if (at >= 0) { if (chain) chains.push(chain); chain = line.slice(at).split(/\),\s*(?:db|sb|supabase)\./)[0] }
+      else if (chain !== null && /^\s*\./.test(line)) chain += line
+      else if (chain !== null) { chains.push(chain); chain = null }
+    }
+    if (chain) chains.push(chain)
+  }
+  assert.ok(chains.length >= 5, String(chains.length))
+  const used = new Set()
+  for (const chain of chains) {
+    for (const [, sel] of chain.matchAll(/\.select\("([^"]+)"/g)) sel.split(',').forEach(c => used.add(c.trim()))
+    for (const [, col] of chain.matchAll(/\.(?:order|eq|gte|lte|gt|lt)\("([a-z_]+)"/g)) used.add(col)
+    for (const [, obj] of chain.matchAll(/\.insert\(\{([^}]*)\}/g)) for (const [, k] of obj.matchAll(/([a-z_]+):/g)) used.add(k)
+  }
+  assert.ok(used.has('recorded_at') && used.has('followers'))
+  assert.deepEqual([...used].filter(c => !columns.has(c)), [])
 })

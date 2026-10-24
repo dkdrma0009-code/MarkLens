@@ -7,17 +7,18 @@ R-3 시점: 로컬에서 할 수 있는 준비와 검증은 끝났다. 남은 �
 | 리소스 | 상태 | 근거 |
 |---|---|---|
 | Vercel 프로젝트 | 있음(메인 체크아웃이 연결됨). 설정(시스템 변수 노출 등)은 로컬에서 확인 불가 | `.vercel/project.json`, Vercel CLI 미설치 |
-| 운영 Supabase(`ndeh…`) | 있음. 실제 스키마 적용 상태 **미확인** | migrations README |
+| 운영 Supabase(`ndeh…`) | 있음. **001–016 적용, 017–024 미적용**(2026-10-24 읽기 전용 확인) | `check-production-schema.sql` 결과 |
 | **Preview 전용 Supabase 프로젝트** | **없음 — 새로 필요** | — |
-| Preview DB 초기화 SQL | 준비됨: `node scripts/release/build-preview-sql.mjs` | PGlite에서 빈 DB → 전체 적용 → 스키마 점검 통과(`tests/preview-db.test.mjs`) |
+| Preview DB 초기화 SQL | 준비됨: `node scripts/release/build-preview-sql.mjs` — 저장소 밖 객체가 **운영과 일치**(`compare-unmanaged-schema.mjs`: 023 미적용분 외 차이 0) | PGlite에서 빈 DB → 전체 적용 → 스키마 점검 통과(`tests/preview-db.test.mjs`) |
 | Preview 전용 IG·Threads·Brevo·AWS | 불필요 — Preview에서는 코드로 차단 | `docs/release/README.md` 1장 |
 
 ### 운영에서 만들어진, 저장소에 정의가 없는 객체
 
 `app_config`, `cardnews`, `feedback`, `follower_snapshots`, `quiz_questions`, `site_feedback`, `competitions`, `insights`의 `hook`·`marketing_terms`·`quiz`·`video_url` 컬럼, `random_quiz()` 함수. 마이그레이션 001–024만으로는 빈 DB가 만들어지지 않는다(006이 이 테이블들에 권한을 준다).
 
-- `supabase/preview/001a_unmanaged_tables.sql`이 이 객체들을 **코드에서 추론해** 정의한다(Preview·로컬 전용, 운영에 적용 금지).
-- 운영의 실제 정의와 같은지는 **미확인**이다. 3단계 절차로 비교하고, 다르면 001a를 실제 정의에 맞춘다. 특히 `authenticated` 역할 권한(Insight Lab 사용자 세션 쓰기)이 운영과 같아야 Preview 결과를 믿을 수 있다.
+- `supabase/preview/001a_unmanaged_tables.sql`이 이 객체들을 정의한다(Preview·로컬 전용, 운영에 적용 금지). 처음에는 코드에서 추론했고, R-3 B(2026-10-24)에서 운영 정의를 읽어 **컬럼·타입·NULL 여부·기본값·키·CHECK·인덱스·RLS·정책·함수**를 운영과 같게 맞췄다.
+- 운영에서 이미 사라진 것(`competitions` 테이블)과 저장소가 재현할 수 없는 권한 상태(`random_quiz` 실행 권한), 운영의 Storage 버킷 4개는 `supabase/preview/950_production_parity.sql`이 마지막에 맞춘다.
+- 운영 스키마가 바뀌면 3단계를 다시 실행해 비교한다.
 
 ## 1–6. 준비
 
@@ -38,7 +39,7 @@ R-3 시점: 로컬에서 할 수 있는 준비와 검증은 끝났다. 남은 �
       - Free 조직: Owner/Admin인 모든 조직을 합쳐 활성 무료 프로젝트 2개까지 무료. 1주일 비활성 시 일시 정지.
       - Pro 조직: 월 $25에 포함된 컴퓨트 크레딧 $10은 프로젝트 1개분이다. 추가 프로젝트는 Micro 기준 약 $10/월이고 시간 단위로 과금된다. 컴퓨트는 지출 상한(Spend Cap) 대상이 아니다. 일시 정지하거나 삭제하면 과금이 멈춘다.
    2. `node scripts/release/build-preview-sql.mjs > preview-init.sql` → Preview 프로젝트 SQL Editor에서 한 번 실행한다. 이미 초기화된 DB면 첫 줄에서 멈춘다(재실행 방지). 운영 데이터는 복사하지 않는다 — 시드는 합성 기사 3건·퀴즈 2건(`example.test`)과 자동 발행 꺼짐 설정뿐이다.
-   3. Storage: `ad-assets` 버킷을 public으로 만든다(`cardnews-ig`는 코드가 처음 쓸 때 만든다).
+   3. Storage: 번들이 운영과 같은 public 버킷 4개(`ad-assets`, `ad-clips`, `cardnews-ig`, `stock-posters`)를 만든다. Storage 화면에서 생성됐는지만 확인한다.
    4. Auth: 테스트 관리자 사용자 1명을 만들고(이 주소가 Preview `ADMIN_EMAIL`), URL 설정의 Site URL·Redirect URL에 Preview 주소와 `/auth/callback`을 넣는다.
    - **게이트:** Preview 프로젝트 ref ≠ 운영 ref. Preview SQL Editor에서 `check-production-schema.sql` 결과가 모두 `true` → `preview-schema.csv`.
 5. **Preview 환경 변수(승인 필요)** — 매트릭스(`README.md` 2장)대로 **Preview 범위에만** 넣는다. `MARKLENS_DEPLOYMENT=preview` 필수. IG·Threads·Brevo·AWS·GA4 자격 증명은 넣지 않는다.

@@ -19,7 +19,7 @@ const SUPABASE_STUBS = `CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE
   CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
   CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
   CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'anon' $$;
-  CREATE SCHEMA storage; CREATE TABLE storage.buckets (id text PRIMARY KEY, public boolean);`
+  CREATE SCHEMA storage; CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean);`
 
 /** RFC 4180 CSV (quoted fields, "" escapes, newlines inside quotes) or a JSON array → [{ section, object, name, detail }]. */
 export function parseRows(text) {

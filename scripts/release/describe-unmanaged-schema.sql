@@ -3,7 +3,7 @@
 -- names and their public flag from storage.buckets), writes nothing, changes no setting and calls only catalog/formatting
 -- functions. String literals inside policy expressions are masked ('…') so a policy that names an
 -- address cannot leak it. Run it in the PRODUCTION SQL Editor (approved as step B), download the result as CSV, then:
---   node scripts/release/compare-unmanaged-schema.mjs <downloaded.csv>
+--   node scripts/release/compare-unmanaged-schema.mjs <downloaded.csv> <check-production-schema.csv>
 -- which runs this same query on the Preview bundle (PGlite) and lists every difference.
 -- Scope: the 7 dashboard-made tables, the 4 hand-added insights columns, random_quiz(), functions/views/foreign keys
 -- that depend on those tables, and the storage buckets.
