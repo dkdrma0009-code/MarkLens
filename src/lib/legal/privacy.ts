@@ -17,7 +17,7 @@ export interface PrivacyFacts {
   /** 시행일 (YYYY-MM-DD) — 새 버전을 실제로 공개하는 날 */
   effectiveDate: string | null
   /** 보유 기간 문구. 기간 숫자는 src/lib/privacy/retention.ts 와 같아야 한다(tests/privacy-retention.test.mjs) */
-  retention: { subscribers: string | null; newsletterEvents: string | null; members: string | null; feedback: string | null; aiUsage: string | null }
+  retention: { subscribers: string | null; newsletterEvents: string | null; members: string | null; feedback: string | null; aiUsage: string | null; inquiries: string | null }
   /** 보유 기간이 지난 기록을 실제로 파기하는 절차 */
   disposalProcess: string | null
   /** 다른 법령에 따라 따로 보관하는 정보와 근거·기간(법률 검토 후). 없으면 그 사실을 적는다 */
@@ -37,18 +37,21 @@ export const PRIVACY_FACTS: PrivacyFacts = {
   operator: "MarkLens",
   representative: null,
   contactEmail: "newsletter@marklens.site",
-  contactInboxVerified: false, // MX 레코드가 아직 없다 — 전달 설정과 시험 메일 확인 후 true
+  // 2026-10-25: ImprovMX 전달(MX·SPF 설정, Brevo 인증 유지). 시험 메일이 ImprovMX에서 DELIVERED, 네이버 메일 서버가
+  // 250 OK로 받음을 운영자가 확인. 네이버 받은편지함에 실제로 표시되는지는 확인하지 못했다(운영자 기록).
+  contactInboxVerified: true,
   // 법 제30조제1항제6호: 보호책임자의 성명 "또는" 보호업무·고충처리 부서의 명칭과 연락처. 2026 작성지침(개인정보위, 72쪽)도
   // 같고, 부서명 예시로 "고객센터 또는 개인정보 처리 담당부서"를 든다. 운영자는 실명을 공개하지 않기로 했으므로 실제로 운영자가
   // 처리하는 고충처리 창구의 명칭과 연락처를 적는다(2026-10-25).
   privacyOfficer: "MarkLens 개인정보 담당",
-  effectiveDate: null, // 공개하는 커밋에서 그날 날짜로 채운다
+  effectiveDate: "2026-10-25", // 실제 공개일(Production 배포일)
   retention: {
     subscribers: "구독을 해지하면 즉시 삭제(이메일 확인을 마치지 않은 신청은 7일 뒤 삭제)",
     newsletterEvents: "90일",
     members: "회원 탈퇴(계정 삭제) 시 즉시 삭제",
     feedback: "접수 후 6개월",
     aiUsage: "90일",
+    inquiries: "처리 완료 후 6개월", // 의견(피드백)과 같은 기준. 운영자 메일함에서 월 1회 삭제(docs/release/privacy-operations.md)
   },
   disposalProcess: "보관 기간이 지난 기록은 매일 자동으로 삭제하고, 운영자가 매월 1회 삭제 결과를 확인합니다. 삭제 요청은 정기 확인을 기다리지 않고 바로 처리합니다. 데이터베이스에서 복구할 수 없도록 삭제하며, 운영자가 보관하는 백업 파일은 만든 날부터 90일이 지나면 삭제합니다.",
   // 결제·판매가 없는 개인 운영 사이트라 다른 법령의 보관 의무 대상 기록이 없다(2026-10-25 확인).
@@ -85,6 +88,7 @@ export function missingPrivacyFacts(f: PrivacyFacts = PRIVACY_FACTS): string[] {
   need(f.retention.members, "보유 기간: Insight Lab 회원")
   need(f.retention.feedback, "보유 기간: 피드백")
   need(f.retention.aiUsage, "보유 기간: AI 사용량 기록")
+  need(f.retention.inquiries, "보유 기간: 개인정보 문의 메일")
   need(f.disposalProcess, "보유 기간 경과 기록 파기 절차")
   need(f.lawfulRetention, "법령에 따른 별도 보관(법률 검토)")
   need(f.databaseRegion, "데이터 저장 리전")

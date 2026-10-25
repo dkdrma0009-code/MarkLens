@@ -22,23 +22,24 @@ const PrivacyPolicy = load('src/components/legal/PrivacyPolicy.tsx', mocks).defa
 // Obviously fictional values, only to exercise the complete state.
 const complete = {
   operatorType: 'business', operator: 'TEST-OPERATOR', representative: 'TEST-REP', contactEmail: 'privacy@example.test', contactInboxVerified: true, privacyOfficer: 'TEST-OFFICER', effectiveDate: '2099-01-01',
-  retention: { subscribers: 'TEST-해지 즉시', newsletterEvents: 'TEST-90일', members: 'TEST-탈퇴 시', feedback: 'TEST-1년', aiUsage: 'TEST-30일' },
+  retention: { subscribers: 'TEST-해지 즉시', newsletterEvents: 'TEST-90일', members: 'TEST-탈퇴 시', feedback: 'TEST-1년', aiUsage: 'TEST-30일', inquiries: 'TEST-처리 후 6개월' },
   disposalProcess: 'TEST-매일 자동 파기', lawfulRetention: 'TEST-법령 보관 없음', databaseRegion: 'TEST-REGION', marketingConsent: 'notice-only', overseasTransferReviewed: true,
 }
 const html = el => renderToStaticMarkup(el)
 
-test('today: nothing is published — no notice, no footer link, /privacy is a 404', () => {
-  assert.equal(privacy.privacyReady(), false)
-  // Owner-confirmed and statute-checked (2026-10-25). Still blocking: the inbox must be shown to receive mail and the
-  // publication date. The officer listing is the handling channel (Art. 30(1)6: a name OR a department with a contact).
-  assert.deepEqual(privacy.missingPrivacyFacts(), ['문의 메일 수신 확인', '시행일'])
-  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, 'MarkLens 개인정보 담당')
-  assert.equal(html(React.createElement(SubscribeNotice, { id: 'n' })), '')
-  let notFound = 0
-  const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': privacy, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
-  assert.throws(() => page.default(), /NEXT_NOT_FOUND/); assert.equal(notFound, 1)
+test('published (2026-10-25): every fact confirmed — notice, footer link and /privacy are live; a missing fact hides them', () => {
+  // Officer listing = the handling channel (Art. 30(1)6: a name OR a department with a contact; the name stays private).
+  assert.deepEqual(privacy.missingPrivacyFacts(), [])
+  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, 'MarkLens 개인정보 담당'); assert.equal(privacy.PRIVACY_FACTS.effectiveDate, '2026-10-25')
+  assert.match(html(React.createElement(SubscribeNotice, { id: 'n' })), /href="\/privacy"/)
   const footer = load('src/components/layout/Footer.tsx', { 'next/link': { __esModule: true, default: Link }, '@/lib/brand/WordmarkSvg': { __esModule: true, default: () => null }, './navigation': { CAREER_FEATURES: [] }, '@/lib/legal/privacy': privacy }).default
-  assert.doesNotMatch(html(React.createElement(footer)), /\/privacy/)
+  assert.match(html(React.createElement(footer)), /\/privacy/)
+  // The gate still holds: with any fact missing, no notice and /privacy is a 404.
+  const incomplete = { ...privacy.PRIVACY_FACTS, contactInboxVerified: false }
+  assert.equal(html(React.createElement(SubscribeNotice, { id: 'n', facts: incomplete })), '')
+  let notFound = 0
+  const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': { ...privacy, PRIVACY_FACTS: incomplete, privacyReady: () => privacy.privacyReady(incomplete) }, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
+  assert.throws(() => page.default(), /NEXT_NOT_FOUND/); assert.equal(notFound, 1)
 })
 
 test('readiness: every fact counts; a separate marketing consent blocks publishing until its UI exists', () => {
@@ -63,7 +64,7 @@ test('individual operation: no representative is required or shown; processors a
   assert.deepEqual(privacy.missingPrivacyFacts(individual), [])
   const policy = html(React.createElement(PrivacyPolicy, { facts: individual }))
   assert.match(policy, /TEST-OPERATOR\(개인 운영\)/); assert.doesNotMatch(policy, /대표자/)
-  for (const v of ['Supabase Inc.', 'Vercel Inc.', '미국(서버 처리)', 'Brevo SAS', 'Google LLC', 'Anthropic PBC', 'OpenAI, L.L.C.', '발송·열람·클릭']) assert.ok(policy.includes(v), v)
+  for (const v of ['Supabase Inc.', 'Vercel Inc.', '미국(서버 처리)', 'Brevo SAS', 'Google LLC', 'Anthropic PBC', 'OpenAI, L.L.C.', 'ImprovMX Incorporation', 'NAVER Corp.', '전달 기록 7일 후 삭제', 'TEST-처리 후 6개월', '발송·열람·클릭']) assert.ok(policy.includes(v), v)
   assert.doesNotMatch(policy, /null|undefined/)
 })
 

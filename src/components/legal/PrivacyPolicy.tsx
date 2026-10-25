@@ -11,6 +11,7 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
     ["AI 기능(챗·면접 연습·학습·Insight Lab)", "사용자가 입력한 문장", "답변·피드백 생성. Insight Lab 답변 외에는 저장하지 않습니다.", "Insight Lab 답변은 위 회원 기록과 같습니다."],
     ["AI 사용량 제한", "접속 IP의 해시값(원문 IP는 저장하지 않음), 로그인 회원 식별자", "과도한 사용 방지", `${r.aiUsage}`],
     ["의견 보내기", "평가, 남긴 의견(이름·연락처 없음)", "서비스 개선. 인사이트 의견은 운영자에게 메일로 전달됩니다.", `${r.feedback}`],
+    ["개인정보 문의(메일)", "보낸 사람 이메일 주소, 문의 내용", "문의 답변, 열람·삭제 등 권리 행사 처리", `${r.inquiries}`],
     ["방문 통계(Google Analytics 4)", "쿠키, 기기·브라우저 정보, 방문 페이지", "이용 통계", "Google의 설정 기간"],
   ]
   // 업체·위치·연락처는 코드·설정·각 사 공식 개인정보 문서에서 확인했다(2026-10-25). 국외 이전 고지 항목(법 제28조의8 제2항):
@@ -22,6 +23,9 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
     ["Google LLC", "policies.google.com/privacy", "방문 통계(Analytics), AI 응답 생성(Gemini)", "쿠키·기기 정보·방문 페이지, AI 기능에 입력한 문장", "미국"],
     ["Anthropic PBC", "anthropic.com/legal", "AI 응답 생성(Gemini 장애 시 대체 경로)", "AI 기능에 입력한 문장", "미국"],
     ["OpenAI, L.L.C.", "privacy@openai.com", "AI 응답 생성(두 번째 대체 경로)", "AI 기능에 입력한 문장", "미국"],
+    // ImprovMX: 개인정보 처리방침·GDPR 안내·로그 안내(2026-10-25 확인). 개인정보 문의 이메일은 공개돼 있지 않아 공식 문의 양식을 적는다.
+    ["ImprovMX Incorporation", "improvmx.com/contact(문의 양식)", "문의 메일 수신과 운영자 메일함으로 전달", "문의 메일(보낸 사람 주소·제목·내용), 전달 기록", "프랑스(수신·임시 보관, 전달 후 삭제), 프랑스·미국(전달). 전달 기록 7일 후 삭제"],
+    ["NAVER Corp.", "국내 위탁", "운영자 메일함에 문의 메일 보관", "문의 메일(보낸 사람 주소·제목·내용)", "대한민국"],
   ]
   return (
     <div className="ml-pages ml-privacy">
