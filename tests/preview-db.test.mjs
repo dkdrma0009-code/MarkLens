@@ -37,7 +37,8 @@ test('preview init: builds a fresh database, refuses a non-empty one, and the re
     await db.exec(SUPABASE_STUBS)
     // The SQL Editor shows the last result: the read-only migration check, every row true.
     const last = (await db.exec(previewInitSql())).at(-1).rows
-    assert.equal(last.length, 23); assert.deepEqual(last.filter(r => !r.present).map(r => r.migration), [])
+    const { checkedMigrations } = await import('../scripts/release/preflight.mjs')
+    assert.equal(last.length, checkedMigrations().length); assert.deepEqual(last.filter(r => !r.present).map(r => r.migration), [])
     await assert.rejects(db.exec(previewInitSql()), /already exist/)
     assert.equal((await db.query(`SELECT value FROM public.app_config WHERE key = 'marklens_environment'`)).rows[0].value, 'preview')
 
@@ -164,7 +165,7 @@ test('code uses only columns production has: follower_snapshots (R-3 B found an 
 })
 
 test('verify-preview-db role matrix matches what the bundle grants (anon, authenticated)', { skip: !process.env.PGLITE_MODULE }, async () => {
-  const { PUBLIC_READ, ROLE_DENIED, RPC_DENIED } = await import('../scripts/release/verify-preview-db.mjs')
+  const { PUBLIC_READ, MEMBER_READ, ROLE_DENIED, RPC_DENIED } = await import('../scripts/release/verify-preview-db.mjs')
   const { PGlite } = require(process.env.PGLITE_MODULE)
   const db = new PGlite()
   try {
@@ -172,7 +173,7 @@ test('verify-preview-db role matrix matches what the bundle grants (anon, authen
     await db.exec(previewInitSql())
     for (const role of ['anon', 'authenticated']) {
       const readable = (await db.query(`SELECT c.relname AS t FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' AND has_table_privilege('${role}', c.oid, 'SELECT') ORDER BY 1`)).rows.map(r => r.t)
-      assert.deepEqual(readable, [...PUBLIC_READ].sort(), role)
+      assert.deepEqual(readable, [...PUBLIC_READ, ...(role === 'authenticated' ? MEMBER_READ : [])].sort(), role) // members: own Insight Lab rows (025)
       for (const t of ROLE_DENIED) assert.equal((await db.query(`SELECT has_table_privilege('${role}', 'public.${t}', 'SELECT') AS ok`)).rows[0].ok, false, `${role} ${t}`)
       for (const f of RPC_DENIED) assert.equal((await db.query(`SELECT bool_or(has_function_privilege('${role}', p.oid, 'EXECUTE')) AS ok FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname = '${f}'`)).rows[0].ok, false, `${role} ${f}`)
     }

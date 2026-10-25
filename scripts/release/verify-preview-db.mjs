@@ -8,13 +8,13 @@
 // Whether a role may run a service-only function is probed with GET /rpc/<fn>: PostgREST runs GET in a read-only
 // transaction, so a denied role gets "permission denied" (42501) and a permitted one a read-only error (25006) — nothing
 // is ever written. Migrations that only add triggers (017, 022) are invisible over REST: --schema takes the bundle's
-// final SQL check (23 rows) to confirm them; without it that item is UNKNOWN.
+// final SQL check to confirm them; without it that item is UNKNOWN.
 // Prints names, counts and verdicts — never a key, password, token or row value other than the environment marker.
 // Exit code 0 all PASS, 1 any FAIL, 2 otherwise (something UNKNOWN).
 import { readFileSync } from "node:fs"
 import { pathToFileURL } from "node:url"
 import { parseEnv } from "./env-checks.mjs"
-import { parseSchema } from "./preflight.mjs"
+import { checkedMigrations, parseSchema } from "./preflight.mjs"
 import { databaseIsolated, supabaseRef } from "../../src/lib/release/guard.mjs"
 
 // Objects each migration leaves behind, as PostgREST exposes them to the service role (tables/columns, RPCs).
@@ -30,14 +30,16 @@ const EXPECTED = {
 }
 // What anon and authenticated may read (RLS then limits rows to published content) and what they must not.
 // Kept in step with the migrations by tests/preview-db.test.mjs (has_table_privilege on the built bundle).
-export const PUBLIC_READ = ["articles", "categories", "insights", "newsletter_issues"]
+export const PUBLIC_READ = ["articles", "categories", "insights", "newsletter_issues", "insight_challenges"]
+// Signed-in members also use their own Insight Lab rows (025; RLS keeps them to auth.uid() = user_id).
+export const MEMBER_READ = ["insight_sessions", "insight_notes", "insight_user_stats"]
 export const ROLE_DENIED = ["subscribers", "app_config", "ai_usage", "cardnews", "feedback", "site_feedback", "follower_snapshots", "newsletter_events", "analytics_events",
   "quiz_questions", "content_metrics", "curations", "rss_sources", "brand_entities", "brand_evidence", "brand_takes", "brand_watch_profiles", "source_items"]
 // Commands only the service role may run (paid AI quota, subscription tokens, Brand Watch review).
 export const RPC_DENIED = ["consume_ai_quota", "issue_subscription_confirmation", "confirm_subscription", "recover_legacy_pending_subscription", "brand_watch_approve_evidence", "brand_watch_publish_pattern", "brand_watch_reject_evidence"]
 
 /** @param {Record<string, string>} env @param {typeof fetch} fetchImpl @param {{ migration: string, present: boolean }[] | null} [schema] */
-export async function verifyPreviewDb(env, fetchImpl = fetch, schema = null) {
+export async function verifyPreviewDb(env, fetchImpl = fetch, schema = null, expectedMigrations = checkedMigrations()) {
   const results = []
   const add = (level, name, detail = "") => results.push({ level, name, detail })
   const check = (name, ok, detail = "") => add(ok ? "PASS" : "FAIL", name, detail)
@@ -70,8 +72,11 @@ export async function verifyPreviewDb(env, fetchImpl = fetch, schema = null) {
   check("production parity: competitions dropped", EXPECTED.absent.every(t => !defs[t]))
   if (!schema) add("UNKNOWN", "trigger-only migrations 017, 022", "not visible over REST — pass --schema with the bundle's final SQL check")
   else {
-    const missing = schema.filter(r => !r.present).map(r => r.migration)
-    check("SQL check: all migrations present (incl. trigger-only 017, 022)", schema.length === 23 && !missing.length, missing.length ? `missing: ${missing.join(", ")}` : `${schema.length} rows`)
+    // Every number the current check SQL reports must be present; a result taken before a newer migration existed
+    // shows that migration as missing (it has not been confirmed).
+    const present = new Set(schema.filter(r => r.present).map(r => r.migration))
+    const missing = expectedMigrations.filter(n => !present.has(n))
+    check("SQL check: all migrations present (incl. trigger-only 017, 022)", !missing.length, missing.length ? `missing: ${missing.join(", ")}` : `${schema.length} rows`)
   }
 
   const counts = { articles: await count("articles"), insights: await count("insights"), quiz_questions: await count("quiz_questions"), subscribers: await count("subscribers") }
@@ -89,6 +94,10 @@ export async function verifyPreviewDb(env, fetchImpl = fetch, schema = null) {
     for (const t of PUBLIC_READ) if ((await count(t, anon, bearer)) === null) readable.push(t)
     check(`${role}: reads public tables (${PUBLIC_READ.join(", ")})`, !readable.length, readable.length ? `denied: ${readable.join(", ")}` : "")
     check(`${role}: published insights visible`, (await count("insights", anon, bearer)) === 3)
+    // Member tables: readable for authenticated (its own rows only — a fresh test admin owns none); denied for anon.
+    const member = []
+    for (const t of MEMBER_READ) { const n = await count(t, anon, bearer); if (role === "anon" ? n !== null : n !== 0) member.push(`${t}=${n}`) }
+    check(role === "anon" ? "anon: no access to Insight Lab member tables" : `${role}: own Insight Lab rows only (${MEMBER_READ.join(", ")})`, !member.length, member.join(", "))
     const leaked = []
     for (const t of ROLE_DENIED) { const r = await get(`/rest/v1/${t}?select=*&limit=1`, anon, { bearer }); if (r.status < 300) leaked.push(t) }
     check(`${role}: denied on ${ROLE_DENIED.length} sensitive tables`, !leaked.length, leaked.length ? `READABLE: ${leaked.join(", ")}` : "")

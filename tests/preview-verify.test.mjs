@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { verifyPreviewDb, PUBLIC_READ, ROLE_DENIED, RPC_DENIED } from '../scripts/release/verify-preview-db.mjs'
+import { verifyPreviewDb, PUBLIC_READ, MEMBER_READ, ROLE_DENIED, RPC_DENIED } from '../scripts/release/verify-preview-db.mjs'
+import { checkedMigrations } from '../scripts/release/preflight.mjs'
 
 // R-3: verify-preview-db.mjs confirms from an env file alone that its project is the initialised Preview database and that
 // anon / authenticated see only what they should. It never sends a request to production or to an unprovable URL, and its
 // function probe never writes (GET runs read-only).
 const PREVIEW = 'https://previewtestproject01.supabase.co'
 const env = { NEXT_PUBLIC_SUPABASE_URL: PREVIEW, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-secret-1', SUPABASE_SERVICE_ROLE_KEY: 'service-secret-2', ADMIN_EMAIL: 'preview-admin@example.test', ADMIN_PASSWORD: 'password-secret-3' }
-const schemaOk = ['001', '002', '003', '004', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024'].map(migration => ({ migration, present: true }))
+const schemaOk = checkedMigrations().map(migration => ({ migration, present: true }))
 const tables = ['articles', 'insights', 'subscribers', 'newsletter_issues', 'newsletter_events', 'insight_challenges', 'insight_sessions', 'content_metrics', 'curations', 'app_config', 'cardnews', 'feedback', 'follower_snapshots', 'quiz_questions', 'site_feedback', 'brand_entities', 'brand_watch_profiles', 'brand_takes', 'ai_usage']
 const cols = { newsletter_issues: ['topic_headline', 'approved_at'], subscribers: ['drip_step', 'source', 'confirmation_token'], cardnews: ['reel_settings', 'ig_publish_state', 'threads_publish_state'], insights: ['legacy_slug', 'hook', 'marketing_terms', 'quiz', 'video_url'], articles: ['site_published_at', 'fallback_image'], brand_takes: ['confidence'] }
 const serviceRpcs = [...new Set(['issue_subscription_confirmation', 'brand_watch_approve_evidence', 'brand_watch_publish_pattern', 'consume_ai_quota', 'random_quiz', ...RPC_DENIED])]
@@ -39,6 +40,7 @@ function fakePreview(tweak = {}) {
     const table = u.pathname.replace('/rest/v1/', '')
     if (role !== 'service') {
       if (PUBLIC_READ.includes(table)) return json([], 200, `0-0/${table === 'insights' ? 3 : 0}`)
+      if (MEMBER_READ.includes(table) && role === 'authenticated') return json([], 200, `0-0/${tweak.othersRows ? 2 : 0}`) // RLS: own rows only
       if (table === tweak.leak) return json([{}], 200, '0-0/1')
       return json({ code: '42501', message: `permission denied for table ${table}` }, 401)
     }
@@ -90,6 +92,7 @@ test('verify: each broken piece fails; what cannot be checked is UNKNOWN, never 
     exposedRpc: ['consume_ai_quota', { 'anon: service-only commands not executable': 'FAIL', 'authenticated: service-only commands not executable': 'FAIL' }],
     unclearRpc: ['confirm_subscription', { 'anon: service-only commands not executable': 'UNKNOWN', 'authenticated: service-only commands not executable': 'UNKNOWN' }],
     badPassword: [true, { 'test admin signs in (Preview Auth)': 'FAIL' }],
+    othersRows: [true, { [`authenticated: own Insight Lab rows only (${MEMBER_READ.join(', ')})`]: 'FAIL' }],
   }
   for (const [key, [value, expected]] of Object.entries(cases)) {
     const { fetchImpl } = fakePreview({ [key]: value })

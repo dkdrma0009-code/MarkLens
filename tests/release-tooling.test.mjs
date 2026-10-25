@@ -52,6 +52,7 @@ test('schema check: read-only, and it tells present migrations from missing ones
     await db.exec('CREATE TABLE public.cardnews (article_id text PRIMARY KEY, posted_at timestamptz, ig_post_id text, publish_status text, reel_settings jsonb); CREATE TABLE public.subscribers (id int, email text, source text); REVOKE ALL ON public.subscribers FROM anon;')
     for (const m of ['023_cardnews_channel_publish_state', '024_ai_usage_quota']) await db.exec(readFileSync(`supabase/migrations/${m}.sql`, 'utf8'))
     assert.deepEqual(await present(), ['006', '009', '013', '023', '024'])
-    assert.equal((await db.query(check)).rows.length, 23)
+    const { checkedMigrations } = await import('../scripts/release/preflight.mjs')
+    assert.equal((await db.query(check)).rows.length, checkedMigrations().length)
   } finally { await db.close() }
 })

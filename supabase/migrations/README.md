@@ -39,6 +39,14 @@ Threads post id/time on `cardnews`. Additive only. **Apply before deploying** th
 `src/lib/cardnews/publish.ts`; without it every card news publish stops with an error (nothing is posted twice).
 This pass only writes the migration; it does not apply it to production.
 
+## Insight Lab access
+
+`025_insight_lab_access.sql` — Insight Lab의 모든 경로는 방문자 세션(anon/authenticated)으로 DB에 접근한다. 006이 두 역할의
+테이블 권한을 전부 회수해 004의 "본인 행만" RLS 정책이 실행되지 못했고, 챌린지 조회·평가 저장·노트·통계가 모두 42501로
+실패했다(Preview에서 재현, 2026-10-25). 025는 라우트가 하는 만큼만 GRANT한다(챌린지 SELECT: anon+authenticated, 세션
+SELECT/INSERT·노트 CRUD·통계 SELECT/INSERT/UPDATE: authenticated). 행 범위는 004 정책이 그대로 제한한다. RLS가 꺼져 있으면
+적용을 거부한다. 추가형·재실행 안전. 004·006 이후 아무 때나 적용 가능하며 017–024와 의존 관계가 없다.
+
 ## 주의
 
 - **005 → 006 순서 필수**: 005가 광범위하게 GRANT ALL 한 뒤, 006이 anon/authenticated만 최소 권한으로 좁힌다. 005 없이 006만 돌리면 의도와 다르게 동작한다.

@@ -17,6 +17,11 @@ const EXTERNAL = ["instagram", "threads", "email", "aws", "cron"]
 // 005 is superseded by 006 (the check reads the end state); every other migration must be in the schema check.
 const UNCHECKED_MIGRATIONS = ["005"]
 
+/** The migration numbers check-production-schema.sql reports, read from the SQL itself (one row per number). */
+export function checkedMigrations(sql = readFileSync("scripts/release/check-production-schema.sql", "utf8")) {
+  return [...sql.matchAll(/^\s*\('(\d{3})',/gm)].map(m => m[1])
+}
+
 /** "migration,artifact,present" CSV or a JSON array of rows → [{ migration, present }]. @param {string} text */
 export function parseSchema(text) {
   const trimmed = text.trim()

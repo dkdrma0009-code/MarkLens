@@ -88,8 +88,8 @@ async function main([file, checkFile]) {
   // The SQL Editor can cap results; a capped download would read as "missing in production". The query's last row
   // carries its row count.
   const end = described.find(r => r.section === END)
-  if (!end || Number(end.detail) !== described.length - 1 || check.length !== 23) {
-    console.error(`inconclusive: describe ${end ? `has ${described.length - 1} of ${end.detail} rows` : "has no end row"}, check has ${check.length} of 23 rows — turn the SQL Editor row limit off and download again`)
+  if (!end || Number(end.detail) !== described.length - 1 || check.length < 23) { // 001–024 at least (025 came later)
+    console.error(`inconclusive: describe ${end ? `has ${described.length - 1} of ${end.detail} rows` : "has no end row"}, check has ${check.length} rows (at least 23) — turn the SQL Editor row limit off and download again`)
     process.exit(2)
   }
   const production = described.filter(r => r.section !== END)
