@@ -3,19 +3,21 @@
 이 문서는 실행 기록이 아니라 **승인용 계획**이다. 운영 DB·Production 배포·Production 환경 변수는 R-4에서 바꾸지 않았다. 각 단계는 별도 승인 후 실행한다.
 배경: [README.md](README.md)(환경·차단 정책), [preview-runbook.md](preview-runbook.md)(Preview), [privacy-policy-draft.md](privacy-policy-draft.md)(개인정보).
 
-## 출시 순서 (2026-10-25 개정 — 개인정보 확정이 배포보다 먼저)
+## 출시 순서 (2026-10-25 운영 점검 반영 — 개인정보 확정이 배포보다 먼저)
+
+운영 점검 결과(Audit 1·2, 읽기 전용): 001–016 적용, 017–024 미적용. **025의 권한 11개는 이미 있다** — 게다가 `authenticated`가 회원 테이블 3개에 모든 권한(TRUNCATE·REFERENCES·TRIGGER, 세션 UPDATE/DELETE, 통계 DELETE 포함)을 가진다. RLS 4/4·정책 10개는 정상. Insight Lab은 **운영에서 이미 저장 중**(세션 1·통계 1·노트 0). 자동 발행 `ig_auto_publish`·`site_publish_auto` = on, `curation_auto_publish` 행 없음(= off).
 
 | 순서 | 단계 | 새 개인정보 처리 시작? | 조건 |
 |---|---|---|---|
-| 1 | A-1 읽기 전용 점검 + 백업·복원 시험 | 아니오 | — |
-| 2 | **B 개인정보 확정**(운영자 정보·항목·목적·보유 기간·파기 절차·처리 위탁/국외 이전·고지 UI) → `PRIVACY_FACTS` 커밋 → Preview에서 고지·처리방침 확인 | 아니오 | 운영자 결정 + 법률 검토 |
-| 3 | 묶음 1a: 017 → 023 → 024 | 아니오 — 현재 운영 코드(master)는 이 객체들을 쓰지 않는다 | 2와 병행 가능 |
-| 4 | 묶음 1b: **025** → 바로 이어서 **코드 배포**(C) | **예** — Insight Lab 노트·세션 저장, `ai_usage`(회원 ID 또는 IP 해시 일별 집계) | **2 완료 후에만** |
+| 1 | A-1 읽기 전용 점검(완료) + 백업·복원 시험 | 아니오 | — |
+| 2 | **B 개인정보 확정** → `PRIVACY_FACTS` 커밋 → Preview에서 고지·처리방침 확인 | 아니오 | 운영자 결정 + 법률 검토 |
+| 3 | 묶음 1a: 017 → 023 → 024 → **026**(권한 축소) | 아니오 — master 코드는 017/023/024 객체를 쓰지 않고, 026은 권한을 줄이기만 한다(025는 운영에서 이미 충족 — 실행해도 변화 없음) | 백업 확인 후. 2와 병행 가능 |
+| 4 | **코드 배포**(C) | **예** — `ai_usage`(회원 ID 또는 IP 해시 일별 집계) | **2 완료 후에만** |
 
-- **025를 배포 전에 따로 적용하지 않는다.** 현재 운영 코드(master)에 Insight Lab 저장 API가 이미 있어서, 025만 적용해도 그 순간 회원 노트·세션 저장이 시작된다.
-- 새 코드는 024가 있으면 공개 AI 호출마다 `ai_usage`에 회원 ID 또는 IP 해시를 기록한다(024가 없으면 공개 AI 전부 503). 그래서 **코드 배포 자체가 2에 묶인다.**
-- 2 이전에 코드를 내보내는 유일한 방법은 Production `AI_KILL_SWITCH=on`(환경 변수 변경, 별도 승인) + 025 보류다. 이 경우 공개 AI뿐 아니라 **크론의 AI 콘텐츠 생성도 멈추고** Insight Lab은 지금처럼 저장되지 않는다 — 권장하지 않는다.
-- 이미 운영 중인 처리(뉴스레터 구독, Insight Lab 이메일 OTP 로그인 계정, 피드백 코멘트의 Brevo 메일)도 공개된 처리방침이 없는 상태다. 이번 출시가 만든 문제는 아니지만 2에서 함께 해소한다.
+- 새 코드는 024가 있으면 공개 AI 호출마다 `ai_usage`에 회원 ID 또는 IP 해시를 기록한다(024가 없으면 공개 AI 전부 503). 그래서 **코드 배포가 2에 묶인다.**
+- 2 이전에 코드를 내보내는 유일한 방법은 Production `AI_KILL_SWITCH=on`(환경 변수 변경, 별도 승인)인데, 공개 AI뿐 아니라 **크론의 AI 콘텐츠 생성도 멈춘다** — 권장하지 않는다.
+- 이미 운영 중인 처리(뉴스레터 구독, Insight Lab OTP 로그인 계정과 세션·노트·통계 저장, 피드백 코멘트의 Brevo 메일)도 공개된 처리방침이 없다. 이번 출시가 만든 문제는 아니지만 2에서 함께 해소한다.
+- 026 이전의 초과 권한은 API로는 쓸 길이 없다(PostgREST는 TRUNCATE를 노출하지 않고, 세션 UPDATE/DELETE·통계 DELETE는 정책이 없어 RLS가 거부). 그래도 TRUNCATE는 RLS 밖이라 SQL 수준에서는 다른 회원의 세션까지 지울 수 있다(`tests/insight-lab-access.test.mjs`) — 1a에 포함해 없앤다.
 
 ## 0. 현재 상태 (2026-10-25 확인)
 
@@ -23,7 +25,7 @@
 |---|---|
 | Production | `marklens.site`, Vercel `dpl_DtbqqctAh6BaNBaa8ARynkByHqcj`, branch `master` @ `342c59c` |
 | 릴리즈 | `release/brand-watch-v1` — master보다 67커밋 앞, 뒤처짐 0(fast-forward 가능), 삭제·이름 변경된 라우트 0, `vercel.json`(크론) 동일 |
-| 운영 DB | 001–016 적용, **017–025 미적용**(읽기 전용 점검 결과) |
+| 운영 DB | 001–016 적용, 017–024 미적용, 025 권한은 이미 있음(+초과 권한 → 026), Postgres 17.6. 규모: insights 1,903(12 MB), articles 2,968, cardnews 165(560 kB, IG 게시 66), 구독 active 9·pending 2, auth 사용자 1 |
 | 운영 Supabase 플랜 | Free — **자동 백업·백업 다운로드 없음**(Supabase 문서). 변경 전 직접 백업 필수 |
 | Production 환경 변수 | 필수 13개 존재, Preview 전용 값(`MARKLENS_DEPLOYMENT`, `PREVIEW_ALLOW_AI`, `AI_KILL_SWITCH`) 없음, `disabled-in-preview` 자리표시자 없음. 공개 값: 사이트 `https://marklens.site`, Supabase ref `ndehtnchkgvpjbxlkazk` |
 
@@ -49,7 +51,8 @@
 | 1a (필수, 코드 배포 전) | `017_insight_content_timestamp.sql` | insights 갱신 트리거 함수 교체(조회수만 바뀔 때 `updated_at` 유지) | 없음(백필 없음) | insights 트리거 교체 순간 짧은 배타 잠금 | 없음(권장) |
 | 1a | `023_cardnews_channel_publish_state.sql` | cardnews에 채널별 상태 컬럼 8개 + CHECK 2개 | 없음(새 컬럼 NULL, CHECK는 새 컬럼만 검사). CHECK 추가 시 cardnews 전체를 한 번 훑는다 | cardnews ACCESS EXCLUSIVE(행 수만큼, A-1의 건수 참조) | **필수**: 없으면 카드뉴스 발행 실패, 관리자 Social 화면 오류 |
 | 1a | `024_ai_usage_quota.sql` | `ai_usage` 테이블 + `consume_ai_quota()` | 없음 | 새 객체만 | **필수**: 없으면 공개 AI 전부 503 |
-| 1b (**개인정보 확정 후, 배포 직전**) | `025_insight_lab_access.sql` | Insight Lab 테이블 GRANT(최소 권한) | 없음 | GRANT 순간 짧음 | 없으면 Insight Lab 조회·저장 실패(현재 운영도 같은 상태로 추정 — A-1의 grant 행으로 확인). 적용 즉시 master 코드로도 회원 데이터 저장이 시작된다 |
+| — | `025_insight_lab_access.sql` | Insight Lab 테이블 GRANT | 없음 | — | **운영은 이미 충족(11/11)** — 실행해도 변화 없음. 026이 같은 권한 집합을 정확히 다시 부여하므로 따로 실행하지 않는다 |
+| 1a | `026_insight_lab_least_privilege.sql` | anon·authenticated의 Insight Lab 권한을 025 집합으로 재설정(REVOKE ALL + GRANT, 한 트랜잭션) | 없음(행 변경 없음) | 4개 테이블 권한 변경 순간 짧음 | 라우트가 쓰는 권한은 그대로 — Insight Lab 동작 유지. RLS가 꺼져 있으면 스스로 중단 |
 | 2 (**별도 승인**) | `018`→`019`→`020`→`021`→`022` | Brand Watch 테이블·함수·트리거 | 기존 테이블 변경 없음(018 머리말) | 새 객체 위주 | 선택: 없으면 공개 Brand Watch는 정적 데이터로 정상, **관리자 Brand Watch만 "불러올 수 없음"** 상태 |
 
 - 묶음 1의 네 파일은 서로 의존하지 않는다(파일 간 참조 없음). 번호 순으로 하나씩 실행하고 매번 `check-production-schema.sql`로 해당 번호가 `true`인지 확인한다.
@@ -63,7 +66,7 @@
 - 017: 트리거만 바뀜 — 동작 동일(조회수 갱신 시 `updated_at` 유지로 sitemap lastmod가 덜 흔들림).
 - 023: 기존 코드는 `posted_at`·`ig_post_id`·`publish_status`만 쓴다 — 새 컬럼은 NULL 허용, CHECK도 새 컬럼만(`tests/release-migrations.test.mjs`의 "old writes unaffected").
 - 024: 기존 코드는 쓰지 않는다.
-- 025: 권한만 추가 — 기존 코드의 Insight Lab이 오히려 동작하기 시작한다. **그래서 025는 개인정보 확정 뒤 배포 직전에만 적용한다**(출시 순서 4).
+- 026: 초과 권한만 회수한다. master의 Insight Lab 라우트가 쓰는 권한(025 집합)은 같은 트랜잭션에서 다시 부여되므로 동작은 그대로다.
 
 반대 순서(코드 먼저)는 장애다: 024 없으면 공개 AI 503, 023 없으면 발행·Social 화면 오류.
 
@@ -78,12 +81,12 @@
 - 코드는 준비됐고 **미공개** 상태다(`src/lib/legal/privacy.ts`의 확정 항목이 비어 있으면 `/privacy` 404, 고지·링크 없음).
 - 운영자가 정할 항목과 법률 검토 사항: [privacy-policy-draft.md](privacy-policy-draft.md) "운영자가 확정해야 할 항목".
 - 공개 가능 조건: 모든 항목 확정 + 광고성 정보 동의 판단이 `notice-only` + 국외 이전 검토 완료 + **보유 기간 경과 기록 파기 절차 확정(현재 코드에 없음)**.
-- **B는 코드 배포(C)와 025의 선행 조건이다.** 확정된 값을 `PRIVACY_FACTS`에 넣은 커밋을 Preview에서 확인한 뒤, 그 SHA를 C의 배포 대상으로 쓴다 — 처리방침·고지가 새 처리와 같은 배포로 함께 나간다.
+- **B는 코드 배포(C)의 선행 조건이다.** 확정된 값을 `PRIVACY_FACTS`에 넣은 커밋을 Preview에서 확인한 뒤, 그 SHA를 C의 배포 대상으로 쓴다 — 처리방침·고지가 새 처리와 같은 배포로 함께 나간다.
 - 파기 절차는 문서화된 수동 절차(누가·언제·무엇을·어떻게)로 시작할 수 있다. 자동 파기 구현은 그 결정 뒤 별도 작업이다.
 
 ## C. 코드 출시안
 
-1. **커밋 고정**: Preview에서 검증한 `release/brand-watch-v1`의 SHA를 기록한다. 이후 그 브랜치에 새 커밋이 생기면 Preview부터 다시. 선행 조건: B 완료(그 SHA에 확정된 `PRIVACY_FACTS` 포함), 묶음 1a 적용, 025는 이 배포 직전.
+1. **커밋 고정**: Preview에서 검증한 `release/brand-watch-v1`의 SHA를 기록한다. 이후 그 브랜치에 새 커밋이 생기면 Preview부터 다시. 선행 조건: B 완료(그 SHA에 확정된 `PRIVACY_FACTS` 포함), 묶음 1a(017·023·024·026) 적용.
 2. **배포 방법: master fast-forward**
    ```
    git push origin <검증된 SHA>:master        # fast-forward만 — 실패하면 중단(강제 push 금지)
@@ -106,6 +109,21 @@
 - Vercel 함수 오류(5xx), 크론 실행 결과(collect·ig-daily·newsletter)
 - `/api/subscribe` 성공률, 구독 확인 메일 도착(테스트 주소로 1회 — 실제 발송, 별도 승인)
 - 카드뉴스: 자동 발행 플래그 상태 확인 후, 게시 테스트는 별도 승인으로 1건만(중복 게시 방지 claim이 023에 의존)
+
+### 자동 발행 전환 (플래그는 끄지 않는다)
+
+운영 플래그 `ig_auto_publish`·`site_publish_auto`는 on이고 그대로 둔다. 새 코드에서 두 플래그가 하는 일은 같다(IG 하루 1건 08:00 KST, 사이트 공개 09:00 KST). 달라지는 건 IG 발행이 023의 상태 컬럼으로 **한 번만** 잡힌다는 점이다.
+- 기존 게시분 66건은 `posted_at`이 있어 새 코드가 "이미 발행"으로 본다 — 재게시 없음. Threads 수동 재시도는 `failed` 상태에서만 가능해, 상태가 비어 있는 기존 카드는 Threads에도 다시 나가지 않는다.
+- **배포 시각**: 화–목 KST 13:00–17:00. 크론이 없는 구간이고(08:00 IG, 09:00 수집·사이트 공개, 월 07:30 뉴스레터·09:00 큐레이션·02:00 퀴즈), 첫 자동 발행(다음 날 08:00)까지 점검 시간이 15시간 남는다.
+- **배포 직후~당일 저녁**: 관리자 Social 화면 정상, 023 컬럼 존재(check SQL), 아래 조회에서 `publishing`·`needs_review` 0건.
+- **다음 날 08:00 이후**: 새로 발행된 1건이 `ig_publish_state = published`, Instagram 계정에 중복 게시 없음, Vercel 크론 로그 정상.
+- **중단 수단**: 전날 저녁 점검에서 이상이 보이면 운영자가 관리자 화면의 기존 자동 발행 스위치로 `ig_auto_publish`를 끈다(운영자 판단, 원인 해결 후 다시 켬). 코드 롤백만으로는 023 상태가 남는다는 점에 유의.
+
+```sql
+-- 읽기 전용: 채널별 발행 상태 분포(행 내용 없음)
+SELECT coalesce(ig_publish_state, 'null') AS ig, coalesce(threads_publish_state, 'null') AS threads, (posted_at IS NOT NULL) AS ig_posted, count(*)
+FROM public.cardnews GROUP BY 1, 2, 3 ORDER BY 4 DESC;
+```
 - `ai_usage` 기능별 일일 합계, 503(024·권한) 비율
 
 ### 첫 주 — Supabase Egress
