@@ -25,6 +25,8 @@
 
 ### R-4에서 코드로 다시 확인한 사실 (2026-10-25)
 
+- 운영 DB 점검(읽기 전용, 건수만): Insight Lab은 **운영에서 이미 저장 중**(로그인 계정 1, 세션 1, 통계 1, 노트 0). 구독자 active 9·pending 2·해지 0. `ai_usage`는 아직 없다(024 미적용) — 새 코드 배포와 함께 생긴다.
+
 - 구독 해지(`/api/unsubscribe`)는 `status=unsubscribed`, `unsubscribed_at` 기록뿐이다. **구독자 행을 지우는 경로는 코드 어디에도 없다.**
 - Insight Lab 계정 삭제 경로가 앱에 없다(관리자 대시보드에서만 가능). 계정이 지워지면 세션·노트·통계는 `ON DELETE CASCADE`로 함께 지워진다.
 - AI 입력: 챗·면접 연습·학습 채점은 AI 제공사로 보내기만 하고 DB에 저장하지 않는다. Insight Lab 답변(`insight_sessions`, 직접 입력한 기사 본문 포함)은 저장된다.
