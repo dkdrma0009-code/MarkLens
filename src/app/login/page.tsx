@@ -23,7 +23,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <main className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="text-lg font-semibold">MarkLens</h1>
@@ -33,6 +33,7 @@ export default function LoginPage() {
           <input
             type="email"
             placeholder="이메일"
+            aria-label="이메일"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -41,6 +42,7 @@ export default function LoginPage() {
           <input
             type="password"
             placeholder="비밀번호"
+            aria-label="비밀번호"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -55,6 +57,6 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
-    </div>
+    </main>
   )
 }
