@@ -11,7 +11,7 @@ import {
 import { fetchImageDataUri } from "./image"
 import { loadFonts } from "./fonts"
 import { TOKENS } from "./templates"
-import stockPosters from "./stock-posters.json"
+import { stockPosterPool } from "./stock-posters"
 import type {
   CurationSlide, CurationTrendSlide, CurationIntroSlide, CurationOutroSlide,
 } from "./curation-types"
@@ -31,12 +31,10 @@ const CATEGORY_SLUG: Record<string, string> = {
   "브랜딩": "branding", "퍼포먼스 마케팅": "performance", "CRM": "crm", "콘텐츠 마케팅": "content",
   "SEO": "seo", "소셜 미디어": "social", "AI 마케팅": "ai", "소비자 심리": "psychology",
 }
-const POSTERS = stockPosters as Record<string, string[]>
 const fmtDate = (iso?: string | null) => (iso ? iso.slice(0, 10).replace(/-/g, ".") : "")
 
 function poolFor(category: string): string[] {
-  const slug = CATEGORY_SLUG[category] ?? "default"
-  return POSTERS[slug] ?? POSTERS["default"] ?? []
+  return stockPosterPool(CATEGORY_SLUG[category] ?? "default")
 }
 
 export interface CurationRender {
@@ -76,7 +74,8 @@ async function buildEditorialElements(
       (await fetchImageDataUri(pool[0])) ??
       ""
     const gi = [1, 2, 3].map((j) => pool[(it.rank * 3 + j) % (pool.length || 1)])
-    const grid = (await Promise.all(gi.map((g) => fetchImageDataUri(g)))).map((x, k) => x ?? gi[k] ?? hero)
+    // 못 받은 컷은 히어로로 채운다(원본 주소를 렌더러에 넘기면 같은 이미지를 또 요청하고, 실패 시 렌더가 깨진다).
+    const grid = (await Promise.all(gi.map((g) => fetchImageDataUri(g)))).map((x) => x ?? hero)
     const ctx: EditorialCtx = {
       page: it.rank + 1,
       total,
