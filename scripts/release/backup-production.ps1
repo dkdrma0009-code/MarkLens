@@ -76,15 +76,22 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 Push-Location $dir
 try {
   $url = $check.Url
-  $steps = @(
-    @("roles.sql", @("--role-only")),
-    @("schema.sql", @()),
-    @("data.sql", @("--use-copy", "--data-only", "-x", "storage.buckets_vectors", "-x", "storage.vector_indexes"))
-  )
-  foreach ($s in $steps) {
-    Write-Host "dumping $($s[0]) ..."
-    & npx --yes $Cli db dump --db-url $url -f (Join-Path $dir $s[0]) @($s[1])
-    if ($LASTEXITCODE -ne 0) { throw "$($s[0]) failed (exit $LASTEXITCODE). The folder $dir is incomplete - do not rely on it." }
+  # Flat string arrays: a nested array reaches npx as ONE argument ("--use-copy --data-only ...").
+  $steps = [ordered]@{
+    "roles.sql"  = [string[]]@("--role-only")
+    "schema.sql" = [string[]]@()
+    "data.sql"   = [string[]]@("--use-copy", "--data-only", "-x", "storage.buckets_vectors", "-x", "storage.vector_indexes")
+  }
+  foreach ($name in $steps.Keys) {
+    Write-Host "dumping $name ..."
+    $cliArgs = [string[]](@("--yes", $Cli, "db", "dump", "--db-url", $url, "-f", (Join-Path $dir $name)) + $steps[$name])
+    # The CLI reports progress on stderr. With output redirected, Windows PowerShell 5.1 turns each stderr line into an
+    # error record, which "Stop" would treat as a failure: judge the step by its exit code only.
+    $ErrorActionPreference = "Continue"
+    & npx @cliArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($code -ne 0) { throw "$name failed (exit $code). The folder $dir is incomplete - do not rely on it." }
   }
 } finally {
   Pop-Location
