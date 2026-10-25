@@ -23,11 +23,14 @@ export async function GET(req: Request) {
     return new Response("유효하지 않은 링크입니다.", { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } })
   }
 
+  // 해지 = 구독 정보와 그 주소의 발송·열람·클릭 기록을 바로 삭제(보관 기준: src/lib/privacy/retention.ts).
   const supabase = createAdminClient()
-  await supabase
-    .from("subscribers")
-    .update({ status: "unsubscribed", unsubscribed_at: new Date().toISOString() })
-    .eq("email", email)
+  const events = await supabase.from("newsletter_events").delete().eq("email", email)
+  const subscriber = events.error ? events : await supabase.from("subscribers").delete().eq("email", email)
+  if (subscriber.error) {
+    console.error("[unsubscribe] delete failed:", subscriber.error.message)
+    return new Response("구독 취소를 처리하지 못했습니다. 잠시 후 같은 링크로 다시 시도해주세요.", { status: 500, headers: { "Content-Type": "text/html; charset=utf-8" } })
+  }
 
   return new Response(unsubscribeHtml(), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -57,7 +60,7 @@ function unsubscribeHtml() {
 <body style="font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f9f9f9;">
   <div style="text-align:center;padding:40px;">
     <h1 style="font-size:20px;font-weight:600;margin-bottom:8px;">구독이 취소됐습니다.</h1>
-    <p style="color:#666;font-size:14px;">MarkLens Weekly 구독이 취소됐습니다.<br/>언제든지 다시 구독하실 수 있습니다.</p>
+    <p style="color:#666;font-size:14px;">MarkLens Weekly 구독이 취소됐습니다. 구독 정보는 바로 삭제했습니다.<br/>언제든지 다시 구독하실 수 있습니다.</p>
     <a href="https://marklens.vercel.app/newsletter" style="display:inline-block;margin-top:20px;font-size:13px;color:#000;">다시 구독하기 →</a>
   </div>
 </body>

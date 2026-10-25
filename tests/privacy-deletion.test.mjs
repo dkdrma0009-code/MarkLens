@@ -43,9 +43,9 @@ async function database() {
 }
 const col = async (db, q) => (await db.query(q)).rows.map(r => Object.values(r)[0])
 
-test('the deletion SQL keeps retention periods as placeholders for the operator, never invented numbers', () => {
-  for (const k of ['EMAIL', 'USER_ID', 'UNSUBSCRIBED_DAYS', 'UNCONFIRMED_DAYS', 'EVENT_DAYS', 'AI_USAGE_DAYS', 'FEEDBACK_DAYS']) assert.match(sql, new RegExp(`\\{\\{${k}\\}\\}`), k)
-  assert.doesNotMatch(sql.replace(/--[^\n]*/g, ''), /interval '\d+/)
+test('the deletion SQL: requests take the person as a placeholder; the fallback purge carries the confirmed periods', () => {
+  for (const k of ['EMAIL', 'USER_ID']) assert.match(sql, new RegExp(`\\{\\{${k}\\}\\}`), k)
+  assert.doesNotMatch(section('C'), /\{\{/) // periods are owner-confirmed (src/lib/privacy/retention.ts), not placeholders
 })
 
 test('[A] a subscriber request removes that address (any case) and its newsletter events, nothing else', { skip: !process.env.PGLITE_MODULE }, async () => {
@@ -67,12 +67,12 @@ test('[B] a member request: the account deletion cascades Insight Lab rows; the 
   } finally { await db.close() }
 })
 
-test('[C] monthly purge deletes only what is past the stated periods, plus events of addresses no longer subscribed', { skip: !process.env.PGLITE_MODULE }, async () => {
+test('[C] fallback purge: every unsubscribed row, unconfirmed after 7 days, events after 90 days or of non-subscribers, AI usage after 90, feedback after 183', { skip: !process.env.PGLITE_MODULE }, async () => {
   const db = await database()
   try {
-    await db.exec(fill(section('C'), { UNSUBSCRIBED_DAYS: '30', UNCONFIRMED_DAYS: '30', EVENT_DAYS: '180', AI_USAGE_DAYS: '30', FEEDBACK_DAYS: '365' }))
-    assert.deepEqual(await col(db, 'SELECT email FROM public.subscribers ORDER BY email'), ['a@x.test', 'c@x.test', 'e@x.test'])
-    assert.deepEqual(await col(db, `SELECT email || ':' || event FROM public.newsletter_events ORDER BY 1`), ['a@x.test:opened', 'c@x.test:opened'])
+    await db.exec(fill(section('C'), {}))
+    assert.deepEqual(await col(db, 'SELECT email FROM public.subscribers ORDER BY email'), ['a@x.test', 'e@x.test'])
+    assert.deepEqual(await col(db, `SELECT email || ':' || event FROM public.newsletter_events ORDER BY 1`), ['a@x.test:opened'])
     assert.deepEqual(await col(db, 'SELECT key FROM public.ai_usage ORDER BY key'), ['ip:new', `user:${U1}`, `user:${U2}`])
     assert.equal((await col(db, 'SELECT count(*)::int FROM public.feedback'))[0], 1)
   } finally { await db.close() }
