@@ -42,7 +42,7 @@ export async function GET(req: Request) {
   //    150s 예산 안에서 배치(3건/호출)를 목표치까지 반복 호출한다. (마지막 호출도 300s 내)
   const ANALYZE_BUDGET_MS = 150_000
   const NEW_TARGET = 12       // 최신(그날 수집분) 우선 분석 목표
-  const BACKLOG_TARGET = 3    // 오래된 pending 소량 소진(백로그 동결 방지)
+  const BACKLOG_TARGET = 3    // 남은 pending 소량 소진(원문 7일 이내만 — analyze-pending이 거른다)
   const startedAt = Date.now()
   const budgetLeft = () => Date.now() - startedAt < ANALYZE_BUDGET_MS
 

@@ -14,7 +14,7 @@ function load(file) {
   new Function('require', 'module', 'exports', code)(name => { throw new Error('unmocked ' + name) }, loaded, loaded.exports)
   return loaded.exports
 }
-const { selectFresh, freshReadyCandidates, FRESH_DAYS } = load('src/lib/content/auto-publish.ts')
+const { selectFresh, freshReadyCandidates, freshSourceFilter, FRESH_DAYS } = load('src/lib/content/auto-publish.ts')
 const NOW = new Date('2026-10-26T23:00:00Z')
 const ago = d => new Date(NOW.getTime() - d * 86_400_000).toISOString()
 const row = (id, over = {}, article = {}) => ({
@@ -119,4 +119,11 @@ test('both crons pick through the shared selection; scheduled card news (approve
   assert.doesNotMatch(collect, /36 \* 3600/)
   // ⑤ scheduled posting runs before the drip flag and is not filtered by freshness.
   assert.ok(drip.indexOf('scheduled_at') < drip.indexOf('ig_auto_publish'))
+})
+
+test('paid analysis skips pending articles whose source is older than 7 days (same window, no status change)', () => {
+  assert.equal(freshSourceFilter(NOW), `published_at.gte."${ago(7)}",and(published_at.is.null,created_at.gte."${ago(7)}")`)
+  const route = readFileSync('src/app/api/webhooks/analyze-pending/route.ts', 'utf8')
+  assert.match(route, /\.eq\("status", "pending"\)[\s\S]*\.or\(freshSourceFilter\(\)\)[\s\S]*\.limit\(3\)/)
+  assert.doesNotMatch(route, /\.delete\(/)
 })

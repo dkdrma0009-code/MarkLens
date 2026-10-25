@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeArticle } from "@/lib/ai/analyze"
 import { buildInsightSlug } from "@/lib/utils"
+import { freshSourceFilter } from "@/lib/content/auto-publish"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
     .select("*")
     .eq("status", "pending")
     .not("raw_content", "is", null)
+    .or(freshSourceFilter()) // 원문 7일 초과 기사는 자동 공개 대상이 아니므로 유료 분석도 하지 않는다(삭제·상태 변경 없음)
     .order("created_at", { ascending: !newestFirst })
     .limit(3) // 분석이 article당 2패스(생성+refine)로 무거워져 배치 축소 — 크론 타임아웃 방지
 

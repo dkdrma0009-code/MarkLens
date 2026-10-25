@@ -19,6 +19,13 @@ const normalize = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " 
 /** 원문 발표일. 없으면 수집일. */
 export const sourceDate = (c: Candidate) => c.article?.published_at ?? c.article?.created_at ?? null
 
+/** The same source-date window as a PostgREST `or` filter on articles, so the paid AI analysis
+ *  (/api/webhooks/analyze-pending) skips pending articles that could never be published. */
+export function freshSourceFilter(now = new Date()) {
+  const cutoff = new Date(now.getTime() - FRESH_DAYS * 86_400_000).toISOString()
+  return `published_at.gte."${cutoff}",and(published_at.is.null,created_at.gte."${cutoff}")`
+}
+
 export function missingAnalysis(c: Candidate): string[] {
   const missing: string[] = []
   if (!normalize(c.hook)) missing.push("hook")
