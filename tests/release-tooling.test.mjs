@@ -84,5 +84,12 @@ test('production readiness SQL: one read-only SELECT of counts, averages, privil
     assert.equal(rows['pre 023: cardnews columns already present (of 8)'], '8'); assert.equal(rows['pre 023: publish-state constraints already present (of 2)'], '2')
     assert.equal(rows['pre 024: ai_usage or consume_ai_quota already present'], 'true')
     assert.equal(rows['pre 025: Insight Lab tables with RLS on (of 4)'], '4'); assert.equal(rows['pre 025: Insight Lab policies'], '10')
+    // The full Insight Lab picture: exactly 025's privileges, RLS on, every policy listed, no RLS-less table exposed.
+    assert.equal(rows['pre 025: privileges 025 grants already present (of 11)'], '11'); assert.equal(rows['pre 025: 025 privileges still missing'], 'none')
+    assert.equal(rows['priv: insight_notes / authenticated'], 'SELECT,INSERT,UPDATE,DELETE'); assert.equal(rows['priv: insight_notes / anon'], 'none')
+    assert.equal(rows['priv: insight_challenges / anon'], 'SELECT'); assert.equal(rows['rls: insight_sessions'], 'on')
+    assert.equal(Object.keys(rows).filter(k => k.startsWith('policy: ')).length, 10)
+    assert.match(rows['policy: insight_notes / notes_own_select'], /^SELECT to public using \(auth\.uid\(\) = user_id\)/)
+    assert.equal(rows['exposure: public tables with RLS off that anon/authenticated can SELECT'], 'none')
   } finally { await db.close() }
 })

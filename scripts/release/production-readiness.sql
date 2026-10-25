@@ -4,6 +4,9 @@
 --   counts      → how much the migrations touch (023 validates its CHECKs over every cardnews row)
 --   avg bytes   → real row sizes, to turn the R-4 egress measurements (synthetic data) into production estimates
 --   privileges  → whether Insight Lab is broken in production today (expected: false before 025)
+--   priv / rls / policy → the full Insight Lab picture: every table privilege anon and authenticated hold on the four
+--                 tables, RLS per table and each policy's definition (025's marker in check-production-schema.sql only
+--                 looks at one privilege). exposure → public tables with RLS off that anon/authenticated can read or write.
 --   flags       → automation that would run on the first cron after the deploy
 --   pre NNN     → what each batch-1 migration assumes. Expected before batch 1: 017 20/20 columns (its trigger function
 --                 names them; a missing one would break every UPDATE on insights), 023 0/8 columns and 0/2 constraints,
@@ -13,6 +16,14 @@ WITH want_017(col) AS (VALUES ('article_id'), ('category'), ('created_at'), ('fr
   ('summary'), ('tags'), ('updated_at'), ('video_url'), ('why_it_matters')),
 have_017 AS (SELECT w.col, EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema = 'public' AND c.table_name = 'insights' AND c.column_name = w.col) AS ok FROM want_017 w),
 lab(t) AS (VALUES ('insight_challenges'), ('insight_sessions'), ('insight_notes'), ('insight_user_stats')),
+want_025(t, r, p) AS (VALUES ('insight_challenges', 'anon', 'SELECT'), ('insight_challenges', 'authenticated', 'SELECT'),
+  ('insight_sessions', 'authenticated', 'SELECT'), ('insight_sessions', 'authenticated', 'INSERT'),
+  ('insight_notes', 'authenticated', 'SELECT'), ('insight_notes', 'authenticated', 'INSERT'), ('insight_notes', 'authenticated', 'UPDATE'), ('insight_notes', 'authenticated', 'DELETE'),
+  ('insight_user_stats', 'authenticated', 'SELECT'), ('insight_user_stats', 'authenticated', 'INSERT'), ('insight_user_stats', 'authenticated', 'UPDATE')),
+have_025 AS (SELECT w.*, coalesce(has_table_privilege(w.r, to_regclass('public.' || w.t), w.p), false) AS ok FROM want_025 w),
+privs(n, p) AS (VALUES (1, 'SELECT'), (2, 'INSERT'), (3, 'UPDATE'), (4, 'DELETE'), (5, 'TRUNCATE'), (6, 'REFERENCES'), (7, 'TRIGGER')),
+api_roles(r) AS (VALUES ('anon'), ('authenticated')),
+public_tables AS (SELECT c.oid, c.relname, c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
 rows(item, value) AS (
   SELECT 'postgres version', current_setting('server_version')
   UNION ALL SELECT 'count: articles', (SELECT count(*) FROM public.articles)::text
@@ -45,5 +56,20 @@ rows(item, value) AS (
   UNION ALL SELECT 'pre 024: ai_usage or consume_ai_quota already present', (to_regclass('public.ai_usage') IS NOT NULL OR to_regprocedure('public.consume_ai_quota(text, text, integer, integer)') IS NOT NULL)::text
   UNION ALL SELECT 'pre 025: Insight Lab tables with RLS on (of 4)', (SELECT count(*) FROM lab JOIN pg_class c ON c.oid = to_regclass('public.' || lab.t) WHERE c.relrowsecurity)::text
   UNION ALL SELECT 'pre 025: Insight Lab policies', (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename IN (SELECT t FROM lab))::text
+  UNION ALL SELECT 'pre 025: privileges 025 grants already present (of 11)', (SELECT count(*) FILTER (WHERE ok) FROM have_025)::text
+  UNION ALL SELECT 'pre 025: 025 privileges still missing', coalesce((SELECT string_agg(t || '/' || r || '/' || p, ' ' ORDER BY t, r, p) FROM have_025 WHERE NOT ok), 'none')
+  UNION ALL SELECT 'priv: ' || lab.t || ' / ' || api_roles.r, coalesce((SELECT string_agg(privs.p, ',' ORDER BY privs.n) FROM privs
+    WHERE has_table_privilege(api_roles.r, to_regclass('public.' || lab.t), privs.p)), 'none') FROM lab CROSS JOIN api_roles WHERE to_regclass('public.' || lab.t) IS NOT NULL
+  UNION ALL SELECT 'rls: ' || lab.t, CASE WHEN c.relrowsecurity THEN 'on' ELSE 'OFF' END || CASE WHEN c.relforcerowsecurity THEN ' (forced)' ELSE '' END
+    FROM lab JOIN pg_class c ON c.oid = to_regclass('public.' || lab.t)
+  UNION ALL SELECT 'policy: ' || pol.tablename || ' / ' || pol.policyname, pol.cmd || ' to ' || array_to_string(pol.roles, ',') || ' using ' || coalesce(pol.qual, '-') || ' with check ' || coalesce(pol.with_check, '-')
+    FROM pg_policies pol WHERE pol.schemaname = 'public' AND pol.tablename IN (SELECT t FROM lab)
+  UNION ALL SELECT 'count: insight_notes', (SELECT count(*) FROM public.insight_notes)::text
+  UNION ALL SELECT 'count: insight_user_stats', (SELECT count(*) FROM public.insight_user_stats)::text
+  UNION ALL SELECT 'count: insight_challenges', (SELECT count(*) FROM public.insight_challenges)::text
+  UNION ALL SELECT 'exposure: public tables with RLS off that anon/authenticated can SELECT', coalesce((SELECT string_agg(relname, ' ' ORDER BY relname) FROM public_tables
+    WHERE NOT relrowsecurity AND (has_table_privilege('anon', oid, 'SELECT') OR has_table_privilege('authenticated', oid, 'SELECT'))), 'none')
+  UNION ALL SELECT 'exposure: public tables with RLS off that anon/authenticated can INSERT/UPDATE/DELETE', coalesce((SELECT string_agg(relname, ' ' ORDER BY relname) FROM public_tables
+    WHERE NOT relrowsecurity AND (has_table_privilege('anon', oid, 'INSERT,UPDATE,DELETE') OR has_table_privilege('authenticated', oid, 'INSERT,UPDATE,DELETE'))), 'none')
 )
 SELECT item, value FROM rows ORDER BY item;
