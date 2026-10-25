@@ -56,7 +56,7 @@ test('backup script: production-only, password never echoed, documented dump com
   assert.match(ps, /--role-only/); assert.match(ps, /--use-copy", "--data-only"/)
   assert.match(ps, /\$Cli = "supabase@\d+\.\d+\.\d+"/) // pinned CLI version
   assert.match(ps, /Join-Path \$HOME "MarkLens-backups"/)
-  assert.ok(ps.indexOf('Push-Location $dir') > -1 && ps.indexOf('Push-Location $dir') < ps.indexOf('db dump')) // CLI never runs inside a checkout with .env files
+  assert.ok(ps.indexOf('Push-Location $dir') > -1 && ps.indexOf('Push-Location $dir') < ps.indexOf('& npx @cliArgs')) // CLI never runs inside a checkout with .env files
   assert.match(ps, /"data\.sql"\s+= \[string\[\]\]@\("--use-copy"/) // flat args: a nested array reached npx as one argument
   assert.match(ps, /\$ErrorActionPreference = "Continue"\s+& npx @cliArgs 2>&1/) // stderr progress lines are not failures
   assert.match(ps, /\$code = \$LASTEXITCODE/)
