@@ -67,6 +67,20 @@ test('backup script: production-only, password never echoed, documented dump com
   assert.doesNotMatch(ps, /[^\x00-\x7F]/) // Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page
 })
 
+test('migration script: only 017/023/024/026, skips what is present, stops at the first error, guards before any connection', { skip: process.platform !== 'win32' }, () => {
+  const ps = readFileSync('scripts/release/apply-production-migrations.ps1', 'utf8')
+  assert.match(ps, /\$Batch = @\("017", "023", "024", "026"\)/)
+  assert.match(ps, /if \(\$present\[\$n\]\) \{ Write-Log "\$n already applied - skipped"; continue \}/)
+  assert.match(ps, /if \(\$r\.Code -ne 0\) \{ throw/); assert.match(ps, /"-e", "PGPASSWORD"/) // password via environment, not the command line
+  assert.doesNotMatch(ps, /^\s*\.\s+\(Join-Path \$PSScriptRoot "backup-production\.ps1"\)/m) // dot-sourcing would reset -Rehearsal/-DbHost
+  assert.doesNotMatch(ps, /[^\x00-\x7F]/)
+  const run = args => spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.resolve('scripts/release/apply-production-migrations.ps1'), ...args], { encoding: 'utf8' })
+  const prodWithTest = run(['-TestPassword', 'x'])
+  assert.equal(prodWithTest.status, 1); assert.match(prodWithTest.stdout, /-TestPassword is for -Rehearsal only/)
+  const rehearsalElsewhere = run(['-Rehearsal', '-DbHost', 'aws-1-ap-northeast-2.pooler.supabase.com', '-TestPassword', 'x'])
+  assert.equal(rehearsalElsewhere.status, 1); assert.match(rehearsalElsewhere.stdout, /only runs against a loopback database/)
+})
+
 test('backup script: the connection check accepts production strings and names the reason for every other input', { skip: process.platform !== 'win32' }, () => {
   const P = 'ndehtnchkgvpjbxlkazk', H = 'aws-0-ap-northeast-2.pooler.supabase.com', SECRET = 'Zq9secretpw42'
   const cases = {
