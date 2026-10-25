@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -49,9 +50,40 @@ test('backup check: COPY parsing handles unquoted names, empty tables and CRLF',
 test('backup script: production-only, password never echoed, documented dump commands, output outside the repository', () => {
   const ps = readFileSync('scripts/release/backup-production.ps1', 'utf8')
   assert.match(ps, /Read-Host -AsSecureString/)
-  assert.match(ps, /\$ProdRef = "ndehtnchkgvpjbxlkazk"/); assert.match(ps, /-notmatch \$ProdRef/)
+  assert.match(ps, /\$ProdRef = "ndehtnchkgvpjbxlkazk"/); assert.match(ps, /\$ref -ne \$Expected/); assert.match(ps, /Test-ProductionConnection \$raw \$ProdRef/)
+  assert.match(ps, /if \(\$check\.Problem\) \{ throw/) // refused before any dump
+  assert.match(ps, /Set-Clipboard -Value " "/) // -FromClipboard does not leave the password behind
   assert.match(ps, /--role-only/); assert.match(ps, /--use-copy", "--data-only"/)
   assert.match(ps, /\$Cli = "supabase@\d+\.\d+\.\d+"/) // pinned CLI version
   assert.match(ps, /Join-Path \$HOME "MarkLens-backups"/)
-  assert.doesNotMatch(ps, /Write-Host[^\n]*\$url/)
+  assert.doesNotMatch(ps, /Write-Host[^\n]*\$(url|raw)\b/)
+  assert.doesNotMatch(ps, /[^\x00-\x7F]/) // Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page
+})
+
+test('backup script: the connection check accepts production strings and names the reason for every other input', { skip: process.platform !== 'win32' }, () => {
+  const P = 'ndehtnchkgvpjbxlkazk', H = 'aws-0-ap-northeast-2.pooler.supabase.com', SECRET = 'Zq9secretpw42'
+  const cases = {
+    pooler: [`postgresql://postgres.${P}:${SECRET}@${H}:5432/postgres`, null],
+    direct: [`postgresql://postgres:${SECRET}@db.${P}.supabase.co:5432/postgres`, null],
+    padded: [`  "postgresql://postgres.${P}:${SECRET}@${H}:5432/postgres"\r\n`, null],
+    ctrlv: ['\u0016', /control character/],
+    empty: ['', /empty/],
+    passwordOnly: [SECRET, /not a connection string/],
+    placeholder: [`postgresql://postgres.${P}:[YOUR-PASSWORD]@${H}:5432/postgres`, /placeholder/],
+    brackets: [`postgresql://postgres.${P}:[${SECRET}]@${H}:5432/postgres`, /wrapped in \[ \]/],
+    unencoded: [`postgresql://postgres.${P}:a@b${SECRET}@${H}:5432/postgres`, /percent-encode/],
+    preview: [`postgresql://postgres.umysmkhttlupmhttjzwi:${SECRET}@${H}:5432/postgres`, /project umysmkhttlupmhttjzwi, not production/],
+    noRef: [`postgresql://postgres:${SECRET}@${H}:5432/postgres`, /no Supabase project ID/],
+  }
+  const script = [`. '${path.resolve('scripts/release/backup-production.ps1')}'`, '$out = [ordered]@{}']
+  for (const [k, [input]] of Object.entries(cases)) script.push(`$r = Test-ProductionConnection ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(input).toString('base64')}'))) '${P}'; $out['${k}'] = @{ problem = $r.Problem; clean = ($r.Url -and $r.Url.StartsWith('postgresql://') -and $r.Url.EndsWith('/postgres')) }`)
+  script.push('$out | ConvertTo-Json -Compress')
+  const res = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script.join('; ')], { encoding: 'utf8' })
+  assert.equal(res.status, 0, res.stderr)
+  const out = JSON.parse(res.stdout)
+  for (const [k, [, reason]] of Object.entries(cases)) {
+    if (reason) assert.match(out[k].problem ?? '', reason, k)
+    else { assert.equal(out[k].problem, null, k); assert.equal(out[k].clean, true, k) }
+    assert.equal(String(out[k].problem).includes(SECRET), false, `${k}: password never in the reason`)
+  }
 })
