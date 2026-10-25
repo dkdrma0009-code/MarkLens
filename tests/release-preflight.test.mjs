@@ -50,6 +50,15 @@ test('gate: a Preview that could reach production, or a database without 023/024
   assert.equal(level(forced, 'production features not blocked'), 'FAIL')
 })
 
+test('gate: a Preview DB missing migrations is told whether the init bundle or single files apply', async () => {
+  const detail = async schema => (await gate({ target: 'preview', env: previewEnv, schema, git: cleanGit, runs: green })).results.find(r => r.name === 'target database schema').detail
+  // Empty database: the init bundle. Already initialised (only 025 missing): that file alone — the bundle is for empty DBs.
+  assert.match(await detail(allPresent.map(r => ({ ...r, present: false }))), /초기화 번들/)
+  const partial = await detail(allPresent.map(r => ({ ...r, present: r.migration !== '025' })))
+  assert.match(partial, /^없음: 025 — 이미 초기화된 DB/)
+  assert.doesNotMatch(partial, /초기화 번들/)
+})
+
 test('gate: git — dirty tree, tracked env files and (for production) a branch behind master fail', async () => {
   const res = await gate({ target: 'production', env: productionEnv, schema: allPresent, runs: green, git: { ...cleanGit, dirty: [' M x'], containsMaster: false, trackedEnvFiles: ['.env.local'] } })
   for (const name of ['clean working tree', 'contains origin/master', 'no tracked env files']) assert.equal(level(res, name), 'FAIL', name)

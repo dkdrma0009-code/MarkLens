@@ -91,7 +91,7 @@ export async function preflightChecks({ target, env = null, schema = null, git =
     const present = new Set(schema.filter(r => r.present).map(r => r.migration))
     const expected = numbers.filter(n => !UNCHECKED_MIGRATIONS.includes(n))
     const missing = expected.filter(n => !present.has(n))
-    add("migrations", missing.length ? "FAIL" : "PASS", "target database schema", missing.length ? `없음: ${missing.join(", ")}${target === "production" ? " — 배포 전에 적용" : " — Preview 번들(build-preview-sql.mjs) 적용 필요"}` : "")
+    add("migrations", missing.length ? "FAIL" : "PASS", "target database schema", missing.length ? `없음: ${missing.join(", ")}${target === "production" ? " — 배포 전에 적용" : missing.length === expected.length ? " — 빈 Preview DB에 초기화 번들(build-preview-sql.mjs) 적용" : " — 이미 초기화된 DB: 이 번호의 마이그레이션 파일만 SQL Editor에서 적용(번들은 빈 DB 전용)"}` : "")
     add("ai", present.has("024") ? "PASS" : "FAIL", "AI quota (024) present", present.has("024") ? "" : "024 없이는 모든 공개 AI 기능이 503 입니다(fail-closed)")
   }
   if (env) add("ai", env.AI_KILL_SWITCH === "on" ? "WARN" : "PASS", "AI_KILL_SWITCH off", env.AI_KILL_SWITCH === "on" ? "모든 유료 AI 가 멈춘 상태로 배포됩니다" : "")
