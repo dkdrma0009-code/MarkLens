@@ -71,10 +71,18 @@ test('production readiness SQL: one read-only SELECT of counts, averages, privil
       CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$; CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'anon' $$;
       CREATE SCHEMA storage; CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean);`)
     await db.exec(previewInitSql())
+    await db.exec('BEGIN READ ONLY') // any write in the audit would fail here
     const rows = Object.fromEntries((await db.query(sql)).rows.map(r => [r.item, r.value]))
+    await db.exec('ROLLBACK')
     assert.equal(rows['count: insights'], '3'); assert.equal(rows['count: subscribers active'], '0')
     assert.equal(rows['grant: authenticated SELECT insight_sessions'], 'true') // 025 applied in the bundle
     assert.equal(rows['flag: ig_auto_publish'], 'off')
     assert.ok(Number(rows['avg bytes: insights row']) > 0)
+    // Batch-1 preconditions, as they read once 017/023/024/025 are in.
+    assert.equal(rows['pre 017: insights columns its trigger reads (of 20)'], '20'); assert.equal(rows['pre 017: missing insights columns'], 'none')
+    assert.equal(rows['pre 017: function behind trigger insights_updated_at'], 'update_insight_content_updated_at')
+    assert.equal(rows['pre 023: cardnews columns already present (of 8)'], '8'); assert.equal(rows['pre 023: publish-state constraints already present (of 2)'], '2')
+    assert.equal(rows['pre 024: ai_usage or consume_ai_quota already present'], 'true')
+    assert.equal(rows['pre 025: Insight Lab tables with RLS on (of 4)'], '4'); assert.equal(rows['pre 025: Insight Lab policies'], '10')
   } finally { await db.close() }
 })
