@@ -38,11 +38,16 @@
    - `flag: ig_auto_publish` 등이 `on`이면 배포 후 첫 크론이 실제로 게시한다 — 출시 당일엔 `off` 권장(변경은 별도 승인).
    - 두 SQL 모두 SELECT 하나뿐이다. 운영 SQL Editor에는 맨 앞에 `SET TRANSACTION READ ONLY;`를 붙여 실행한다(쓰기가 섞여 있어도 거부된다).
 3. **백업** — Free 플랜은 자동 백업이 없고, Supabase 문서는 `supabase db dump`로 직접 내보내라고 권한다. 운영자 PC에서 Docker Desktop을 켜고:
-   `powershell -ExecutionPolicy Bypass -File scripts/release/backup-production.ps1 -Expect <production-readiness.csv>`
-   - 연결 문자열(Supabase → Connect → Session pooler, 비밀번호 포함)은 숨김 입력으로만 받고 저장·출력하지 않는다. 운영 ref가 아니면 거부한다.
+   `powershell -STA -ExecutionPolicy Bypass -File scripts/release/backup-production.ps1 -Expect <production-readiness.csv> -LogFile <로그>`
+   - **DB 비밀번호만** 작은 창(가려진 입력)으로 받는다. 호스트·사용자·DB는 운영 Session pooler 값으로 고정돼 있고 운영 ref 확인을 다시 거친다. 비밀번호는 저장·출력하지 않고 로그에서는 `***`로 가린다.
    - roles.sql·schema.sql·data.sql(auth 포함, `COPY` 형식)을 `%USERPROFILE%\MarkLens-backups\prod-<시각>`에 쓰고, `verify-backup.mjs`가 파일 크기·SHA-256·테이블별 행 수를 점검해 manifest.json을 남긴다. 점검이 통과해야 백업 완료다.
    - Storage 버킷의 **파일**은 포함되지 않는다(묶음 1은 Storage를 건드리지 않는다).
-4. **복원 시험**(운영 DB 밖) — 로컬 Docker의 격리된 Supabase 스택에 문서의 복원 명령(`psql --single-transaction -v ON_ERROR_STOP=1 -f roles.sql -f schema.sql -c 'SET session_replication_role = replica' -f data.sql`)으로 복원하고, 같은 두 점검 SQL로 운영 결과와 비교한다.
+   - 같은 스크립트를 `-Rehearsal`(루프백 DB만 허용)로 로컬 Supabase 스택에 돌려 백업→복원→점검 비교까지 검증했다(2026-10-25: 점검 85행 일치).
+4. **복원 시험**(운영 DB 밖) — 로컬 Docker의 격리된 Supabase 스택(`supabase start`, Postgres 17)에 superuser(`supabase_admin`)로:
+   `psql --single-transaction -v ON_ERROR_STOP=1 -f roles.sql -c "<기본 권한 해제>" -f schema.sql -c 'SET session_replication_role = replica' -f data.sql`
+   - **기본 권한 해제가 필요하다**: Supabase DB는 새 테이블·시퀀스·함수에 anon/authenticated 전체 권한을 기본으로 준다. 덤프에는 GRANT만 있어서, 해제하지 않으면 복원본의 권한이 원본보다 넓어진다(리허설에서 Insight Lab 표·`006` 항목이 달라짐을 확인). 해제문: `ALTER DEFAULT PRIVILEGES FOR ROLE postgres|supabase_admin IN SCHEMA public REVOKE ALL ON TABLES|SEQUENCES|FUNCTIONS FROM anon, authenticated`.
+   - 실제 장애 복구로 새 프로젝트에 복원할 때도 같은 해제를 먼저 한다.
+   - 복원 후 두 점검 SQL을 돌려 운영 CSV와 비교한다.
 
 ### A-2. 적용할 SQL과 순서
 

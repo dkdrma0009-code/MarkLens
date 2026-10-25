@@ -49,10 +49,13 @@ test('backup check: COPY parsing handles unquoted names, empty tables and CRLF',
 
 test('backup script: production-only, password never echoed, documented dump commands, output outside the repository', () => {
   const ps = readFileSync('scripts/release/backup-production.ps1', 'utf8')
-  assert.match(ps, /Read-Host -AsSecureString/)
-  assert.match(ps, /\$ProdRef = "ndehtnchkgvpjbxlkazk"/); assert.match(ps, /\$ref -ne \$Expected/); assert.match(ps, /Test-ProductionConnection \$raw \$ProdRef/)
+  // Only the password is asked (password window); host, user and database are production's and checked again.
+  assert.match(ps, /UseSystemPasswordChar = \$true/); assert.match(ps, /\[uri\]::EscapeDataString\(\$pw\)/)
+  assert.match(ps, /\$ProdRef = "ndehtnchkgvpjbxlkazk"/); assert.match(ps, /\$ref -ne \$Expected/); assert.match(ps, /Test-ProductionConnection \$url \$ProdRef/)
   assert.match(ps, /if \(\$check\.Problem\) \{ throw/) // refused before any dump
-  assert.match(ps, /Set-Clipboard -Value " "/) // -FromClipboard does not leave the password behind
+  assert.match(ps, /\$DbUser -ne "postgres\.\$ProdRef"/) // production mode cannot be pointed elsewhere
+  assert.match(ps, /-Rehearsal only runs against a loopback database/); assert.match(ps, /-TestPassword is for -Rehearsal only/)
+  assert.match(ps, /\$Line = \$Line\.Replace\(\$s, "\*\*\*"\)/) // password masked in every log line
   assert.match(ps, /--role-only/); assert.match(ps, /--use-copy", "--data-only"/)
   assert.match(ps, /\$Cli = "supabase@\d+\.\d+\.\d+"/) // pinned CLI version
   assert.match(ps, /Join-Path \$HOME "MarkLens-backups"/)
@@ -60,7 +63,7 @@ test('backup script: production-only, password never echoed, documented dump com
   assert.match(ps, /"data\.sql"\s+= \[string\[\]\]@\("--use-copy"/) // flat args: a nested array reached npx as one argument
   assert.match(ps, /\$ErrorActionPreference = "Continue"\s+& npx @cliArgs 2>&1/) // stderr progress lines are not failures
   assert.match(ps, /\$code = \$LASTEXITCODE/)
-  assert.doesNotMatch(ps, /Write-Host[^\n]*\$(url|raw)\b/)
+  assert.doesNotMatch(ps, /(Write-Host|Write-Log)[^\n]*\$(url|pw|enc)\b/)
   assert.doesNotMatch(ps, /[^\x00-\x7F]/) // Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page
 })
 

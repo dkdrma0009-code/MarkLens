@@ -1,13 +1,23 @@
 # MarkLens release (R-4 step A): back up the PRODUCTION database before any migration. Free plan = no dashboard backups,
-# so this is the only restore point. Run it yourself in PowerShell from the repository root; the connection string is
-# never stored and never printed. READ ONLY on the database (pg_dump in the Supabase CLI's container).
-#   powershell -ExecutionPolicy Bypass -File scripts/release/backup-production.ps1 -FromClipboard [-Expect <production-readiness.csv>]
-# Needs Docker Desktop running and the Session pooler connection string from Supabase -> Connect, with the password in
-# place of [YOUR-PASSWORD]. -FromClipboard reads it from the clipboard and clears the clipboard; without it the string
-# is typed into a hidden prompt (paste there with a right click - Ctrl+V only inserts a control character).
-# Writes roles.sql, schema.sql, data.sql and manifest.json to %USERPROFILE%\MarkLens-backups\prod-<date> - outside the
-# repository. Storage FILES (bucket objects) are not included.
-param([string]$Expect = "", [string]$OutRoot = (Join-Path $HOME "MarkLens-backups"), [switch]$FromClipboard)
+# so this is the only restore point. READ ONLY on the database (pg_dump in the Supabase CLI's container).
+#   powershell -STA -ExecutionPolicy Bypass -File scripts/release/backup-production.ps1 [-Expect <readiness.csv>] [-LogFile <path>]
+# A small window asks for the database password only; host, port, user and database are the production Session pooler
+# below, so nothing else has to be copied. The password is never stored, never printed and masked as *** in the log.
+# -Rehearsal runs the identical steps against a LOOPBACK Supabase stack (supabase start) and refuses any other host;
+# -TestPassword (rehearsal only) fills the same window automatically.
+# Needs Docker Desktop running. Writes roles.sql, schema.sql, data.sql and manifest.json to
+# %USERPROFILE%\MarkLens-backups\prod-<date> - outside the repository. Storage FILES (bucket objects) are not included.
+param(
+  [string]$Expect = "",
+  [string]$OutRoot = (Join-Path $HOME "MarkLens-backups"),
+  [string]$LogFile = "",
+  [switch]$Rehearsal,
+  [string]$DbHost = "aws-1-ap-northeast-2.pooler.supabase.com",
+  [int]$DbPort = 5432,
+  [string]$DbUser = "postgres.ndehtnchkgvpjbxlkazk",
+  [string]$DbName = "postgres",
+  [string]$TestPassword = ""
+)
 $ErrorActionPreference = "Stop"
 $ProdRef = "ndehtnchkgvpjbxlkazk"
 $Cli = "supabase@2.120.0"
@@ -51,54 +61,104 @@ function Test-ProductionConnection([string]$Raw, [string]$Expected) {
   return [pscustomobject]@{ Url = $u; Problem = $null; Host = $dbHost }
 }
 
-if ($MyInvocation.InvocationName -eq '.') { return } # dot-sourced by the tests: define the function only
-
-docker info *> $null
-if ($LASTEXITCODE -ne 0) { throw "Docker Desktop is not running. Start it, wait until it says 'Engine running', then run this again." }
-
-if ($FromClipboard) {
-  $raw = Get-Clipboard -Raw
-  Set-Clipboard -Value " " # do not leave the password on the clipboard
-} else {
-  $secure = Read-Host -AsSecureString "Production connection string (Session pooler URI with password; paste with a RIGHT CLICK)"
-  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-  try { $raw = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+# Password window (normal Windows text box: Ctrl+V and right click both paste). Returns $null when cancelled.
+function Read-DbPassword([string]$Title, [string]$Prompt, [string]$AutoFill) {
+  Add-Type -AssemblyName System.Windows.Forms
+  Add-Type -AssemblyName System.Drawing
+  $form = New-Object System.Windows.Forms.Form
+  $form.Text = $Title; $form.Width = 460; $form.Height = 190; $form.TopMost = $true; $form.StartPosition = "CenterScreen"
+  $form.FormBorderStyle = "FixedDialog"; $form.MaximizeBox = $false; $form.MinimizeBox = $false
+  $label = New-Object System.Windows.Forms.Label
+  $label.Text = $Prompt; $label.Left = 14; $label.Top = 12; $label.Width = 420; $label.Height = 40
+  $box = New-Object System.Windows.Forms.TextBox
+  $box.Left = 14; $box.Top = 56; $box.Width = 416; $box.UseSystemPasswordChar = $true
+  $ok = New-Object System.Windows.Forms.Button
+  $ok.Text = "OK"; $ok.Left = 254; $ok.Top = 96; $ok.Width = 84; $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+  $cancel = New-Object System.Windows.Forms.Button
+  $cancel.Text = "Cancel"; $cancel.Left = 346; $cancel.Top = 96; $cancel.Width = 84; $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+  $form.Controls.AddRange(@($label, $box, $ok, $cancel)); $form.AcceptButton = $ok; $form.CancelButton = $cancel
+  $form.Add_Shown({ $form.Activate(); $box.Focus() })
+  if ($AutoFill) {
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 800
+    $timer.Add_Tick({ $timer.Stop(); $box.Text = $AutoFill; $ok.PerformClick() })
+    $form.Add_Shown({ $timer.Start() })
+  }
+  $result = $form.ShowDialog()
+  $value = $box.Text
+  $form.Dispose()
+  if ($result -ne [System.Windows.Forms.DialogResult]::OK) { return $null }
+  return $value
 }
-$check = Test-ProductionConnection $raw $ProdRef
-Remove-Variable raw -ErrorAction SilentlyContinue
-if ($check.Problem) { throw "Connection string refused: $($check.Problem). Nothing was dumped." }
-Write-Host "production project $ProdRef via $($check.Host)"
 
-$dir = Join-Path $OutRoot ("prod-" + (Get-Date -Format "yyyyMMdd-HHmm"))
-New-Item -ItemType Directory -Force $dir | Out-Null
-# The CLI reads .env / .env.local from its working directory and stops on any it cannot parse (a project checkout has
-# one): run it from the new, empty backup folder.
-Push-Location $dir
+if ($MyInvocation.InvocationName -eq '.') { return } # dot-sourced by the tests: define the functions only
+
+$secrets = @()
+function Write-Log([string]$Line) {
+  foreach ($s in $script:secrets) { if ($s) { $Line = $Line.Replace($s, "***") } }
+  Write-Host $Line
+  if ($LogFile) { Add-Content -Path $LogFile -Value $Line -Encoding UTF8 }
+}
+
 try {
-  $url = $check.Url
-  # Flat string arrays: a nested array reaches npx as ONE argument ("--use-copy --data-only ...").
-  $steps = [ordered]@{
-    "roles.sql"  = [string[]]@("--role-only")
-    "schema.sql" = [string[]]@()
-    "data.sql"   = [string[]]@("--use-copy", "--data-only", "-x", "storage.buckets_vectors", "-x", "storage.vector_indexes")
+  if ($Rehearsal) {
+    if ($DbHost -notin @("127.0.0.1", "localhost", "::1")) { throw "-Rehearsal only runs against a loopback database, not $DbHost." }
+  } else {
+    if ($TestPassword) { throw "-TestPassword is for -Rehearsal only." }
+    if ($DbUser -ne "postgres.$ProdRef" -or $DbHost -notmatch '\.pooler\.supabase\.com$') { throw "Production mode only backs up $ProdRef through its Session pooler." }
   }
-  foreach ($name in $steps.Keys) {
-    Write-Host "dumping $name ..."
-    $cliArgs = [string[]](@("--yes", $Cli, "db", "dump", "--db-url", $url, "-f", (Join-Path $dir $name)) + $steps[$name])
-    # The CLI reports progress on stderr. With output redirected, Windows PowerShell 5.1 turns each stderr line into an
-    # error record, which "Stop" would treat as a failure: judge the step by its exit code only.
-    $ErrorActionPreference = "Continue"
-    & npx @cliArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
-    $code = $LASTEXITCODE
-    $ErrorActionPreference = "Stop"
-    if ($code -ne 0) { throw "$name failed (exit $code). The folder $dir is incomplete - do not rely on it." }
-  }
-} finally {
-  Pop-Location
-  Remove-Variable url, check -ErrorAction SilentlyContinue
-}
+  docker info *> $null
+  if ($LASTEXITCODE -ne 0) { throw "Docker Desktop is not running. Start it, wait until it says 'Engine running', then run this again." }
 
-$verify = Join-Path $PSScriptRoot "verify-backup.mjs"
-if ($Expect) { & node $verify $dir --expect $Expect } else { & node $verify $dir }
-if ($LASTEXITCODE -ne 0) { throw "Backup check failed - see INCOMPLETE above." }
-Write-Host "`nBackup folder: $dir"
+  $target = if ($Rehearsal) { "REHEARSAL (loopback $DbHost)" } else { "PRODUCTION $ProdRef" }
+  Write-Log "waiting for the database password ($target)"
+  $pw = Read-DbPassword "MarkLens backup - $target" "Database password for $DbUser@$DbHost`n(Supabase -> Project Settings -> Database). Only the password." $TestPassword
+  if (-not $pw) { throw "No password entered (window cancelled or empty). Nothing was dumped." }
+  $enc = [uri]::EscapeDataString($pw)
+  $script:secrets = @($pw, $enc)
+  $url = "postgresql://${DbUser}:${enc}@${DbHost}:${DbPort}/${DbName}"
+  if (-not $Rehearsal) {
+    $check = Test-ProductionConnection $url $ProdRef
+    if ($check.Problem) { throw "Connection refused: $($check.Problem). Nothing was dumped." }
+  }
+  Write-Log "connecting to $DbUser@${DbHost}:$DbPort/$DbName"
+
+  $dir = Join-Path $OutRoot ("prod-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  # The CLI reads .env / .env.local from its working directory and stops on any it cannot parse (a project checkout has
+  # one): run it from the new, empty backup folder.
+  Push-Location $dir
+  try {
+    # Flat string arrays: a nested array reaches npx as ONE argument ("--use-copy --data-only ...").
+    $steps = [ordered]@{
+      "roles.sql"  = [string[]]@("--role-only")
+      "schema.sql" = [string[]]@()
+      "data.sql"   = [string[]]@("--use-copy", "--data-only", "-x", "storage.buckets_vectors", "-x", "storage.vector_indexes")
+    }
+    foreach ($name in $steps.Keys) {
+      Write-Log "dumping $name ..."
+      $cliArgs = [string[]](@("--yes", $Cli, "db", "dump", "--db-url", $url, "-f", (Join-Path $dir $name)) + $steps[$name])
+      # The CLI reports progress on stderr. With output redirected, Windows PowerShell 5.1 turns each stderr line into an
+      # error record, which "Stop" would treat as a failure: judge the step by its exit code only.
+      $ErrorActionPreference = "Continue"
+      & npx @cliArgs 2>&1 | ForEach-Object { Write-Log "  $_" }
+      $code = $LASTEXITCODE
+      $ErrorActionPreference = "Stop"
+      if ($code -ne 0) { throw "$name failed (exit $code). The folder $dir is incomplete - do not rely on it." }
+    }
+  } finally {
+    Pop-Location
+    Remove-Variable url, pw, enc -ErrorAction SilentlyContinue
+  }
+
+  $verify = Join-Path $PSScriptRoot "verify-backup.mjs"
+  $ErrorActionPreference = "Continue"
+  if ($Expect) { & node $verify $dir --expect $Expect 2>&1 | ForEach-Object { Write-Log "$_" } } else { & node $verify $dir 2>&1 | ForEach-Object { Write-Log "$_" } }
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = "Stop"
+  if ($code -ne 0) { throw "Backup check failed - see INCOMPLETE above. Folder: $dir" }
+  Write-Log "RESULT: backup complete - $dir"
+} catch {
+  Write-Log "RESULT: FAILED - $($_.Exception.Message)"
+  exit 1
+}
