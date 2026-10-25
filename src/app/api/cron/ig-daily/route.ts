@@ -6,6 +6,7 @@ import { revalidatePublicContent } from "@/lib/revalidate"
 import { sendAdminAlert } from "@/lib/alert"
 import { NextResponse } from "next/server"
 import { blockedReason } from "@/lib/release/guard.mjs"
+import { freshReadyCandidates } from "@/lib/content/auto-publish"
 
 export const maxDuration = 300
 
@@ -155,21 +156,23 @@ export async function GET(req: Request) {
   }
 
   // 하루 1건 통일 드립: ready 인사이트 1개 → 사이트 공개 + 카드뉴스 생성 + IG/Threads 동시 발행.
-  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 최신 것부터 릴리스(신선도 우선 — 분석일 기준).
+  // ready = analyze 완료·검수 대기(사이트 미노출) 상태. 대상 선정은 09:00 사이트 공개와 같은 기준(@/lib/content/auto-publish):
+  // 원문 발표일 7일 이내·필수 분석 정보·중복/기게시 제외, 원문이 최신인 것부터. 통과한 글이 없으면 오늘은 건너뛴다.
   // ── [진단 로깅] 발행 멈춤 원인 추적용. 발행 로직은 그대로, console.log/타이밍만 추가. ──
   const dripStart = Date.now()
-  const { data: readyRows } = await supabase
-    .from("insights")
-    .select("article_id, slug, hook, summary, created_at, article:articles!inner(status)")
-    .eq("article.status", "ready")
-    .order("created_at", { ascending: false })
-    .limit(5)
-  console.log("[drip] readyRows=", readyRows?.length ?? 0,
-    (readyRows ?? []).map(r => ({ art: r.article_id?.slice(0, 8), hook: !!r.hook, summary: !!r.summary, created: r.created_at?.slice(0, 10) })))
-  const pick = (readyRows ?? []).find(r => r.hook && r.summary)
+  let selection: Awaited<ReturnType<typeof freshReadyCandidates>>
+  try {
+    selection = await freshReadyCandidates(supabase)
+  } catch (e) {
+    console.log("[drip] 후보 조회 실패:", e instanceof Error ? e.message : e)
+    return NextResponse.json({ ...result, autoPublish: "on", drip: "후보 조회 실패 — 오늘은 건너뜀" })
+  }
+  console.log("[drip] eligible=", selection.eligible.length, "skipped=", selection.skipped.length,
+    selection.skipped.slice(0, 5).map(s => ({ art: s.article_id?.slice(0, 8), reason: s.reason })))
+  const pick = selection.eligible[0]
   if (!pick) {
-    console.log("[drip] pick 없음 → '대기 중인 ready 인사이트 없음' 반환")
-    return NextResponse.json({ ...result, autoPublish: "on", drip: "대기 중인 ready 인사이트 없음" })
+    console.log("[drip] pick 없음 → 최신 기준을 통과한 ready 인사이트 없음, 오늘은 건너뜀")
+    return NextResponse.json({ ...result, autoPublish: "on", drip: "최신 기준(원문 7일 이내)을 통과한 ready 인사이트 없음 — 오늘은 건너뜀" })
   }
   console.log(`[drip] pick=${pick.article_id?.slice(0, 8)} hook="${(pick.hook ?? "").slice(0, 30)}"`)
   const articleId = pick.article_id

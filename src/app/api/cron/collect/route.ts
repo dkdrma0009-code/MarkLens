@@ -75,8 +75,9 @@ export async function GET(req: Request) {
 
   // 2.5) 사이트 공개 — 방금 분석된 신규 ready 를 그날 published 로 전환(IG 발행과 분리).
   //      · 카드뉴스/ig-daily/큐레이션/릴스는 절대 안 건드림 — 사이트 status 만 바꾼다.
-  //      · 대상 = status='ready' AND insight.created_at 최근 36h (= 이번/직전 실행에서 갓 분석된
-  //        신규·백로그소량 15건). 오래된 ready 백로그(수백 건)는 제외(주말 소진 범위).
+  //      · 대상 = 08:00 SNS 드립과 같은 기준(@/lib/content/auto-publish): 원문 발표일 7일 이내,
+  //        필수 분석 정보 있음, 이미 공개된 글·SNS 게시된 글과 중복 아님. 오늘 분석했어도 원문이 오래되면 제외.
+  //        통과한 글이 없으면 그날은 공개하지 않는다.
   //      · site_published_at 세팅 → "사이트공개=정상, IG는 선별" 상태 명시(유령 오해 방지).
   //      · 게이트 app_config.site_publish_auto='on' 일 때만(검토 후 수동 on). 미설정=off.
   let sitePublished = 0
@@ -85,21 +86,16 @@ export async function GET(req: Request) {
     const sb = createAdminClient()
     const { data: gate } = await sb.from("app_config").select("value").eq("key", "site_publish_auto").single()
     if (gate?.value === "on") {
-      const freshCutoff = new Date(Date.now() - 36 * 3600 * 1000).toISOString()
-      const { data: fresh } = await sb
-        .from("insights")
-        .select("article_id, slug, article:articles!inner(status)")
-        .eq("article.status", "ready")
-        .gte("created_at", freshCutoff)
-        .limit(50) // 안전캡 — 정상적으론 하루 ~15건
-      const ids = (fresh ?? []).map((f) => f.article_id).filter(Boolean)
+      const { freshReadyCandidates } = await import("@/lib/content/auto-publish")
+      const fresh = (await freshReadyCandidates(sb)).eligible // 안전캡 50 — 정상적으론 하루 ~15건
+      const ids = fresh.map((f) => f.article_id).filter(Boolean)
       if (ids.length > 0) {
         const now = new Date().toISOString()
         await sb.from("articles").update({ status: "published", site_published_at: now }).in("id", ids)
         try {
           const { revalidatePublicContent } = await import("@/lib/revalidate")
           // 이번 실행에서 공개한 글의 상세만 + 홈·목록 (0건이면 이 블록 자체를 타지 않음)
-          revalidatePublicContent({ slugs: (fresh ?? []).map((f) => f.slug) })
+          revalidatePublicContent({ slugs: fresh.map((f) => f.slug) })
         } catch { /* 무효화 실패는 공개에 영향 없음 */ }
         sitePublished = ids.length
       }
