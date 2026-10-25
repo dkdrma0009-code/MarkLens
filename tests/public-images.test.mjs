@@ -14,7 +14,8 @@ function load(file,mocks={}) {
 const images=load('src/lib/images.ts'), config=load('next.config.ts',{'./src/lib/release/guard.mjs':releaseGuard}).default.images
 const CdnImage=load('src/components/media/CdnImage.tsx',{'@/lib/images':images})
 const EditorialImage=load('src/components/home/EditorialImage.tsx',{'@/lib/images':images,'@/components/media/CdnImage':CdnImage}).default
-const ArticleVisual=load('src/components/insights/ArticleVisual.tsx',{'@/lib/images':images,'@/components/media/CdnImage':CdnImage}).default
+const editorialImages=load('src/lib/editorial-images.ts')
+const ArticleVisual=load('src/components/insights/ArticleVisual.tsx',{'@/lib/images':images,'@/lib/editorial-images':editorialImages,'@/components/media/CdnImage':CdnImage}).default
 const srcsetOf=html=>(html.match(/srcSet="([^"]+)"/)?.[1]??'').replace(/&amp;/g,'&').split(', ').map(c=>{const [url,w]=c.split(' ');return {url,w:Number(w.slice(0,-1))}})
 const source='https://images.unsplash.com/photo-example?fit=max&sig=keep'
 test('loader canonicalizes existing CDN source without nesting or dropping original parameters',()=>{
@@ -46,4 +47,16 @@ test('rendered public/editorial and reused admin article preserve geometry, prio
  const proxied=renderToStaticMarkup(React.createElement(EditorialImage,{insight:{article:{image_url:images.weservThumb(source,440)}},sizes:'96px'}));assert.ok(srcsetOf(proxied).every(c=>(c.url.match(/weserv/g)??[]).length===1))
  const empty=renderToStaticMarkup(React.createElement(ArticleVisual,{article:{image_url:blocked.image_url}}));assert.equal(empty,'') // C-1: no usable image means no placeholder art
  assert.equal(images.isHotlinkBlocked(blocked.image_url),true)
+})
+
+test('registered editorial hero: descriptive alt and a CC credit caption (author, source, license, changes); collected images stay decorative',()=>{
+ const url='https://marklens.site/editorial/chatgpt-ads-89-countries-photo.jpg'
+ const html=renderToStaticMarkup(React.createElement(ArticleVisual,{article:{image_url:url}}))
+ const info=editorialImages.editorialImage(url)
+ assert.ok(info.alt.length>20); assert.ok(html.includes(`alt="${info.alt}"`))
+ assert.match(html,/<figcaption>사진 <a href="https:\/\/www\.flickr\.com\/photos\/91261194@N06\/52916923766\/" target="_blank" rel="noopener noreferrer">Jernej Furman<\/a> · Flickr · <a href="https:\/\/creativecommons\.org\/licenses\/by\/2\.0\/" target="_blank" rel="license noopener noreferrer">CC BY 2\.0<\/a> · MarkLens 흑백 보정·크롭<\/figcaption>/)
+ const plain=renderToStaticMarkup(React.createElement(ArticleVisual,{article:{image_url:source}}))
+ assert.ok(plain.includes('alt=""')); assert.ok(!plain.includes('<figcaption'))
+ // The previous hero stays registered (alt only, own work) so a rollback keeps an accessible image.
+ assert.ok(editorialImages.editorialImage('https://marklens.site/editorial/chatgpt-ads-89-countries-hero.jpg').alt); assert.equal(editorialImages.editorialImage('https://marklens.site/editorial/chatgpt-ads-89-countries-hero.jpg').credit,undefined)
 })

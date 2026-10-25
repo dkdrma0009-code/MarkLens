@@ -20,6 +20,7 @@ const Link = ({ href, children, ...rest }) => createElement('a', { href, ...Obje
 const icons = { 'lucide-react': new Proxy({}, { get: () => () => null }) }
 const ArticleVisual = load('src/components/insights/ArticleVisual.tsx', {
   '@/lib/images': { isHotlinkBlocked: () => false },
+  '@/lib/editorial-images': { editorialImage: () => null },
   '@/components/media/CdnImage': esm(({ src }) => createElement('img', { src })),
 })
 const { default: ArticleStory } = load('src/components/insights/ArticleStory.tsx', {

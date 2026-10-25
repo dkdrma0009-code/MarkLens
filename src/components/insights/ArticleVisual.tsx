@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import CdnImage from "@/components/media/CdnImage"
 import { isHotlinkBlocked } from "@/lib/images"
+import { editorialImage } from "@/lib/editorial-images"
 
 interface ArticleImage {
   image_url?: string | null
@@ -24,8 +25,12 @@ export default function ArticleVisual({ article }: { article?: ArticleImage | nu
   // No usable image (none stored, blocked, or both the original and the fallback failed to load): no placeholder art,
   // the lead runs straight into the article.
   if (!src) return null
+  // Registered editorial images describe themselves and carry their credit; collected images stay decorative.
+  const info = usingOriginal ? editorialImage(article?.image_url) : null
+  const credit = info?.credit
   return <figure className="ml-article-visual">
-    <div ref={frame} className="ml-article-image"><CdnImage key={src} src={src} fallbackWidth={1600} alt="" sizes="(max-width: 767px) calc(100vw - 40px), (max-width: 1199px) calc(100vw - 64px), (max-width: 1415px) calc(100vw - 96px), 1320px" loading="eager" fetchPriority="high" onError={() => usingOriginal ? setOriginalFailed(true) : setFallbackFailed(true)} /></div>
-    {!usingOriginal && fallback?.credit ? <figcaption>대체 이미지 · Photo by <a href={`${fallback.creditLink ?? "https://unsplash.com"}?utm_source=marklens&utm_medium=referral`} target="_blank" rel="noopener noreferrer">{fallback.credit}</a> on <a href="https://unsplash.com/?utm_source=marklens&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></figcaption> : null}
+    <div ref={frame} className="ml-article-image"><CdnImage key={src} src={src} fallbackWidth={1600} alt={info?.alt ?? ""} sizes="(max-width: 767px) calc(100vw - 40px), (max-width: 1199px) calc(100vw - 64px), (max-width: 1415px) calc(100vw - 96px), 1320px" loading="eager" fetchPriority="high" onError={() => usingOriginal ? setOriginalFailed(true) : setFallbackFailed(true)} /></div>
+    {!usingOriginal && fallback?.credit ? <figcaption>대체 이미지 · Photo by <a href={`${fallback.creditLink ?? "https://unsplash.com"}?utm_source=marklens&utm_medium=referral`} target="_blank" rel="noopener noreferrer">{fallback.credit}</a> on <a href="https://unsplash.com/?utm_source=marklens&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></figcaption>
+      : credit ? <figcaption>사진 <a href={credit.sourceUrl} target="_blank" rel="noopener noreferrer">{credit.author}</a> · {credit.sourceName} · <a href={credit.licenseUrl} target="_blank" rel="license noopener noreferrer">{credit.license}</a> · MarkLens {credit.changes}</figcaption> : null}
   </figure>
 }
