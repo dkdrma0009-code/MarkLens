@@ -99,12 +99,12 @@ test('navigation: Career Lab stays active on its sub-pages and no other item lig
 })
 
 test('footer: no removed menu links, Career tools under their official names, Dictionary and Weekly kept', () => {
-  // R-4: the privacy link appears only once src/lib/legal/privacy.ts is complete — today the footer is unchanged.
+  // R-4: the privacy link appears once src/lib/legal/privacy.ts is complete — published 2026-10-25, last in About.
   const { default: Footer } = load('src/components/layout/Footer.tsx', { ...ui, './navigation': navigation, '@/lib/legal/privacy': load('src/lib/legal/privacy.ts') })
   const footer = links(renderToStaticMarkup(createElement(Footer))).filter(link => link.href?.startsWith('/'))
   assert.deepEqual(footer.map(link => [link.text, link.href]), [['', '/#main-content'], ['Insights', '/insights'], ['Dictionary', '/glossary'],
     ['Career Lab', '/practice'], ['Insight Lab', '/insight-lab'], ['AI Interview', '/interview'], ['Trend Quiz', '/learn'],
-    ['MarkLens 소개', '/about'], ['Weekly', '/newsletter'], ['피드백', '/feedback'], ['RSS', '/feed.xml']])
+    ['MarkLens 소개', '/about'], ['Weekly', '/newsletter'], ['피드백', '/feedback'], ['RSS', '/feed.xml'], ['개인정보처리방침', '/privacy']])
   assert.ok(!footer.some(link => /Trends|Collections|Learn$|#signals|#collections/.test(link.text + link.href)))
 })
 
