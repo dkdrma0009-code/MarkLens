@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkLens editorial hero — answers vs ad slot</title>
+<style>
+  :root { --ink: #0b0c0f; --paper: #f2f0ea; --blue: #164bff; --glow: #5b82ff; }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 2400px; height: 1600px; background: var(--ink); overflow: hidden; }
+  .stage { position: relative; width: 2400px; height: 1600px; overflow: hidden;
+    background:
+      radial-gradient(1100px 700px at 50% 52%, #171a22 0%, rgba(11,12,15,0) 70%),
+      radial-gradient(900px 900px at 62% 40%, rgba(22,75,255,.16) 0%, rgba(22,75,255,0) 60%),
+      var(--ink); }
+  /* fine editorial grid, fading out to the edges */
+  .grid { position: absolute; inset: 0; opacity: .5;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 80px 80px;
+    -webkit-mask-image: radial-gradient(900px 640px at 50% 50%, #000 30%, transparent 100%); }
+  .grain { position: absolute; inset: 0; opacity: .10; mix-blend-mode: overlay; }
+
+  /* the answer: an off-white sheet, nothing on it can be bought */
+  .answer { position: absolute; left: 560px; top: 330px; width: 760px; height: 940px; border-radius: 28px;
+    background: linear-gradient(180deg, #f6f4ef 0%, #ebe8e1 100%);
+    box-shadow: 0 60px 120px rgba(0,0,0,.55), 0 18px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.9);
+    transform: perspective(2400px) rotateY(9deg) rotateX(2deg); transform-origin: 100% 50%; padding: 84px 80px; }
+  .answer .q { display: flex; justify-content: flex-end; margin-bottom: 70px; }
+  .answer .q span { display: block; width: 300px; height: 64px; border-radius: 32px; background: #d9d6ce; }
+  .spark { width: 46px; height: 46px; margin-bottom: 40px; position: relative; }
+  .spark { border-radius: 50%; border: 7px solid var(--ink); }
+  .spark::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--blue); transform: translate(-50%,-50%); }
+  .line { height: 22px; border-radius: 11px; background: #2a2c31; margin-bottom: 30px; opacity: .88; }
+  .line.m { background: #9a9890; opacity: .55; height: 18px; }
+  .gap { height: 34px; }
+  .chip-row { display: flex; gap: 18px; margin-top: 54px; }
+  .chip-row span { height: 50px; border-radius: 25px; border: 3px solid #c9c5bb; }
+
+  /* the boundary: a cold beam that nothing crosses */
+  .beam { position: absolute; left: 1388px; top: 120px; width: 6px; height: 1360px; border-radius: 3px;
+    background: linear-gradient(180deg, rgba(91,130,255,0) 0%, #8fb0ff 18%, #ffffff 50%, #8fb0ff 82%, rgba(91,130,255,0) 100%);
+    box-shadow: 0 0 24px 6px rgba(22,75,255,.75), 0 0 90px 30px rgba(22,75,255,.35), 0 0 240px 80px rgba(22,75,255,.16); }
+  .beam-floor { position: absolute; left: 1190px; top: 1380px; width: 400px; height: 60px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(22,75,255,.32), rgba(22,75,255,0)); filter: blur(12px); }
+
+  /* the ad slot: outside the answer, framed and labelled as paid space */
+  .slot { position: absolute; left: 1470px; top: 470px; width: 400px; height: 560px; border-radius: 22px;
+    border: 4px dashed rgba(124,156,255,.9); background: linear-gradient(160deg, rgba(22,75,255,.20), rgba(22,75,255,.05));
+    box-shadow: 0 0 60px rgba(22,75,255,.25), inset 0 0 40px rgba(22,75,255,.12);
+    transform: perspective(2400px) rotateY(-14deg); transform-origin: 0% 50%; padding: 40px; }
+  .slot .tag { display: inline-block; font: 700 30px/1 "Helvetica Neue", Arial, sans-serif; letter-spacing: .22em; color: #0b0c0f; background: #8fb0ff; padding: 12px 16px 12px 20px; border-radius: 8px; }
+  .slot .media { margin-top: 40px; height: 250px; border-radius: 14px; background: linear-gradient(135deg, rgba(143,176,255,.55), rgba(22,75,255,.25)); position: relative; overflow: hidden; }
+  .slot .media::after { content: ""; position: absolute; width: 180px; height: 180px; border-radius: 50%; right: -40px; bottom: -50px; background: rgba(255,255,255,.22); }
+  .slot .l { height: 18px; border-radius: 9px; background: rgba(214,224,255,.55); margin-top: 34px; }
+  .slot .l.s { width: 60%; margin-top: 22px; background: rgba(214,224,255,.32); }
+
+  /* a coin that does not get through the beam */
+  .coin { position: absolute; left: 1408px; top: 1100px; width: 112px; height: 112px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffffff 0%, #dfe6ff 30%, #8ea8ff 78%, #5f7fff 100%);
+    box-shadow: 0 18px 40px rgba(0,0,0,.45), 0 0 34px rgba(91,130,255,.55), inset -6px -8px 14px rgba(11,12,15,.18); }
+  .coin::after { content: ""; position: absolute; inset: 20px; border-radius: 50%; border: 5px solid rgba(255,255,255,.55); box-shadow: inset 0 0 0 4px rgba(22,75,255,.18); }
+  .trail { position: absolute; left: 1520px; top: 1149px; width: 300px; height: 14px; border-radius: 7px; background: linear-gradient(90deg, rgba(143,176,255,.55), rgba(143,176,255,0)); }
+  .ripple { position: absolute; left: 1391px; top: 1156px; width: 0; height: 0; }
+  .ripple i { position: absolute; border: 3px solid rgba(160,190,255,.7); border-left-color: transparent; border-top-color: transparent; border-bottom-color: transparent; border-radius: 50%; transform: translate(-50%,-50%); }
+  .ripple i:nth-child(1) { width: 120px; height: 160px; }
+  .ripple i:nth-child(2) { width: 170px; height: 240px; opacity: .55; }
+  .ripple i:nth-child(3) { width: 220px; height: 320px; opacity: .28; }
+  .streaks { position: absolute; inset: 0; opacity: .5; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <svg class="grain" width="2400" height="1600"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
+  <svg class="streaks" width="2400" height="1600" viewBox="0 0 2400 1600"><defs><linearGradient id="s" x1="0" x2="1"><stop offset="0" stop-color="#164bff" stop-opacity="0"/><stop offset=".5" stop-color="#5b82ff" stop-opacity=".55"/><stop offset="1" stop-color="#164bff" stop-opacity="0"/></linearGradient></defs>
+    <path d="M1700 -40 C 1900 400, 2150 700, 2460 980" stroke="url(#s)" stroke-width="3" fill="none"/>
+    <path d="M1880 -60 C 2040 300, 2240 520, 2480 640" stroke="url(#s)" stroke-width="2" fill="none"/>
+    <path d="M-60 1180 C 260 1260, 520 1420, 760 1680" stroke="url(#s)" stroke-width="2" fill="none"/></svg>
+  <div class="beam-floor"></div>
+  <div class="answer">
+    <div class="q"><span></span></div>
+    <div class="spark"></div>
+    <div class="line" style="width:92%"></div>
+    <div class="line" style="width:100%"></div>
+    <div class="line" style="width:78%"></div>
+    <div class="gap"></div>
+    <div class="line m" style="width:96%"></div>
+    <div class="line m" style="width:88%"></div>
+    <div class="line m" style="width:93%"></div>
+    <div class="line m" style="width:64%"></div>
+    <div class="gap"></div>
+    <div class="line m" style="width:90%"></div>
+    <div class="line m" style="width:72%"></div>
+    <div class="chip-row"><span style="width:150px"></span><span style="width:210px"></span><span style="width:120px"></span></div>
+  </div>
+  <div class="beam"></div>
+  <div class="slot">
+    <span class="tag">AD</span>
+    <div class="media"></div>
+    <div class="l"></div>
+    <div class="l s"></div>
+  </div>
+  <div class="trail"></div>
+  <div class="ripple"><i></i><i></i><i></i></div>
+  <div class="coin"></div>
+</div>
+</body>
+</html>
