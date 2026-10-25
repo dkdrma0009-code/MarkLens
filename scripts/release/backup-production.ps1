@@ -113,6 +113,7 @@ try {
   $target = if ($Rehearsal) { "REHEARSAL (loopback $DbHost)" } else { "PRODUCTION $ProdRef" }
   Write-Log "waiting for the database password ($target)"
   $pw = Read-DbPassword "MarkLens backup - $target" "Database password for $DbUser@$DbHost`n(Supabase -> Project Settings -> Database). Only the password." $TestPassword
+  if ($pw) { $pw = $pw.Trim() } # a pasted password often carries a space or line break; Supabase passwords have none at the ends
   if (-not $pw) { throw "No password entered (window cancelled or empty). Nothing was dumped." }
   $enc = [uri]::EscapeDataString($pw)
   $script:secrets = @($pw, $enc)
@@ -144,7 +145,11 @@ try {
       & npx @cliArgs 2>&1 | ForEach-Object { Write-Log "  $_" }
       $code = $LASTEXITCODE
       $ErrorActionPreference = "Stop"
-      if ($code -ne 0) { throw "$name failed (exit $code). The folder $dir is incomplete - do not rely on it." }
+      if ($code -ne 0) {
+        Pop-Location; Push-Location $OutRoot
+        Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue # a partial dump is no restore point
+        throw "$name failed (exit $code); the incomplete folder was removed. See the lines above."
+      }
     }
   } finally {
     Pop-Location
