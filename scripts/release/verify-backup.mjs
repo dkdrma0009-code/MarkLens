@@ -67,7 +67,7 @@ export function parseReadinessCsv(text) {
   return out
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [dir, flag, csv] = process.argv.slice(2)
   if (!dir) { console.error("usage: node scripts/release/verify-backup.mjs <backup dir> [--expect production-readiness.csv]"); process.exit(1) }
   const expected = flag === "--expect" && csv ? parseReadinessCsv(readFileSync(csv, "utf8")) : null

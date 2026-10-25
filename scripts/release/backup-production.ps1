@@ -70,9 +70,12 @@ if ($check.Problem) { throw "Connection string refused: $($check.Problem). Nothi
 Write-Host "production project $ProdRef via $($check.Host)"
 
 $dir = Join-Path $OutRoot ("prod-" + (Get-Date -Format "yyyyMMdd-HHmm"))
+New-Item -ItemType Directory -Force $dir | Out-Null
+# The CLI reads .env / .env.local from its working directory and stops on any it cannot parse (a project checkout has
+# one): run it from the new, empty backup folder.
+Push-Location $dir
 try {
   $url = $check.Url
-  New-Item -ItemType Directory -Force $dir | Out-Null
   $steps = @(
     @("roles.sql", @("--role-only")),
     @("schema.sql", @()),
@@ -84,6 +87,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "$($s[0]) failed (exit $LASTEXITCODE). The folder $dir is incomplete - do not rely on it." }
   }
 } finally {
+  Pop-Location
   Remove-Variable url, check -ErrorAction SilentlyContinue
 }
 
