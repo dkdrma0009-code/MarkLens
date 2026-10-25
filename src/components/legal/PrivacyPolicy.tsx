@@ -41,6 +41,7 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
           </table>
           <p>{facts.disposalProcess}</p>
           <p>{facts.lawfulRetention}</p>
+          <p>뉴스레터에는 광고를 싣지 않습니다. 광고를 싣게 되면 기존 구독과 별도로 광고성 정보 수신 동의를 받습니다. 모든 메일에는 발신자와 수신 거부 링크가 있습니다.</p>
         </section>
         <section className="ml-page-section" aria-labelledby="privacy-refuse">
           <h2 id="privacy-refuse">2. 동의를 거부할 권리</h2>

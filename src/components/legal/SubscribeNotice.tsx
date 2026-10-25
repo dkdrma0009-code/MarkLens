@@ -7,7 +7,7 @@ export default function SubscribeNotice({ id, facts = PRIVACY_FACTS }: { id: str
   if (!privacyReady(facts)) return null
   return (
     <p id={id} className="ml-form-note ml-privacy-note">
-      이메일 주소는 MarkLens 뉴스레터와 구독 확인 메일 발송에만 사용합니다. 보관: {facts.retention.subscribers}.{" "}
+      이메일 주소는 MarkLens 뉴스레터(광고 없음)와 구독 확인 메일 발송에만 사용합니다. 보관: {facts.retention.subscribers}.{" "}
       <Link href="/privacy">개인정보처리방침</Link>
     </p>
   )

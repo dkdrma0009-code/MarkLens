@@ -29,9 +29,10 @@ const html = el => renderToStaticMarkup(el)
 
 test('today: nothing is published — no notice, no footer link, /privacy is a 404', () => {
   assert.equal(privacy.privacyReady(), false)
-  // Owner-confirmed (2026-10-25): operation, contact address, retention, disposal. Still blocking: the inbox must be
-  // shown to receive mail, the officer's name decision, the publication date and the three legal reviews.
-  assert.deepEqual(privacy.missingPrivacyFacts(), ['문의 메일 수신 확인', '개인정보 보호책임자', '시행일', '법령에 따른 별도 보관(법률 검토)', '광고성 정보 동의 필요 여부(법률 검토)', '국외 이전 고지 법률 검토'])
+  // Owner-confirmed and statute-checked (2026-10-25). Still blocking: the inbox must be shown to receive mail, the
+  // privacy officer listing (Art. 30(1)6: name, or a handling department, with a contact) and the publication date.
+  assert.deepEqual(privacy.missingPrivacyFacts(), ['문의 메일 수신 확인', '개인정보 보호책임자', '시행일'])
+  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, null) // never a made-up name or department
   assert.equal(html(React.createElement(SubscribeNotice, { id: 'n' })), '')
   let notFound = 0
   const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': privacy, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
@@ -54,7 +55,7 @@ test('complete: the notice and policy match the system — unsubscribing deletes
   const policy = html(React.createElement(PrivacyPolicy, { facts: complete }))
   for (const v of ['TEST-OPERATOR', 'TEST-REP', 'privacy@example.test', 'TEST-OFFICER', '2099-01-01', 'TEST-1년', 'TEST-탈퇴 시', 'TEST-90일', 'TEST-매일 자동 파기', 'TEST-법령 보관 없음', 'TEST-REGION', 'privacy@supabase.com', 'privacy@vercel.com', 'dpo@brevo.com', 'privacy@openai.com', 'Brevo', 'Anthropic', 'OpenAI', 'Google Analytics', '원문 IP는 저장하지 않음']) assert.ok(policy.includes(v), v)
   assert.doesNotMatch(policy, /null|undefined|\[운영자|\[법률/)
-  assert.match(policy, /구독 해지 링크로 바로 해지되고 구독 정보도 함께 삭제됩니다/); assert.match(policy, /쿠키 저장을 거부/)
+  assert.match(policy, /구독 해지 링크로 바로 해지되고 구독 정보도 함께 삭제됩니다/); assert.match(policy, /쿠키 저장을 거부/); assert.match(policy, /광고를 싣지 않습니다/)
 })
 
 test('individual operation: no representative is required or shown; processors are listed with what and where', () => {
