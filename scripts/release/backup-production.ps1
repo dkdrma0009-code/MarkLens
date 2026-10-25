@@ -24,6 +24,11 @@ function Test-ProductionConnection([string]$Raw, [string]$Expected) {
   $u = $Raw.Trim()
   if ($u.Length -ge 2 -and (($u[0] -eq '"' -and $u[-1] -eq '"') -or ($u[0] -eq "'" -and $u[-1] -eq "'"))) { $u = $u.Substring(1, $u.Length - 2).Trim() }
   if ($u -eq "") { return & $fail "the input was empty (nothing was pasted) - use -FromClipboard, or paste with a right click" }
+  # Supabase -> Connect also offers formats that wrap the URI (psql "postgresql://...", DATABASE_URL=postgresql://...):
+  # take the URI out when there is exactly one.
+  $embedded = [regex]::Matches($u, 'postgres(?:ql)?://[^\s"''`]+')
+  if ($u -notmatch '^postgres(ql)?://' -and $embedded.Count -eq 1) { $u = $embedded[0].Value }
+  elseif ($embedded.Count -gt 1) { return & $fail "the copied text holds $($embedded.Count) connection strings - copy only the Session pooler one" }
   if ($u -notmatch '^postgres(ql)?://') {
     if ($u -notmatch '://') { return & $fail "this is not a connection string (only a password?) - copy the whole Session pooler string from Supabase -> Connect" }
     return & $fail "the string does not start with postgresql:// - copy the Session pooler string from Supabase -> Connect"
