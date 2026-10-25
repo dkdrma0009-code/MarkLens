@@ -22,7 +22,12 @@ function loadRoute(file, db, delivery) {
   vm.runInNewContext(ts.transpileModule(readFileSync("src/lib/newsletter/confirmation-mail.mjs", "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, { exports: mail, process: { env: { BREVO_API_KEY: "mock-only", NEXT_PUBLIC_SITE_URL: "https://marklens.site" } }, fetch: delivery })
+  const privacy = {}
+  vm.runInNewContext(ts.transpileModule(readFileSync("src/lib/legal/privacy.ts", "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText, { exports: privacy })
   const mocks = {
+    "@/lib/legal/privacy": privacy,
     "@/lib/newsletter/confirmation-mail.mjs": mail,
     "@/lib/supabase/admin": { createAdminClient: () => db },
     "@/lib/rate-limit": { checkRateLimit: () => null },

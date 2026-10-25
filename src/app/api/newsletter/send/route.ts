@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { mailReplyTo } from "@/lib/legal/privacy"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
 import { buildNewsletterHtml } from "@/lib/newsletter/html"
 import { isAdmin } from "@/lib/api-auth"
@@ -14,6 +15,7 @@ async function sendViaBrevo(to: string, subject: string, html: string, issueId: 
     body: JSON.stringify({
       sender: { name: "MarkLens", email: "newsletter@marklens.site" },
       to: [{ email: to }],
+      ...mailReplyTo(),
       subject,
       htmlContent: html,
       tags: [`issue-${issueId}`], // 웹훅에서 오픈/클릭을 이 이슈로 연결

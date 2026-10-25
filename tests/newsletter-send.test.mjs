@@ -38,6 +38,7 @@ function setup({ status = 'pending_approval', brevoOk = true } = {}) {
     '@/lib/newsletter/html': { buildNewsletterHtml: () => '<p>issue</p>' },
     '@/lib/api-auth': { isAdmin: async () => true },
     '@/lib/release/guard.mjs': releaseGuard,
+    '@/lib/legal/privacy': load('src/lib/legal/privacy.ts', {}),
     'next/server': { NextResponse: { json: (body, init) => ({ status: init?.status ?? 200, body }) } },
   })
   const post = body => route.POST(new Request('https://x.test/api/newsletter/send', { method: 'POST', body: JSON.stringify(body) }))

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { mailReplyTo } from "@/lib/legal/privacy"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { blockedReason } from "@/lib/release/guard.mjs"
 
@@ -44,6 +45,7 @@ async function sendWelcomeEmail(email: string): Promise<void> {
       body: JSON.stringify({
         sender: { name: "MarkLens", email: "newsletter@marklens.site" },
         to: [{ email }],
+        ...mailReplyTo(),
         subject: "MarkLens 구독을 환영합니다 🎉",
         htmlContent: welcome,
       }),

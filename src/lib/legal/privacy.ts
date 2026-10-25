@@ -2,9 +2,11 @@
 // 푸터 링크가 공개되지 않는다 — 미확정 법적 정보를 완성된 처리방침처럼 내보내지 않기 위해서다. 값은 운영자가 확정해
 // 채우고, 문안은 운영자·법률 검토를 거친다(docs/release/privacy-policy-draft.md). 임의의 값을 넣지 않는다.
 export interface PrivacyFacts {
-  /** 운영 주체(개인 또는 사업자명) */
+  /** 운영 형태. 개인 운영이면 대표자 항목이 없다 */
+  operatorType: "individual" | "business" | null
+  /** 운영 주체 표기(개인이면 운영자 표기, 사업자면 사업자명) */
   operator: string | null
-  /** 대표자 */
+  /** 대표자(사업자일 때만) */
   representative: string | null
   /** 정보주체 요청·문의 메일 주소 */
   contactEmail: string | null
@@ -25,24 +27,32 @@ export interface PrivacyFacts {
 }
 
 export const PRIVACY_FACTS: PrivacyFacts = {
+  operatorType: "individual", // 2026-10-25 운영자 확정: 사업자가 아닌 개인 운영
   operator: null,
   representative: null,
-  contactEmail: null,
+  contactEmail: null, // newsletter@marklens.site 는 MX 레코드가 없어 메일을 받을 수 없다(2026-10-25 DNS 확인)
   privacyOfficer: null,
   effectiveDate: null,
   retention: { subscribers: null, members: null, feedback: null, aiUsage: null },
   disposalProcess: null,
-  databaseRegion: null,
+  databaseRegion: "대한민국 서울(AWS ap-northeast-2)", // 운영 프로젝트 Session pooler 호스트로 확인(2026-10-25)
   marketingConsent: null,
   overseasTransferReviewed: false,
+}
+
+/** Brevo 발송의 회신 주소. 발신 주소 newsletter@marklens.site 는 메일을 받을 수 없어(MX 없음) 회신이 사라지므로,
+ *  문의 메일이 확정되면 그 주소로 회신이 가게 한다. 확정 전에는 아무것도 더하지 않는다. */
+export function mailReplyTo(f: PrivacyFacts = PRIVACY_FACTS): { replyTo?: { email: string; name: string } } {
+  return f.contactEmail ? { replyTo: { email: f.contactEmail, name: "MarkLens" } } : {}
 }
 
 /** 공개를 막고 있는 항목(사람이 읽는 이름). 비어 있으면 공개 가능. */
 export function missingPrivacyFacts(f: PrivacyFacts = PRIVACY_FACTS): string[] {
   const missing: string[] = []
   const need = (ok: unknown, name: string) => { if (!ok) missing.push(name) }
+  need(f.operatorType, "운영 형태")
   need(f.operator, "운영 주체")
-  need(f.representative, "대표자")
+  if (f.operatorType === "business") need(f.representative, "대표자")
   need(f.contactEmail, "문의 메일")
   need(f.privacyOfficer, "개인정보 보호책임자")
   need(f.effectiveDate, "시행일")

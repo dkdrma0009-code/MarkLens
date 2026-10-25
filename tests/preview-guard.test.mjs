@@ -178,7 +178,7 @@ test('call sites: Instagram, Threads, mail, AWS render and crons refuse in Previ
     }
   })
   await withEnv({ ...preview(TEST_URL) }, async () => {
-    const { POST } = load('src/app/api/newsletter/send/route.ts', { 'next/server': server, '@/lib/api-auth': { isAdmin: async () => true }, '@/lib/supabase/admin': {}, '@/app/api/unsubscribe/route': {}, '@/lib/newsletter/html': {} })
+    const { POST } = load('src/app/api/newsletter/send/route.ts', { '@/lib/legal/privacy': load('src/lib/legal/privacy.ts', {}), 'next/server': server, '@/lib/api-auth': { isAdmin: async () => true }, '@/lib/supabase/admin': {}, '@/app/api/unsubscribe/route': {}, '@/lib/newsletter/html': {} })
     const res = await POST(new Request('https://x/api/newsletter/send', { method: 'POST', body: '{"issueId":"i1","testEmail":"qa@example.test"}' }))
     assert.equal(res.status, 403); assert.match(res.body.error, /이메일 발송/)
   })

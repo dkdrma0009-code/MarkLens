@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { mailReplyTo } from "@/lib/legal/privacy"
 import { generateUnsubscribeUrl } from "@/app/api/unsubscribe/route"
 import { blockedReason } from "@/lib/release/guard.mjs"
 
@@ -79,6 +80,7 @@ async function sendDrip(email: string, step: DripStep): Promise<boolean> {
     body: JSON.stringify({
       sender: { name: "MarkLens", email: "newsletter@marklens.site" },
       to: [{ email }],
+      ...mailReplyTo(),
       subject: step.subject,
       htmlContent: wrap(step.body, unsubscribeUrl),
     }),
