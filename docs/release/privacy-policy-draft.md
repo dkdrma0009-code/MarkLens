@@ -14,23 +14,27 @@
 
 | 항목 | 비고 |
 |---|---|
-| 운영 주체, 대표자 | 개인/사업자명 |
-| 문의 메일, 개인정보 보호책임자 | 정보주체 요청 창구 |
+| ~~운영 형태~~ | **확정(2026-10-25): 개인 운영** — 대표자 항목 없음 |
+| 운영 주체 표기 | 처리방침에 적을 운영자 표기 |
+| 문의 메일, 개인정보 보호책임자 | 정보주체 요청 창구. `newsletter@marklens.site`는 **수신 불가**(MX 없음) |
 | 시행일 | 게시일 |
 | 보유 기간: 구독자·Insight Lab 회원·피드백·AI 사용량 기록 | 아래 "확인된 사실"과 맞아야 함 |
-| **보유 기간 경과 기록 파기 절차** | **현재 코드에 없음** — 수동 SQL 주기 실행이든 예약 작업이든 정해야 공개 가능 |
-| 데이터 저장 리전 | Supabase 운영 프로젝트 리전 |
+| 보유 기간 경과 기록 파기 절차 | 절차와 SQL 준비됨([privacy-operations.md](privacy-operations.md)) — 주기(예: 매월)와 일수를 정하면 된다 |
+| ~~데이터 저장 리전~~ | **확인: 대한민국 서울(AWS ap-northeast-2)** — 운영 Session pooler 호스트 |
 | 광고성 정보 동의 필요 여부 | `notice-only`면 공개 가능. `separate-consent`면 별도 동의 UI·동의 시각 저장(마이그레이션)이 필요해 **공개 불가** |
 | 국외 이전 고지 법률 검토 | Vercel·Google·Anthropic·OpenAI·Brevo |
 
 ### R-4에서 코드로 다시 확인한 사실 (2026-10-25)
 
+- 메일: `marklens.site`에 **MX 레코드가 없다** — `newsletter@marklens.site`는 발신 전용(Brevo 인증 TXT·DMARC만). 회신·문의를 받으려면 다른 주소가 필요하다. 관리자 알림을 받는 기존 `naver.com` 주소(`ADMIN_EMAIL`)가 있다.
+- 처리 위치: Supabase 운영 DB **서울**(AWS ap-northeast-2), Vercel 서버 함수 **미국 iad1**(페이지 캐시는 서울 등), Brevo 메일 발송(트랜잭션 발송만, 연락처 목록 없음), Google Analytics 4(`G-9NCMJC4V6L`, 운영 공개 페이지에서만, 관리자·로그인 제외, 동의 배너 없음), AI는 Gemini → Claude → OpenAI 순서의 대체 경로.
+- 뉴스레터 발송·열람·클릭 기록(`newsletter_events`, 이메일 포함)이 Brevo 웹훅으로 쌓인다 — 처리방침 항목과 삭제 SQL에 포함했다.
 - 운영 DB 점검(읽기 전용, 건수만): Insight Lab은 **운영에서 이미 저장 중**(로그인 계정 1, 세션 1, 통계 1, 노트 0). 구독자 active 9·pending 2·해지 0. `ai_usage`는 아직 없다(024 미적용) — 새 코드 배포와 함께 생긴다.
 
-- 구독 해지(`/api/unsubscribe`)는 `status=unsubscribed`, `unsubscribed_at` 기록뿐이다. **구독자 행을 지우는 경로는 코드 어디에도 없다.**
+- 구독 해지(`/api/unsubscribe`)는 `status=unsubscribed`, `unsubscribed_at` 기록뿐이다. **구독자 행을 지우는 경로는 앱에 없다** — 운영자 SQL 절차로 지운다([privacy-operations.md](privacy-operations.md)).
 - Insight Lab 계정 삭제 경로가 앱에 없다(관리자 대시보드에서만 가능). 계정이 지워지면 세션·노트·통계는 `ON DELETE CASCADE`로 함께 지워진다.
 - AI 입력: 챗·면접 연습·학습 채점은 AI 제공사로 보내기만 하고 DB에 저장하지 않는다. Insight Lab 답변(`insight_sessions`, 직접 입력한 기사 본문 포함)은 저장된다.
-- AI 사용량 기록(`ai_usage`, IP 해시·회원 id)은 정리 작업이 없어 **무기한 남는다**(024 주석의 30일 정리는 선택 사항으로만 적혀 있다).
+- AI 사용량 기록(`ai_usage`, IP 해시·회원 id)은 앱의 정리 작업이 없다 — 운영자 정기 파기 SQL **[C]** 로 기간이 지난 행을 지운다.
 - 인사이트 피드백 코멘트는 관리자 알림 메일로 Brevo를 거쳐 전송된다.
 - `analytics_events` 테이블은 쓰는 코드가 없다(수집 없음).
 - Insight Lab 로그인 메일(매직 링크)은 Supabase Auth가 보낸다.
