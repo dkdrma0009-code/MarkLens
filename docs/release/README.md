@@ -3,6 +3,7 @@
 Preview 검증과 Production 출시를 사고 없이 진행하기 위한 기준 문서다.
 
 - 실행 절차: [preview-runbook.md](preview-runbook.md)
+- Production 출시 계획(승인용): [production-rollout.md](production-rollout.md)
 - 개인정보·구독 준비: [privacy-subscription.md](privacy-subscription.md), 초안: [privacy-policy-draft.md](privacy-policy-draft.md)
 - 도구:
 
@@ -14,6 +15,8 @@ Preview 검증과 Production 출시를 사고 없이 진행하기 위한 기준 
 | `scripts/release/describe-unmanaged-schema.sql` | 저장소 밖에서 만들어진 테이블의 실제 정의(컬럼·제약·인덱스·트리거·RLS·정책·권한·함수·의존 객체·버킷). SELECT 1개, 결과 1개 | 읽기 전용 |
 | `scripts/release/compare-unmanaged-schema.mjs` | 위 결과 CSV를 Preview 번들(PGlite)의 같은 조회와 비교. 항목마다 만든 파일을 추적해 "001a 추론 오류"와 "운영에 아직 없는 마이그레이션"을 구분 | 없음(CSV 입력) |
 | `scripts/release/build-preview-sql.mjs` | 빈 Preview DB 하나를 만드는 SQL 번들(001 → 001a → 002…024 → 합성 시드 → 운영 일치 → 점검 결과). `public`에 테이블이 있으면 첫 문장에서 중단 | 없음(stdout 출력) |
+| `scripts/release/production-readiness.sql` | 운영 적용 직전 건수·평균 행 크기·Insight Lab 권한·자동 발행 플래그. SELECT 1개, 행 내용·개인정보 없음 | 읽기 전용 |
+| `scripts/release/seed-preview-posters.mjs` | Preview 버킷 `stock-posters`에 합성 포스터(운영 이미지 복제 아님). 기본 dry run, `--apply`일 때만 업로드, 운영·증명 불가 주소 거부 | Preview만 |
 | `scripts/release/verify-preview-db.mjs` | env 파일의 Supabase가 초기화된 Preview DB인지 확인(표식·마이그레이션·시드·권한·버킷·관리자). 운영·증명 불가 주소엔 요청 0 | Preview만, GET 전용 |
 
 ## 1. 환경 구분과 차단 정책

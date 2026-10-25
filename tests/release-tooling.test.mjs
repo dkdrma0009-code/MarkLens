@@ -56,3 +56,25 @@ test('schema check: read-only, and it tells present migrations from missing ones
     assert.equal((await db.query(check)).rows.length, checkedMigrations().length)
   } finally { await db.close() }
 })
+
+test('production readiness SQL: one read-only SELECT of counts, averages, privileges and flags; no row content', { skip: !process.env.PGLITE_MODULE }, async () => {
+  const sql = readFileSync('scripts/release/production-readiness.sql', 'utf8')
+  const code = sql.replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''")
+  assert.doesNotMatch(code, /\b(insert|update|delete|merge|alter|create|drop|grant|revoke|truncate|copy|set|call|do|lock)\b/i)
+  assert.equal(code.trim().replace(/;\s*$/, '').includes(';'), false, 'a single statement')
+  assert.doesNotMatch(code, /\bemail\b|token|raw_content\s*,|select\s+\*/i) // never selects personal columns or whole rows
+  const { previewInitSql } = await import('../scripts/release/build-preview-sql.mjs')
+  const { PGlite } = require(process.env.PGLITE_MODULE)
+  const db = new PGlite()
+  try {
+    await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
+      CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$; CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'anon' $$;
+      CREATE SCHEMA storage; CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean);`)
+    await db.exec(previewInitSql())
+    const rows = Object.fromEntries((await db.query(sql)).rows.map(r => [r.item, r.value]))
+    assert.equal(rows['count: insights'], '3'); assert.equal(rows['count: subscribers active'], '0')
+    assert.equal(rows['grant: authenticated SELECT insight_sessions'], 'true') // 025 applied in the bundle
+    assert.equal(rows['flag: ig_auto_publish'], 'off')
+    assert.ok(Number(rows['avg bytes: insights row']) > 0)
+  } finally { await db.close() }
+})

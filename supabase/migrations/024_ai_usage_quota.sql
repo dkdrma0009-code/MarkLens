@@ -2,7 +2,7 @@
 -- total paid AI calls. consume_ai_quota() counts one call in a fixed time window and refuses once the window's limit is
 -- reached; the check and the increment are one statement, so concurrent requests cannot both take the last slot.
 -- Keys are a user id or a hashed client address (never a raw IP). Additive only; apply BEFORE deploying the code that
--- calls it (until then the app logs that the global quota is inactive and keeps its per-instance limits).
+-- calls it — the code fails closed: until 024 exists every public AI route answers 503 (R-3).
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.ai_usage (
