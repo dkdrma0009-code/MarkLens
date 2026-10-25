@@ -10,14 +10,18 @@ export interface PrivacyFacts {
   representative: string | null
   /** 정보주체 요청·문의 메일 주소 */
   contactEmail: string | null
-  /** 개인정보 보호책임자(성명·직책) */
+  /** 문의 메일이 실제로 운영자에게 도착하는지 확인했는가(전달 설정 후 시험 메일로 확인) */
+  contactInboxVerified: boolean
+  /** 개인정보 보호책임자 표기(성명 공개가 법적으로 필요한지 확인 후 운영자가 정한다) */
   privacyOfficer: string | null
-  /** 시행일 (YYYY-MM-DD) */
+  /** 시행일 (YYYY-MM-DD) — 새 버전을 실제로 공개하는 날 */
   effectiveDate: string | null
-  /** 보유 기간 문구, 예: "구독 해지 후 30일" */
-  retention: { subscribers: string | null; members: string | null; feedback: string | null; aiUsage: string | null }
-  /** 보유 기간이 지난 기록을 실제로 파기하는 절차(현재 코드에는 없다: 해지는 상태만 바꾸고 행을 남긴다) */
+  /** 보유 기간 문구. 기간 숫자는 src/lib/privacy/retention.ts 와 같아야 한다(tests/privacy-retention.test.mjs) */
+  retention: { subscribers: string | null; newsletterEvents: string | null; members: string | null; feedback: string | null; aiUsage: string | null }
+  /** 보유 기간이 지난 기록을 실제로 파기하는 절차 */
   disposalProcess: string | null
+  /** 다른 법령에 따라 따로 보관하는 정보와 근거·기간(법률 검토 후). 없으면 그 사실을 적는다 */
+  lawfulRetention: string | null
   /** Supabase 데이터 저장 리전 */
   databaseRegion: string | null
   /** 법률 검토 결과: 뉴스레터에 별도 광고성 정보 수신 동의가 필요한가. "separate-consent"는 동의 UI가 아직 없어 공개 불가 */
@@ -26,18 +30,28 @@ export interface PrivacyFacts {
   overseasTransferReviewed: boolean
 }
 
+// 2026-10-25 운영자 확정: 개인 운영, 서비스명 MarkLens, 보호책임자는 운영자 본인, 문의는 newsletter@marklens.site
+// (네이버 관리자 메일로 자동 전달), 보관 기준은 src/lib/privacy/retention.ts. 아직 null/false 인 것은 확인 대기다.
 export const PRIVACY_FACTS: PrivacyFacts = {
-  operatorType: "individual", // 2026-10-25 운영자 확정: 사업자가 아닌 개인 운영
-  operator: null,
+  operatorType: "individual",
+  operator: "MarkLens",
   representative: null,
-  contactEmail: null, // newsletter@marklens.site 는 MX 레코드가 없어 메일을 받을 수 없다(2026-10-25 DNS 확인)
-  privacyOfficer: null,
-  effectiveDate: null,
-  retention: { subscribers: null, members: null, feedback: null, aiUsage: null },
-  disposalProcess: null,
+  contactEmail: "newsletter@marklens.site",
+  contactInboxVerified: false, // MX 레코드가 아직 없다 — 전달 설정과 시험 메일 확인 후 true
+  privacyOfficer: null, // 운영자 본인. 성명 공개 필요 여부 확인 후 표기를 정한다(임의로 쓰지 않는다)
+  effectiveDate: null, // 공개하는 커밋에서 그날 날짜로 채운다
+  retention: {
+    subscribers: "구독을 해지하면 즉시 삭제(이메일 확인을 마치지 않은 신청은 7일 뒤 삭제)",
+    newsletterEvents: "90일",
+    members: "회원 탈퇴(계정 삭제) 시 즉시 삭제",
+    feedback: "접수 후 6개월",
+    aiUsage: "90일",
+  },
+  disposalProcess: "보관 기간이 지난 기록은 매일 자동으로 삭제하고, 운영자가 매월 1회 삭제 결과를 확인합니다. 삭제 요청은 정기 확인을 기다리지 않고 바로 처리합니다. 데이터베이스에서 복구할 수 없도록 삭제하며, 운영자가 보관하는 백업 파일은 만든 날부터 90일이 지나면 삭제합니다.",
+  lawfulRetention: null, // 법률 검토 대기
   databaseRegion: "대한민국 서울(AWS ap-northeast-2)", // 운영 프로젝트 Session pooler 호스트로 확인(2026-10-25)
-  marketingConsent: null,
-  overseasTransferReviewed: false,
+  marketingConsent: null, // 법률 검토 대기: 뉴스레터에 광고·판매 내용은 없다(코드 확인), 영리목적 광고성 정보 해당 여부 미확인
+  overseasTransferReviewed: false, // 법률 검토 대기
 }
 
 /** Brevo 발송의 회신 주소. 발신 주소 newsletter@marklens.site 는 메일을 받을 수 없어(MX 없음) 회신이 사라지므로,
@@ -54,13 +68,16 @@ export function missingPrivacyFacts(f: PrivacyFacts = PRIVACY_FACTS): string[] {
   need(f.operator, "운영 주체")
   if (f.operatorType === "business") need(f.representative, "대표자")
   need(f.contactEmail, "문의 메일")
+  need(f.contactInboxVerified, "문의 메일 수신 확인")
   need(f.privacyOfficer, "개인정보 보호책임자")
   need(f.effectiveDate, "시행일")
   need(f.retention.subscribers, "보유 기간: 구독자")
+  need(f.retention.newsletterEvents, "보유 기간: 뉴스레터 발송 기록")
   need(f.retention.members, "보유 기간: Insight Lab 회원")
   need(f.retention.feedback, "보유 기간: 피드백")
   need(f.retention.aiUsage, "보유 기간: AI 사용량 기록")
   need(f.disposalProcess, "보유 기간 경과 기록 파기 절차")
+  need(f.lawfulRetention, "법령에 따른 별도 보관(법률 검토)")
   need(f.databaseRegion, "데이터 저장 리전")
   need(f.marketingConsent, "광고성 정보 동의 필요 여부(법률 검토)")
   if (f.marketingConsent === "separate-consent") missing.push("광고성 정보 별도 동의 UI(미구현)")

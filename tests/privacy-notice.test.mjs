@@ -21,16 +21,17 @@ const SubscribeNotice = load('src/components/legal/SubscribeNotice.tsx', mocks).
 const PrivacyPolicy = load('src/components/legal/PrivacyPolicy.tsx', mocks).default
 // Obviously fictional values, only to exercise the complete state.
 const complete = {
-  operatorType: 'business', operator: 'TEST-OPERATOR', representative: 'TEST-REP', contactEmail: 'privacy@example.test', privacyOfficer: 'TEST-OFFICER', effectiveDate: '2099-01-01',
-  retention: { subscribers: 'TEST-30일', members: 'TEST-탈퇴 시', feedback: 'TEST-1년', aiUsage: 'TEST-30일' },
-  disposalProcess: 'TEST-월 1회 파기', databaseRegion: 'TEST-REGION', marketingConsent: 'notice-only', overseasTransferReviewed: true,
+  operatorType: 'business', operator: 'TEST-OPERATOR', representative: 'TEST-REP', contactEmail: 'privacy@example.test', contactInboxVerified: true, privacyOfficer: 'TEST-OFFICER', effectiveDate: '2099-01-01',
+  retention: { subscribers: 'TEST-해지 즉시', newsletterEvents: 'TEST-90일', members: 'TEST-탈퇴 시', feedback: 'TEST-1년', aiUsage: 'TEST-30일' },
+  disposalProcess: 'TEST-매일 자동 파기', lawfulRetention: 'TEST-법령 보관 없음', databaseRegion: 'TEST-REGION', marketingConsent: 'notice-only', overseasTransferReviewed: true,
 }
 const html = el => renderToStaticMarkup(el)
 
 test('today: nothing is published — no notice, no footer link, /privacy is a 404', () => {
   assert.equal(privacy.privacyReady(), false)
-  // Decided so far: individual operation, database region. Everything else still blocks publishing.
-  assert.deepEqual(privacy.missingPrivacyFacts(), ['운영 주체', '문의 메일', '개인정보 보호책임자', '시행일', '보유 기간: 구독자', '보유 기간: Insight Lab 회원', '보유 기간: 피드백', '보유 기간: AI 사용량 기록', '보유 기간 경과 기록 파기 절차', '광고성 정보 동의 필요 여부(법률 검토)', '국외 이전 고지 법률 검토'])
+  // Owner-confirmed (2026-10-25): operation, contact address, retention, disposal. Still blocking: the inbox must be
+  // shown to receive mail, the officer's name decision, the publication date and the three legal reviews.
+  assert.deepEqual(privacy.missingPrivacyFacts(), ['문의 메일 수신 확인', '개인정보 보호책임자', '시행일', '법령에 따른 별도 보관(법률 검토)', '광고성 정보 동의 필요 여부(법률 검토)', '국외 이전 고지 법률 검토'])
   assert.equal(html(React.createElement(SubscribeNotice, { id: 'n' })), '')
   let notFound = 0
   const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': privacy, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
@@ -47,14 +48,13 @@ test('readiness: every fact counts; a separate marketing consent blocks publishi
   assert.deepEqual(privacy.missingPrivacyFacts({ ...complete, overseasTransferReviewed: false }), ['국외 이전 고지 법률 검토'])
 })
 
-test('complete: the notice and policy match the system — unsubscribing stops mail and keeps the record for the stated period', () => {
+test('complete: the notice and policy match the system — unsubscribing deletes the subscription at once', () => {
   const notice = html(React.createElement(SubscribeNotice, { id: 'n', facts: complete }))
-  assert.match(notice, /id="n"/); assert.match(notice, /href="\/privacy"/); assert.match(notice, /TEST-30일 보관 후 파기/)
-  assert.doesNotMatch(notice, /즉시 삭제/)
+  assert.match(notice, /id="n"/); assert.match(notice, /href="\/privacy"/); assert.match(notice, /보관: TEST-해지 즉시./)
   const policy = html(React.createElement(PrivacyPolicy, { facts: complete }))
-  for (const v of ['TEST-OPERATOR', 'TEST-REP', 'privacy@example.test', 'TEST-OFFICER', '2099-01-01', 'TEST-1년', 'TEST-탈퇴 시', 'TEST-월 1회 파기', 'TEST-REGION', 'Brevo', 'Anthropic', 'OpenAI', 'Google Analytics', '원문 IP는 저장하지 않음']) assert.ok(policy.includes(v), v)
+  for (const v of ['TEST-OPERATOR', 'TEST-REP', 'privacy@example.test', 'TEST-OFFICER', '2099-01-01', 'TEST-1년', 'TEST-탈퇴 시', 'TEST-90일', 'TEST-매일 자동 파기', 'TEST-법령 보관 없음', 'TEST-REGION', 'privacy@supabase.com', 'privacy@vercel.com', 'dpo@brevo.com', 'privacy@openai.com', 'Brevo', 'Anthropic', 'OpenAI', 'Google Analytics', '원문 IP는 저장하지 않음']) assert.ok(policy.includes(v), v)
   assert.doesNotMatch(policy, /null|undefined|\[운영자|\[법률/)
-  assert.match(policy, /해지하면 발송이 바로 멈춥니다/); assert.doesNotMatch(policy, /해지[^.]*즉시 삭제/)
+  assert.match(policy, /구독 해지 링크로 바로 해지되고 구독 정보도 함께 삭제됩니다/); assert.match(policy, /쿠키 저장을 거부/)
 })
 
 test('individual operation: no representative is required or shown; processors are listed with what and where', () => {
@@ -62,12 +62,13 @@ test('individual operation: no representative is required or shown; processors a
   assert.deepEqual(privacy.missingPrivacyFacts(individual), [])
   const policy = html(React.createElement(PrivacyPolicy, { facts: individual }))
   assert.match(policy, /TEST-OPERATOR\(개인 운영\)/); assert.doesNotMatch(policy, /대표자/)
-  for (const v of ['Supabase Inc.', 'Vercel Inc.', '미국(서버 처리)', 'Brevo', 'Google LLC', 'Anthropic PBC, OpenAI', '발송·열람·클릭 기록']) assert.ok(policy.includes(v), v)
+  for (const v of ['Supabase Inc.', 'Vercel Inc.', '미국(서버 처리)', 'Brevo SAS', 'Google LLC', 'Anthropic PBC', 'OpenAI, L.L.C.', '발송·열람·클릭']) assert.ok(policy.includes(v), v)
   assert.doesNotMatch(policy, /null|undefined/)
 })
 
-test('replies: Brevo mail gets a reply-to only once a contact address is confirmed (newsletter@ cannot receive)', () => {
-  assert.deepEqual(privacy.mailReplyTo(), {})
+test('replies: Brevo mail carries the contact address as reply-to, and nothing when there is none', () => {
+  assert.deepEqual(privacy.mailReplyTo(), { replyTo: { email: 'newsletter@marklens.site', name: 'MarkLens' } })
+  assert.deepEqual(privacy.mailReplyTo({ ...complete, contactEmail: null }), {})
   assert.deepEqual(privacy.mailReplyTo(complete), { replyTo: { email: 'privacy@example.test', name: 'MarkLens' } })
   for (const f of ['src/app/api/confirm-subscription/route.ts', 'src/app/api/newsletter/send/route.ts', 'src/lib/newsletter/onboarding.ts']) assert.match(readFileSync(f, 'utf8'), /\.\.\.mailReplyTo\(\)/, f)
 })
