@@ -5,6 +5,8 @@ import { toast } from "sonner"
 import { trackEvent } from "@/lib/analytics"
 import { subscriptionResult } from "@/lib/newsletter/subscription-result"
 import { useNewsletterView } from "@/components/useNewsletterView"
+import SubscribeNotice from "@/components/legal/SubscribeNotice"
+import { privacyReady } from "@/lib/legal/privacy"
 
 export default function NewsletterClient() {
   const [email, setEmail] = useState("")
@@ -77,9 +79,10 @@ export default function NewsletterClient() {
             ) : (
               <form onSubmit={handleSubmit} aria-busy={loading}>
                 <label htmlFor="weekly-email">이메일 주소</label>
-                <input id="weekly-email" type="email" autoComplete="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} aria-describedby="weekly-note" />
+                <input id="weekly-email" type="email" autoComplete="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} aria-describedby={privacyReady() ? "weekly-note weekly-privacy-note" : "weekly-note"} />
                 <button type="submit" disabled={loading} className="ml-button ml-button-blue">{loading ? "처리 중..." : "무료로 구독하기 →"}</button>
                 <p id="weekly-note" className="ml-form-note">무료 구독 · 언제든 구독을 취소할 수 있습니다.<br />구독 확인 후 마케팅 면접 질문 40선 PDF를 보내드려요.</p>
+                <SubscribeNotice id="weekly-privacy-note" />
                 <p className="ml-form-message" role={failed ? "alert" : "status"}>{message}</p>
               </form>
             )}

@@ -1,10 +1,12 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useId, useRef, useState } from "react"
 import { toast } from "sonner"
 import { trackEvent } from "@/lib/analytics"
 import { subscriptionResult } from "@/lib/newsletter/subscription-result"
 import { useNewsletterView } from "@/components/useNewsletterView"
+import SubscribeNotice from "@/components/legal/SubscribeNotice"
+import { privacyReady } from "@/lib/legal/privacy"
 
 // 인사이트 본문 하단/중간 등에 삽입하는 구독 CTA (따뜻한 리드 전환)
 // location: 폼의 논리적 위치(home_inline, insight_bottom, insight_mid 등) — 기존 값 유지.
@@ -67,12 +69,15 @@ export default function NewsletterInlineCta({
     }
   }
 
+  const noticeId = `subscribe-privacy-${useId().replace(/:/g, "")}`
   const field = (
+    <>
     <form onSubmit={submit} className={variant === "weekly" ? "ml-weekly-form" : "flex gap-2"}>
       <input
         type="email"
         required
         aria-label="이메일 주소"
+        aria-describedby={privacyReady() ? noticeId : undefined}
         placeholder="이메일 주소"
         value={email}
         onChange={e => setEmail(e.target.value)}
@@ -86,6 +91,8 @@ export default function NewsletterInlineCta({
         {loading ? "처리 중..." : variant === "weekly" ? "무료로 구독하기 →" : "구독"}
       </button>
     </form>
+    <SubscribeNotice id={noticeId} />
+    </>
   )
 
   if (variant === "weekly") {

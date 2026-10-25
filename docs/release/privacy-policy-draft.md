@@ -1,6 +1,37 @@
-# 개인정보 고지·처리방침 초안 (R-3, 미적용)
+# 개인정보 고지·처리방침 초안 (R-3, R-4)
 
-**상태: 초안. 공개 페이지에 적용하지 않았다.** `[운영자 확인 필요]`·`[법률 검토 필요]`는 임의로 채우지 않는다. 운영 주체·연락처·보유 기간이 정해지고 검토가 끝난 뒤 적용한다. 현재 운영 중인 구독 기능은 바꾸지 않는다. 배경과 수집 흐름은 [privacy-subscription.md](privacy-subscription.md)에 있다.
+**상태: 코드 준비 완료, 미공개.** `[운영자 확인 필요]`·`[법률 검토 필요]`는 임의로 채우지 않는다. 배경과 수집 흐름은 [privacy-subscription.md](privacy-subscription.md)에 있다.
+
+## R-4 구현 상태 — 확정 항목만 채우면 공개된다
+
+- 운영자 확정 항목은 `src/lib/legal/privacy.ts`의 `PRIVACY_FACTS` 한 곳에 있다. 하나라도 비어 있거나 검토가 끝나지 않으면(`missingPrivacyFacts()`):
+  - `/privacy`는 404
+  - 구독 폼 고지와 푸터 링크는 렌더되지 않음 → **지금 배포해도 화면 변화 없음**
+- 모두 채워지면 `/privacy`(본문 `src/components/legal/PrivacyPolicy.tsx`), 구독 폼 두 곳의 고지(`SubscribeNotice`, 입력란 `aria-describedby` 연결), 푸터 링크가 함께 공개된다. 공개 전 문안은 운영자·법률 검토 대상이다.
+- 테스트: `tests/privacy-notice.test.mjs` — 미확정 시 비공개, 확정 시 고지·본문이 실제 동작(해지 = 발송 중단 + 보유 후 파기)과 일치.
+
+### 운영자가 확정해야 할 항목 (`PRIVACY_FACTS`)
+
+| 항목 | 비고 |
+|---|---|
+| 운영 주체, 대표자 | 개인/사업자명 |
+| 문의 메일, 개인정보 보호책임자 | 정보주체 요청 창구 |
+| 시행일 | 게시일 |
+| 보유 기간: 구독자·Insight Lab 회원·피드백·AI 사용량 기록 | 아래 "확인된 사실"과 맞아야 함 |
+| **보유 기간 경과 기록 파기 절차** | **현재 코드에 없음** — 수동 SQL 주기 실행이든 예약 작업이든 정해야 공개 가능 |
+| 데이터 저장 리전 | Supabase 운영 프로젝트 리전 |
+| 광고성 정보 동의 필요 여부 | `notice-only`면 공개 가능. `separate-consent`면 별도 동의 UI·동의 시각 저장(마이그레이션)이 필요해 **공개 불가** |
+| 국외 이전 고지 법률 검토 | Vercel·Google·Anthropic·OpenAI·Brevo |
+
+### R-4에서 코드로 다시 확인한 사실 (2026-10-25)
+
+- 구독 해지(`/api/unsubscribe`)는 `status=unsubscribed`, `unsubscribed_at` 기록뿐이다. **구독자 행을 지우는 경로는 코드 어디에도 없다.**
+- Insight Lab 계정 삭제 경로가 앱에 없다(관리자 대시보드에서만 가능). 계정이 지워지면 세션·노트·통계는 `ON DELETE CASCADE`로 함께 지워진다.
+- AI 입력: 챗·면접 연습·학습 채점은 AI 제공사로 보내기만 하고 DB에 저장하지 않는다. Insight Lab 답변(`insight_sessions`, 직접 입력한 기사 본문 포함)은 저장된다.
+- AI 사용량 기록(`ai_usage`, IP 해시·회원 id)은 정리 작업이 없어 **무기한 남는다**(024 주석의 30일 정리는 선택 사항으로만 적혀 있다).
+- 인사이트 피드백 코멘트는 관리자 알림 메일로 Brevo를 거쳐 전송된다.
+- `analytics_events` 테이블은 쓰는 코드가 없다(수집 없음).
+- Insight Lab 로그인 메일(매직 링크)은 Supabase Auth가 보낸다.
 
 ## A. 구독 폼 고지 UI 초안
 

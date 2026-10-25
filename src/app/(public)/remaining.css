@@ -111,3 +111,10 @@
   .marklens-public .ml-rating p { width: 100%; margin: 4px 0 0; }
   .marklens-public .ml-state { padding-block: 64px; }
 }
+
+/* R-4 privacy: shown only once src/lib/legal/privacy.ts is complete (subscribe notice, /privacy). */
+.marklens-public .ml-privacy-note { font-size: 12px; line-height: 1.7; margin-top: 10px; }
+.marklens-public .ml-privacy-note a { text-decoration: underline; text-underline-offset: 2px; }
+.marklens-public .ml-privacy-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.6; margin: 16px 0 24px; }
+.marklens-public .ml-privacy-table th, .marklens-public .ml-privacy-table td { border-top: 1px solid var(--ml-line, #e3e4e8); padding: 12px 10px; text-align: left; vertical-align: top; }
+@media (max-width: 767px) { .marklens-public .ml-privacy-table { display: block; overflow-x: auto; } }

@@ -1,11 +1,12 @@
 import Link from "next/link"
 import WordmarkSvg from "@/lib/brand/WordmarkSvg"
 import { CAREER_FEATURES } from "./navigation"
+import { privacyReady } from "@/lib/legal/privacy"
 
 const groups = [
   { title: "Explore", links: [["Insights", "/insights"], ["Dictionary", "/glossary"]] },
   { title: "Career", links: [["Career Lab", "/practice"], ...CAREER_FEATURES.map(feature => [feature.name, feature.href])] },
-  { title: "About", links: [["MarkLens 소개", "/about"], ["Weekly", "/newsletter"], ["피드백", "/feedback"], ["RSS", "/feed.xml"]] },
+  { title: "About", links: [["MarkLens 소개", "/about"], ["Weekly", "/newsletter"], ["피드백", "/feedback"], ["RSS", "/feed.xml"], ...(privacyReady() ? [["개인정보처리방침", "/privacy"]] : [])] },
 ]
 
 export default function Footer() {
