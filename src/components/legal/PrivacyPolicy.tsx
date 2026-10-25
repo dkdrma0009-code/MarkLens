@@ -68,7 +68,8 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
           <p>전송 구간 암호화(HTTPS), 데이터베이스 접근 권한 분리(행 단위 보안), 관리자 인증, 구독 이중 확인, 원문 IP 미저장.</p>
         </section>
         <section className="ml-page-section" aria-labelledby="privacy-officer">
-          <h2 id="privacy-officer">7. 개인정보 보호책임자</h2>
+          <h2 id="privacy-officer">7. 개인정보 보호책임자와 고충처리 창구</h2>
+          <p>개인정보 처리에 관한 업무는 운영자가 직접 총괄하며, 개인정보 보호 관련 문의·불만 처리·피해 구제는 아래 창구에서 처리합니다. 문의에는 지체 없이 답변합니다.</p>
           <p>{facts.privacyOfficer} · {facts.contactEmail}</p>
           {facts.operatorType === "business"
             ? <p>운영 주체: {facts.operator} · 대표자: {facts.representative}</p>

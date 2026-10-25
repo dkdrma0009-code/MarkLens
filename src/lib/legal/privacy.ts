@@ -38,7 +38,10 @@ export const PRIVACY_FACTS: PrivacyFacts = {
   representative: null,
   contactEmail: "newsletter@marklens.site",
   contactInboxVerified: false, // MX 레코드가 아직 없다 — 전달 설정과 시험 메일 확인 후 true
-  privacyOfficer: null, // 운영자 본인. 성명 공개 필요 여부 확인 후 표기를 정한다(임의로 쓰지 않는다)
+  // 법 제30조제1항제6호: 보호책임자의 성명 "또는" 보호업무·고충처리 부서의 명칭과 연락처. 2026 작성지침(개인정보위, 72쪽)도
+  // 같고, 부서명 예시로 "고객센터 또는 개인정보 처리 담당부서"를 든다. 운영자는 실명을 공개하지 않기로 했으므로 실제로 운영자가
+  // 처리하는 고충처리 창구의 명칭과 연락처를 적는다(2026-10-25).
+  privacyOfficer: "MarkLens 개인정보 담당",
   effectiveDate: null, // 공개하는 커밋에서 그날 날짜로 채운다
   retention: {
     subscribers: "구독을 해지하면 즉시 삭제(이메일 확인을 마치지 않은 신청은 7일 뒤 삭제)",

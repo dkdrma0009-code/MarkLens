@@ -29,10 +29,10 @@ const html = el => renderToStaticMarkup(el)
 
 test('today: nothing is published — no notice, no footer link, /privacy is a 404', () => {
   assert.equal(privacy.privacyReady(), false)
-  // Owner-confirmed and statute-checked (2026-10-25). Still blocking: the inbox must be shown to receive mail, the
-  // privacy officer listing (Art. 30(1)6: name, or a handling department, with a contact) and the publication date.
-  assert.deepEqual(privacy.missingPrivacyFacts(), ['문의 메일 수신 확인', '개인정보 보호책임자', '시행일'])
-  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, null) // never a made-up name or department
+  // Owner-confirmed and statute-checked (2026-10-25). Still blocking: the inbox must be shown to receive mail and the
+  // publication date. The officer listing is the handling channel (Art. 30(1)6: a name OR a department with a contact).
+  assert.deepEqual(privacy.missingPrivacyFacts(), ['문의 메일 수신 확인', '시행일'])
+  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, 'MarkLens 개인정보 담당')
   assert.equal(html(React.createElement(SubscribeNotice, { id: 'n' })), '')
   let notFound = 0
   const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': privacy, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
