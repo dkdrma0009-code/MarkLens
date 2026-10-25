@@ -21,7 +21,7 @@ async function database(upTo025) {
   const { PGlite } = require(process.env.PGLITE_MODULE)
   const db = new PGlite()
   await db.exec(STUBS)
-  for (const f of previewInitFiles()) if (upTo025 || !f.includes('025_')) await db.exec(readFileSync(f, 'utf8'))
+  for (const f of previewInitFiles()) if (upTo025 || !/02[56]_/.test(f)) await db.exec(readFileSync(f, 'utf8'))
   await db.exec(`INSERT INTO auth.users VALUES ('${A}', 'a@example.test'), ('${B}', 'b@example.test');
     INSERT INTO public.insight_challenges (title, summary, published_date, active) SELECT 'hidden draft', 's', current_date, false;`)
   return db
@@ -81,6 +81,64 @@ test('025: members read and write only their own Insight Lab rows; visitors only
     // RLS stays on, and 025 refuses to run if it were ever turned off.
     await db.exec('ALTER TABLE public.insight_notes DISABLE ROW LEVEL SECURITY')
     await assert.rejects(db.exec(readFileSync('supabase/migrations/025_insight_lab_access.sql', 'utf8')), /row level security enabled/)
+  } finally { await db.close() }
+})
+
+// The privileges the production audit (2026-10-25) found: every table privilege for authenticated on the three member
+// tables, exactly 025's SELECT on challenges, nothing for anon on member tables.
+const PRIVS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']
+const LAB = ['insight_challenges', 'insight_sessions', 'insight_notes', 'insight_user_stats']
+const EXACT_025 = {
+  'insight_challenges/anon': 'SELECT', 'insight_challenges/authenticated': 'SELECT',
+  'insight_sessions/anon': '', 'insight_sessions/authenticated': 'SELECT,INSERT',
+  'insight_notes/anon': '', 'insight_notes/authenticated': 'SELECT,INSERT,UPDATE,DELETE',
+  'insight_user_stats/anon': '', 'insight_user_stats/authenticated': 'SELECT,INSERT,UPDATE',
+}
+async function privileges(db) {
+  const out = {}
+  for (const t of LAB) for (const r of ['anon', 'authenticated']) {
+    const held = []
+    for (const p of PRIVS) if ((await db.query(`SELECT has_table_privilege('${r}', 'public.${t}', '${p}') AS ok`)).rows[0].ok) held.push(p)
+    out[`${t}/${r}`] = held.join(',')
+  }
+  return out
+}
+
+test('026: production\'s excess member privileges are reduced to exactly 025\'s, and the routes still work', { skip: !process.env.PGLITE_MODULE }, async () => {
+  const db = await database(false)
+  try {
+    await db.exec(readFileSync('supabase/migrations/025_insight_lab_access.sql', 'utf8'))
+    await db.exec('GRANT ALL ON public.insight_sessions, public.insight_notes, public.insight_user_stats TO authenticated') // = production today
+    const before = await privileges(db)
+    assert.equal(before['insight_notes/authenticated'], PRIVS.join(',')); assert.equal(before['insight_sessions/anon'], '')
+
+    // While the extras exist, RLS is the only thing between a member and TRUNCATE (which RLS does not cover).
+    await as(db, 'authenticated', A, session(A))
+    await assert.doesNotReject(as(db, 'authenticated', B, 'TRUNCATE public.insight_sessions'))
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM public.insight_sessions')).rows[0].n, 0)
+
+    const migration = readFileSync('supabase/migrations/026_insight_lab_least_privilege.sql', 'utf8')
+    await db.exec(migration)
+    assert.deepEqual(await privileges(db), EXACT_025)
+    await db.exec(migration) // idempotent
+    assert.deepEqual(await privileges(db), EXACT_025)
+
+    // The extras are gone; every route operation still works for the owner and stays refused for others.
+    await assert.rejects(as(db, 'authenticated', B, 'TRUNCATE public.insight_sessions'), /permission denied/)
+    await assert.rejects(as(db, 'authenticated', A, `UPDATE public.insight_sessions SET xp_earned = 99`), /permission denied/)
+    await assert.rejects(as(db, 'authenticated', A, `DELETE FROM public.insight_user_stats`), /permission denied/)
+    assert.equal((await as(db, 'authenticated', A, session(A))).rows.length, 1)
+    assert.equal((await as(db, 'authenticated', B, 'SELECT user_id FROM public.insight_sessions')).rows.length, 0)
+    const note = (await as(db, 'authenticated', A, `INSERT INTO public.insight_notes (user_id, title) VALUES ('${A}', 'n') RETURNING id`)).rows[0].id
+    assert.equal((await as(db, 'authenticated', A, `UPDATE public.insight_notes SET title = 'm' WHERE id = '${note}'`)).affectedRows, 1)
+    assert.equal((await as(db, 'authenticated', B, `DELETE FROM public.insight_notes WHERE id = '${note}'`)).affectedRows, 0)
+    assert.equal((await as(db, 'authenticated', A, `DELETE FROM public.insight_notes WHERE id = '${note}'`)).affectedRows, 1)
+    await as(db, 'authenticated', A, `INSERT INTO public.insight_user_stats (user_id, total_sessions, total_xp) VALUES ('${A}', 1, 10)`)
+    assert.equal((await as(db, 'authenticated', A, `UPDATE public.insight_user_stats SET total_xp = 20 WHERE user_id = '${A}'`)).affectedRows, 1)
+    assert.ok((await as(db, 'anon', null, 'SELECT title FROM public.insight_challenges')).rows.length > 0)
+
+    await db.exec('ALTER TABLE public.insight_notes DISABLE ROW LEVEL SECURITY')
+    await assert.rejects(db.exec(migration), /row level security enabled/)
   } finally { await db.close() }
 })
 

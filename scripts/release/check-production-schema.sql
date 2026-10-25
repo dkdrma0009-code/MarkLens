@@ -26,6 +26,9 @@ WITH checks(migration, artifact, present) AS (VALUES
   ('022', 'function brand_watch_mark_meaningful_update', EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'brand_watch_mark_meaningful_update')),
   ('023', 'cardnews.ig_publish_state / threads_publish_state', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'cardnews' AND column_name = 'ig_publish_state') AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'cardnews' AND column_name = 'threads_publish_state')),
   ('024', 'table ai_usage + function consume_ai_quota', to_regclass('public.ai_usage') IS NOT NULL AND to_regprocedure('public.consume_ai_quota(text,text,integer,integer)') IS NOT NULL),
-  ('025', 'members may use Insight Lab tables (authenticated SELECT on insight_sessions)', CASE WHEN to_regclass('public.insight_sessions') IS NULL THEN false ELSE has_table_privilege('authenticated', 'public.insight_sessions', 'SELECT') END)
+  ('025', 'members may use Insight Lab tables (authenticated SELECT on insight_sessions)', CASE WHEN to_regclass('public.insight_sessions') IS NULL THEN false ELSE has_table_privilege('authenticated', 'public.insight_sessions', 'SELECT') END),
+  ('026', 'members hold no Insight Lab privilege beyond 025 (no TRUNCATE on notes, no UPDATE on sessions, no DELETE on stats)', CASE WHEN to_regclass('public.insight_notes') IS NULL OR to_regclass('public.insight_sessions') IS NULL OR to_regclass('public.insight_user_stats') IS NULL THEN false
+    ELSE has_table_privilege('authenticated', 'public.insight_notes', 'SELECT') AND NOT has_table_privilege('authenticated', 'public.insight_notes', 'TRUNCATE')
+      AND NOT has_table_privilege('authenticated', 'public.insight_sessions', 'UPDATE') AND NOT has_table_privilege('authenticated', 'public.insight_user_stats', 'DELETE') END)
 )
 SELECT migration, artifact, present FROM checks ORDER BY migration;
