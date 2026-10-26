@@ -202,3 +202,91 @@ test('collect: nothing to analyse is a quiet skip; the stale-backlog alert only 
   const src = readFileSync('src/app/api/cron/collect/route.ts', 'utf8')
   assert.match(src, /\.lt\("created_at", cutoff\)\s*\n\s*\.or\(freshSourceFilter\(\)\)/)
 })
+
+// ── Deploy gate (owner, 2026-10-26): normal / partial / outage paths, 502 end to end, alert count, retry window, secrets ──
+test('analyze-pending: a normal run is 200 success with no warning', async () => {
+  const warns = [], warn = console.warn
+  console.warn = (...a) => warns.push(a.join(' '))
+  try {
+    const { db } = fakeDb([article(1), article(2), article(3)])
+    const ok = () => ({ hook: 'h' })
+    const res = await call(analyzeRoute(db, { t1: ok, t2: ok, t3: ok }))
+    assert.equal(res.status, 200)
+    assert.deepEqual([res.body.success, res.body.analyzed, res.body.failed, res.body.partial], [true, 3, 0, false])
+    assert.equal(warns.length, 0)
+  } finally { console.warn = warn }
+})
+
+test('retry window: a failure 19.9h ago is still skipped, 20.1h ago is retried', () => {
+  const { pickCandidates } = load('src/lib/analysis/candidates.ts')
+  const now = new Date('2026-10-27T01:00:00Z')
+  const at = h => new Date(now.getTime() - h * 3600_000).toISOString()
+  const rows = [
+    { id: 'a', created_at: '2026-10-25T00:00:00Z', updated_at: at(19.9) },
+    { id: 'b', created_at: '2026-10-25T00:00:00Z', updated_at: at(20.1) },
+  ]
+  assert.deepEqual(pickCandidates(rows, { now }).picked.map(r => r.id), ['b'])
+})
+
+test('502 end to end: the real analyze-pending route behind collect → one alert, loop stops, no key anywhere', async () => {
+  const realFetch = globalThis.fetch, warn = console.warn, log = console.log
+  const out = []
+  console.warn = (...a) => out.push(a.join(' ')); console.log = (...a) => out.push(a.join(' '))
+  const alerts = []
+  try {
+    const { db } = fakeDb([article(1), article(2), article(3), article(4), article(5)])
+    const fail = () => { throw geminiQuota() }
+    const POST = analyzeRoute(db, { t1: fail, t2: fail, t3: fail, t4: fail, t5: fail })
+    let analyzeCalls = 0
+    const GET = collectRoute([], alerts, [])
+    globalThis.fetch = async (url, init) => {
+      if (String(url).includes('/api/webhooks/collect')) return { ok: true, status: 200, json: async () => ({ collected: 0 }) }
+      analyzeCalls++
+      const r = await POST(new Request(String(url), init))
+      return { ok: r.status < 400, status: r.status, json: async () => r.body }
+    }
+    const res = await cron(GET)
+    assert.equal(analyzeCalls, 1, 'the 502 stops the loop')
+    assert.equal(alerts.length, 1); assert.match(alerts[0].subject, /기사 분석 실패/)
+    assert.equal(res.body.analysis.outage, true); assert.equal(res.body.analysis.failed, 3)
+    for (const text of [...out, alerts[0].body, JSON.stringify(res.body)]) assert.ok(!text.includes(KEY), 'no API key in logs, alert or response')
+  } finally { globalThis.fetch = realFetch; console.warn = warn; console.log = log }
+})
+
+test('collect: partial then outage → no full-failure alert (some articles were analysed), only a warning', async () => {
+  const realFetch = globalThis.fetch, warn = console.warn
+  const warns = [], alerts = [], urls = []
+  console.warn = (...a) => warns.push(a.join(' '))
+  try {
+    const res = await cron(collectRoute([
+      { status: 200, body: { attempted: 3, analyzed: 1, rejected: 0, failed: 2, partial: true, ids: [], errors: ['a: e'] } },
+      { status: 502, body: { attempted: 3, analyzed: 0, rejected: 0, failed: 3, ids: [], errors: ['b: e'] } },
+    ], alerts, urls))
+    assert.equal(alerts.length, 0)
+    assert.ok(warns.some(w => w.includes('일부 실패')))
+    assert.equal(urls.filter(u => u.includes('analyze-pending')).length, 2)
+    assert.deepEqual([res.body.analysis.analyzed, res.body.analysis.failed, res.body.analysis.outage], [1, 5, true])
+  } finally { globalThis.fetch = realFetch; console.warn = warn }
+})
+
+test('collect: a non-502 error keeps the existing alert, with the key masked', async () => {
+  const realFetch = globalThis.fetch
+  const alerts = []
+  try {
+    await cron(collectRoute([{ status: 500, body: { error: `pending query: boom key=${KEY}` } }], alerts, []))
+    assert.equal(alerts.length, 1); assert.match(alerts[0].subject, /아티클 분석 cron 실패/)
+    assert.ok(!alerts[0].body.includes(KEY))
+  } finally { globalThis.fetch = realFetch }
+})
+
+test('collect: a normal run sends no alert', async () => {
+  const realFetch = globalThis.fetch
+  const alerts = []
+  try {
+    const res = await cron(collectRoute([
+      { status: 200, body: { attempted: 3, analyzed: 3, rejected: 0, failed: 0, ids: [] } },
+      { status: 200, body: { message: 'No pending articles', attempted: 0 } },
+    ], alerts, []))
+    assert.equal(alerts.length, 0); assert.equal(res.body.analysis.analyzed, 3); assert.equal(res.body.analyzed, 3)
+  } finally { globalThis.fetch = realFetch }
+})
