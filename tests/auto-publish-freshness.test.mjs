@@ -124,6 +124,7 @@ test('both crons pick through the shared selection; scheduled card news (approve
 test('paid analysis skips pending articles whose source is older than 7 days (same window, no status change)', () => {
   assert.equal(freshSourceFilter(NOW), `published_at.gte."${ago(7)}",and(published_at.is.null,created_at.gte."${ago(7)}")`)
   const route = readFileSync('src/app/api/webhooks/analyze-pending/route.ts', 'utf8')
-  assert.match(route, /\.eq\("status", "pending"\)[\s\S]*\.or\(freshSourceFilter\(\)\)[\s\S]*\.limit\(3\)/)
+  // A pool of fresh pending rows, then a batch of 3 (analysis-failure.test.mjs covers the pick itself).
+  assert.match(route, /\.eq\("status", "pending"\)[\s\S]*\.or\(freshSourceFilter\(\)\)[\s\S]*\.limit\(30\)[\s\S]*pickCandidates\([^)]*limit: 3/)
   assert.doesNotMatch(route, /\.delete\(/)
 })

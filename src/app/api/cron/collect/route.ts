@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { sendAdminAlert } from "@/lib/alert"
+import { summarizeError } from "@/lib/ai/errors"
 import { runOnboardingDrip } from "@/lib/newsletter/onboarding"
 import { blockedReason } from "@/lib/release/guard.mjs"
 
@@ -46,13 +47,27 @@ export async function GET(req: Request) {
   const startedAt = Date.now()
   const budgetLeft = () => Date.now() - startedAt < ANALYZE_BUDGET_MS
 
+  // analyze-pending returns 502 when every attempt failed (an outage), 200 with `failed` > 0 for a partial run, and
+  // "No pending articles" when there is nothing to do. Articles tried in this run are excluded from later calls, so
+  // one failing batch cannot be retried over and over while the rest of the queue waits.
+  const tried = new Set<string>()
+  const analysis = { attempted: 0, analyzed: 0, rejected: 0, failed: 0, outage: false, errors: [] as string[] }
+
   async function analyzeBatch(order: "desc" | "asc") {
-    const ar = await fetch(`${base}/api/webhooks/analyze-pending?secret=${secret}&order=${order}`, { method: "POST" })
-    const ad = await ar.json()
+    const exclude = tried.size ? `&exclude=${[...tried].join(",")}` : ""
+    const ar = await fetch(`${base}/api/webhooks/analyze-pending?secret=${secret}&order=${order}${exclude}`, { method: "POST" })
+    const ad = await ar.json().catch(() => ({}))
+    for (const id of ad.ids ?? []) tried.add(id)
+    analysis.attempted += ad.attempted ?? 0
+    analysis.analyzed += ad.analyzed ?? 0
+    analysis.rejected += ad.rejected ?? 0
+    analysis.failed += ad.failed ?? 0
+    for (const e of ad.errors ?? []) if (analysis.errors.length < 6) analysis.errors.push(e)
+    if (ar.status === 502) { analysis.outage = true; return { n: 0, stop: true } } // alerted once, after the loops
     if (!ar.ok) {
       await sendAdminAlert(
         "아티클 분석 cron 실패",
-        `오류: ${ad.error ?? JSON.stringify(ad)}\n시각: ${new Date().toISOString()}`
+        `오류: ${summarizeError(ad.error ?? JSON.stringify(ad))}\n시각: ${new Date().toISOString()}`
       )
       return { n: 0, stop: true }
     }
@@ -66,12 +81,22 @@ export async function GET(req: Request) {
     if (r.stop) break
   }
   let analyzedBacklog = 0
-  while (analyzedBacklog < BACKLOG_TARGET && budgetLeft()) {
+  while (!analysis.outage && analyzedBacklog < BACKLOG_TARGET && budgetLeft()) {
     const r = await analyzeBatch("asc")            // 오래된 백로그 소량
     analyzedBacklog += r.n
     if (r.stop) break
   }
   const analyzed = analyzedNew + analyzedBacklog
+
+  if (analysis.failed > 0 && analysis.analyzed + analysis.rejected === 0) {
+    await sendAdminAlert(
+      "기사 분석 실패 — 이번 실행 분석 0건",
+      `분석을 시도한 ${analysis.attempted}건이 모두 실패했습니다. 자동 공개·SNS 게시 대상이 생기지 않습니다.\n` +
+      `오류(요약):\n${analysis.errors.map(e => `- ${e}`).join("\n")}\n시각: ${new Date().toISOString()}`
+    )
+  } else if (analysis.failed > 0) {
+    console.warn("[collect] 기사 분석 일부 실패", JSON.stringify(analysis))
+  }
 
   // 2.5) 사이트 공개 — 방금 분석된 신규 ready 를 그날 published 로 전환(IG 발행과 분리).
   //      · 카드뉴스/ig-daily/큐레이션/릴스는 절대 안 건드림 — 사이트 status 만 바꾼다.
@@ -118,11 +143,15 @@ export async function GET(req: Request) {
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const sb = createAdminClient()
     const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString()
+    // Only articles that can still be analysed (source within 7 days); older pending rows are never analysed and
+    // would otherwise keep this alert firing every day.
+    const { freshSourceFilter } = await import("@/lib/content/auto-publish")
     const { count } = await sb
       .from("articles")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .lt("created_at", cutoff)
+      .or(freshSourceFilter())
     staleBacklog = count ?? 0
     if (staleBacklog > 20) {
       await sendAdminAlert(
@@ -132,5 +161,5 @@ export async function GET(req: Request) {
     }
   } catch { /* 헬스체크 실패는 본 작업에 영향 없음 */ }
 
-  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, sitePublished, fallbackFilled, staleBacklog, dripSent: drip.sent })
+  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, analysis, sitePublished, fallbackFilled, staleBacklog, dripSent: drip.sent })
 }

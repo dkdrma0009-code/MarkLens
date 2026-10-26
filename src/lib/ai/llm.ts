@@ -1,8 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk"
 import OpenAI from "openai"
+import { summarizeError } from "@/lib/ai/errors"
 
 // 실패한 provider를 30분간 건너뜀 — 매번 에러 응답 기다리는 낭비 방지
 const failedAt = new Map<string, number>()
+const lastError = new Map<string, string>() // provider → secret-free summary of its last failure
 const COOLDOWN_MS = 30 * 60 * 1000
 
 function available(provider: string): boolean {
@@ -10,9 +12,10 @@ function available(provider: string): boolean {
   return !t || Date.now() - t > COOLDOWN_MS
 }
 
-function markFailed(provider: string) {
+function markFailed(provider: string, err: unknown) {
   failedAt.set(provider, Date.now())
-  console.log(`[AI] ${provider} 실패 → ${COOLDOWN_MS / 60000}분 건너뜀`)
+  lastError.set(provider, summarizeError(err))
+  console.log(`[AI] ${provider} 실패 → ${COOLDOWN_MS / 60000}분 건너뜀: ${lastError.get(provider)}`)
 }
 
 function isCreditError(err: unknown): boolean {
@@ -33,6 +36,7 @@ async function callGeminiModel(model: string, prompt: string, system: string, ma
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens },
       }),
+      signal: AbortSignal.timeout(60_000),
     }
   )
   const data = await res.json()
@@ -51,9 +55,14 @@ async function callGemini(prompt: string, system: string, maxTokens = 4000): Pro
   // 2.5-flash-lite 먼저 (thinking 없음 → 빠름/안정), 실패 시 2.5-flash 폴백
   try {
     return await callGeminiModel("gemini-2.5-flash-lite", prompt, system, maxTokens)
-  } catch {
-    console.log("[AI] Gemini 2.5-flash-lite 실패 → 2.5-flash 재시도")
-    return await callGeminiModel("gemini-2.5-flash", prompt, system, maxTokens)
+  } catch (liteErr) {
+    console.log("[AI] Gemini 2.5-flash-lite 실패 → 2.5-flash 재시도:", summarizeError(liteErr))
+    try {
+      return await callGeminiModel("gemini-2.5-flash", prompt, system, maxTokens)
+    } catch (flashErr) {
+      // Keep both model errors: the first one is often the real cause (quota, key, billing).
+      throw new Error(`flash-lite: ${summarizeError(liteErr, 160)} / flash: ${summarizeError(flashErr, 160)}`)
+    }
   }
 }
 
@@ -146,16 +155,17 @@ export async function generateText({
   prompt: string
   maxTokens?: number
 }): Promise<string> {
+  const tried: string[] = []
   if (available("gemini")) {
     try {
       const result = await callGemini(prompt, system, maxTokens)
       console.log("[AI] Gemini 사용")
       return result
     } catch (err) {
-      markFailed("gemini")
-      console.warn("[AI] Gemini 오류:", err instanceof Error ? err.message : err)
+      markFailed("gemini", err)
+      tried.push(`gemini: ${lastError.get("gemini")}`)
     }
-  }
+  } else tried.push(`gemini: 건너뜀(최근 실패 — ${lastError.get("gemini") ?? "?"})`)
 
   if (available("claude")) {
     try {
@@ -163,12 +173,17 @@ export async function generateText({
       console.log("[AI] Claude 사용")
       return result
     } catch (err) {
-      markFailed("claude")
-      if (!isCreditError(err)) console.warn("[AI] Claude 오류:", err instanceof Error ? err.message : err)
+      markFailed("claude", err)
+      if (!isCreditError(err)) console.warn("[AI] Claude 오류:", lastError.get("claude"))
+      tried.push(`claude: ${lastError.get("claude")}`)
     }
-  }
+  } else tried.push(`claude: 건너뜀(최근 실패 — ${lastError.get("claude") ?? "?"})`)
 
-  // 최후 폴백 — 실패 시 에러를 그대로 올려 호출부가 인지하게 함
+  // 최후 폴백 — 실패하면 모든 공급자의 오류 요약을 한 번에 올린다(마지막 OpenAI 오류만 보이면 실제 원인이 가려진다).
   console.log("[AI] OpenAI 사용")
-  return callOpenAI(system, prompt, maxTokens)
+  try {
+    return await callOpenAI(system, prompt, maxTokens)
+  } catch (err) {
+    throw new Error(`AI 공급자 모두 실패 — ${[...tried, `openai: ${summarizeError(err)}`].join(" | ")}`)
+  }
 }

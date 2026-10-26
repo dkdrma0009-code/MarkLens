@@ -55,3 +55,28 @@
 5. **상태 확인**: "원문 7일 이내 pending이 있는데 24시간 동안 새 insight 0건"이면 관리자 알림(다음 날 08:00 드립 전에 감지).
 6. 뉴스레터·퀴즈도 같은 오류 요약 형식 사용.
 7. 테스트: 공급자 오류 모의 → 502·알림·반복 제외·키 비노출 검증. 유료 호출 없이 모의 응답만 사용.
+
+## 수정 구현 (로컬 브랜치 `fix/analysis-failure-handling`, 배포 전)
+
+| 조건 | 동작 |
+|---|---|
+| 전체 실패(시도한 기사가 모두 예외) | `analyze-pending` **502** + `{ attempted, failed, ids, errors }`. `collect`는 반복을 멈추고 실행당 **관리자 경보 1회**("기사 분석 실패 — 이번 실행 분석 0건", 오류 요약 포함) |
+| 일부 실패 | 200 + `partial: true`, 성공·탈락·실패 건수 기록. `collect`는 경고 로그와 응답의 `analysis` 필드에 남김(메일 없음) |
+| 후보 없음 | 200 `"No pending articles"` — 정상 스킵, 경보 없음 |
+| 조회 오류 | 500(예전엔 오류를 무시하고 "후보 없음"으로 처리) |
+| 같은 실행 내 반복 | `collect`가 시도한 기사 ID를 `exclude=`로 다음 호출에 넘김 |
+| 여러 실행 간 선점 | 실패하면 `updated_at`이 바뀌므로, 최근 20시간 안에 실패한 기사는 건너뛰고 다음 날 1회 재시도(스키마 변경 없음). 새 기사가 실패 기사보다 먼저 분석됨 |
+| 오류 노출 | `src/lib/ai/errors.ts`가 키(`key=`, `AIza…`, `sk-…`, Bearer)를 가리고 200자로 자름. 프롬프트·기사 본문은 오류에 넣지 않음 |
+| 원인 가림 | `generateText`가 마지막 OpenAI 오류만 던지던 것을 **공급자별 오류 요약**("gemini: flash-lite: … / flash: … \| claude: … \| openai: …")으로 변경. Gemini 호출에 60초 시간 제한 |
+| 적체 경보 소음 | "48시간 이상 pending" 경보가 분석 대상이 아닌 7일 초과 기사(약 700건)까지 세어 매일 울리던 것을 원문 7일 이내로 한정 |
+
+테스트: `tests/analysis-failure.test.mjs` 9개(모의 응답, 실제 AI·DB 호출 없음) + 관련 기존 테스트(auto-publish-freshness·revalidate-scope·preview-guard·auth-fail-closed·ai-budget) 통과, tsc·eslint 0.
+
+## 실제 Gemini 오류 수집 방법 (확정)
+
+1. **지금 바로(운영자)**: 10/26 07:30 전후 관리자 메일 "뉴스레터 cron 실패 — 초안 생성"의 오류 문구, Google AI Studio의 키·할당량·결제 화면.
+2. **배포 없이(읽기 전용)**: 현재 운영 코드도 `[AI] Gemini 오류: …`를 로그에 남긴다. 다음 `collect` 실행(09:00–10:00 KST 사이) 직후 1시간 안에
+   `vercel logs --since 1h --environment production`로 받으면 실제 오류가 보인다(Hobby 보존 약 1시간).
+3. **이 수정을 배포하면**: 다음 실행의 관리자 경보 메일과 cron 응답 `analysis.errors`에 공급자별 오류가 키 없이 남는다 — 가장 확실하지만 운영 배포 승인 필요.
+
+키 교체·유료 재실행은 실제 오류를 확인한 뒤에만 한다.
