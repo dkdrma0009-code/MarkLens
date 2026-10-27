@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeArticle } from "@/lib/ai/analyze"
 import { summarizeError } from "@/lib/ai/errors"
+import { assertUsableHook } from "@/lib/analysis/quality"
 import { isAdmin } from "@/lib/api-auth"
 import { buildInsightSlug } from "@/lib/utils"
 import { NextResponse } from "next/server"
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "분석 결과가 부족합니다. 다시 시도해주세요." }, { status: 422 })
     }
 
+    await assertUsableHook(supabase, insight.hook, articleId)
     const slug = buildInsightSlug(article.title, insight.hook, articleId)
     const { error: insightError } = await supabase.from("insights").upsert(
       { article_id: articleId, ...insight, slug },

@@ -4,6 +4,7 @@ import { summarizeError } from "@/lib/ai/errors"
 import { buildInsightSlug } from "@/lib/utils"
 import { freshSourceFilter } from "@/lib/content/auto-publish"
 import { parseExclude, pickCandidates } from "@/lib/analysis/candidates"
+import { assertUsableHook } from "@/lib/analysis/quality"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 300
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
         errors.push(`${article.id.slice(0, 8)}: hook 없음`)
         return
       }
+      await assertUsableHook(supabase, insight.hook, article.id) // copied example or a title already in use → failed, retried later
 
       const { error: upsertError } = await supabase.from("insights").upsert(
         { article_id: article.id, ...insight, slug },
