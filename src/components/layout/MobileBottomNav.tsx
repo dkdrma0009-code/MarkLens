@@ -8,7 +8,13 @@ import PublicNavigation from "./PublicNavigation"
 export default function MobileBottomNav() {
   const menuRef = useRef<HTMLDetailsElement>(null)
   return (
-    <details className="ml-mobile-menu" ref={menuRef}>
+    // Esc closes the open menu and returns focus to its toggle (details has no built-in Esc).
+    <details className="ml-mobile-menu" ref={menuRef} onKeyDown={event => {
+      const menu = menuRef.current
+      if (event.key !== "Escape" || !menu?.open) return
+      menu.open = false
+      menu.querySelector("summary")?.focus()
+    }}>
       <summary aria-label="모바일 메뉴 열기 또는 닫기">
         <Menu className="ml-menu-open" size={22} aria-hidden="true" />
         <X className="ml-menu-close" size={22} aria-hidden="true" />
