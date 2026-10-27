@@ -8,6 +8,7 @@ type HealthResp = { ok: boolean; checkedAt: string; checks: Record<string, Check
 const LABELS: Record<string, string> = {
   supabase: "Supabase DB",
   brevo: "Brevo 메일",
+  gemini: "Gemini 키",
   instagram: "Instagram",
   threads: "Threads",
   ga4: "GA4 분석",

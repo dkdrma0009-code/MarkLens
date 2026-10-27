@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeArticle } from "@/lib/ai/analyze"
+import { summarizeError } from "@/lib/ai/errors"
 import { isAdmin } from "@/lib/api-auth"
 import { buildInsightSlug } from "@/lib/utils"
 import { NextResponse } from "next/server"
@@ -53,8 +54,9 @@ export async function POST(req: Request) {
     await supabase.from("articles").update({ status: "ready" }).eq("id", articleId)
 
     return NextResponse.json({ success: true, insight })
-  } catch {
+  } catch (err) {
     await supabase.from("articles").update({ status: "pending" }).eq("id", articleId)
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 })
+    // Admin-only: the provider, status and message (keys redacted) are what tells a quota from a dead key.
+    return NextResponse.json({ error: `분석 실패 — ${summarizeError(err, 300)}` }, { status: 500 })
   }
 }

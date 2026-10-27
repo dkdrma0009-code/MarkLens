@@ -4,6 +4,7 @@ import { checkInstagram } from "@/lib/instagram"
 import { checkThreads } from "@/lib/threads"
 import { checkGa4 } from "@/lib/ga4"
 import { blockedReason, databaseIsolated, deployment, supabaseRef } from "@/lib/release/guard.mjs"
+import { summarizeError } from "@/lib/ai/errors"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -32,6 +33,23 @@ async function checkBrevo(): Promise<Check> {
     return { ok: true, detail: j.email ?? "OK" }
   } catch (e) {
     return { ok: false, detail: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// Model metadata lookup: free (no generation, no tokens), so it can run on every health check. It tells a dead,
+// deleted or restricted key apart from a working one; it cannot show a used-up quota or billing state.
+async function checkGemini(): Promise<Check> {
+  const key = process.env.GEMINI_API_KEY?.trim()
+  if (!key) return { ok: false, detail: "미설정 (GEMINI_API_KEY)" }
+  try {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite", {
+      headers: { "x-goog-api-key": key },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.ok) return { ok: true, detail: "키 유효(모델 조회 성공) · 할당량·결제 상태는 이 점검으로 알 수 없음" }
+    return { ok: false, detail: summarizeError(new Error(`Gemini ${res.status}: ${await res.text()}`)) }
+  } catch (e) {
+    return { ok: false, detail: summarizeError(e) }
   }
 }
 
@@ -64,16 +82,17 @@ function checkEnvPresence(): Check {
 export async function GET(req: Request) {
   if (!await isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const [instagram, threads, ga4, brevo, supabase] = await Promise.all([
+  const [instagram, threads, ga4, brevo, supabase, gemini] = await Promise.all([
     checkInstagram(),
     checkThreads(),
     checkGa4(),
     checkBrevo(),
     checkSupabase(),
+    checkGemini(),
   ])
   const env = checkEnvPresence()
 
-  const checks = { supabase, brevo, instagram, threads, ga4, env }
+  const checks = { supabase, brevo, gemini, instagram, threads, ga4, env }
   const allOk = Object.values(checks).every(c => c.ok)
   // How this deployment is classified by the release guard — the first thing to read on a Preview (names only).
   const actions = ["database", "instagram", "threads", "email", "aws", "ai", "cron"] as const

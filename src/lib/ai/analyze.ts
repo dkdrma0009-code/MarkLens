@@ -193,12 +193,16 @@ practical_applications 예: "첫째, 콘텐츠를 질문-답변 구조로 다시
     maxTokens: 4000,
   })
 
-  let parsed: Record<string, unknown> = {}
+  // An answer that is not JSON is a system failure (truncated output, wrong format), not a judgement on the article:
+  // it throws, so the webhook counts it as failed and retries later. Proceeding with {} used to mark the article
+  // rejected for good and kept it out of the outage alert. JSON without a hook is still a content rejection there.
+  let parsed: Record<string, unknown>
+  const jsonMatch = combinedText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error(`AI 응답 형식 오류: JSON 없음 (응답 ${combinedText.length}자)`)
   try {
-    const jsonMatch = combinedText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").match(/\{[\s\S]*\}/)
-    parsed = JSON.parse(jsonMatch?.[0] ?? "{}")
-  } catch {
-    // JSON 파싱 실패 시 빈 객체로 진행 (거절 기준은 webhook에서 판단)
+    parsed = JSON.parse(jsonMatch[0])
+  } catch (e) {
+    throw new Error(`AI 응답 형식 오류: JSON 해석 실패 (응답 ${combinedText.length}자, ${e instanceof Error ? e.message.slice(0, 80) : "?"})`)
   }
 
   const rawCategory = String(parsed.category ?? "")
