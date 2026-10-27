@@ -1,4 +1,5 @@
 import { generateText } from "@/lib/ai/llm"
+import { summarizeError } from "@/lib/ai/errors"
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
 
@@ -30,19 +31,20 @@ export async function geminiJson<T>(system: string, prompt: string, maxTokens = 
         }
       )
       const data = await res.json()
-      if (!res.ok) continue
+      if (!res.ok) { console.warn(`[gemini] ${model} 실패:`, summarizeError(new Error(`Gemini error ${res.status}: ${JSON.stringify(data)}`))); continue }
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text
       if (text) {
         const parsed = tryParse<T>(text)
         if (parsed) return parsed
       }
-    } catch { /* 다음 모델 시도 */ }
+    } catch (e) { console.warn(`[gemini] ${model} 실패:`, summarizeError(e)) }
   }
 
   try {
     const text = await generateText({ system, prompt, maxTokens })
     return tryParse<T>(text)
-  } catch {
+  } catch (e) {
+    console.warn("[gemini] 폴백 체인 실패:", summarizeError(e, 300))
     return null
   }
 }

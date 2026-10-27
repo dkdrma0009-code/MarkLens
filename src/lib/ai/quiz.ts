@@ -1,4 +1,5 @@
 import { generateText } from "@/lib/ai/llm"
+import { summarizeError } from "@/lib/ai/errors"
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? ""
 
@@ -47,6 +48,7 @@ const SYSTEM = `너는 한국의 마케팅 전문 교육자야. 모든 문제·�
 
 // Gemini 직접 호출 — JSON 모드 + 2.5-flash-lite(thinking 없음 → 빠름/안정)
 async function callGemini(system: string, prompt: string, maxTokens: number): Promise<string> {
+  const failures: string[] = [] // per-model status, so "Gemini unavailable" says why (quota, key, overload)
   for (const model of ["gemini-2.5-flash-lite", "gemini-2.5-flash"]) {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
@@ -65,11 +67,12 @@ async function callGemini(system: string, prompt: string, maxTokens: number): Pr
       }
     )
     const data = await res.json()
-    if (!res.ok) continue
+    if (!res.ok) { failures.push(`${model}: ${summarizeError(new Error(`Gemini error ${res.status}: ${JSON.stringify(data)}`), 120)}`); continue }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (text) return text
+    failures.push(`${model}: 빈 응답(${data.candidates?.[0]?.finishReason ?? "?"})`)
   }
-  throw new Error("Gemini unavailable")
+  throw new Error(`Gemini unavailable — ${failures.join(" / ")}`)
 }
 
 function sanitizeJson(raw: string): string {
