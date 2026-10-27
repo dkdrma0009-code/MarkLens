@@ -33,6 +33,17 @@ const CATEGORIES = [
   "seo", "social-media", "ai-marketing", "consumer-psychology",
 ]
 
+/** The model's category answer as a slug. It is shown only the slugs, but answers with the Korean label too
+ *  ("AI 마케팅"); those used to fall through to the first slug. Together with a prompt whose only example read
+ *  "branding 중 하나", that put 928 of 1,347 published insights (69%, 2026-10-27) under 브랜딩. */
+export function categorySlug(raw: unknown): string | null {
+  const v = String(raw ?? "").trim()
+  const slug = v.toLowerCase().replace(/[\s_]+/g, "-")
+  if (CATEGORIES.includes(slug)) return slug
+  const squashed = v.replace(/\s+/g, "")
+  return Object.keys(CATEGORY_LABELS).find(k => CATEGORY_LABELS[k].replace(/\s+/g, "") === squashed) ?? null
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   "branding": "브랜딩",
   "performance-marketing": "퍼포먼스 마케팅",
@@ -178,7 +189,7 @@ practical_applications 예: "첫째, 콘텐츠를 질문-답변 구조로 다시
 
 다음 JSON 구조로 응답하세요:
 {
-  "category": "${CATEGORIES[0]} 중 하나",
+  "category": "카테고리 목록에서 이 기사의 중심 주제에 가장 맞는 값 하나(영문 그대로)",
   "tags": ["태그1", "태그2", "태그3"],
   "keywords": ["키워드1", "키워드2"],
   "hook": "독자를 낚는 한 줄 후킹 멘트 (20-35자, 질문형 또는 반전형, 예: 'SEO가 죽어가고 있다. 그 자리를 차지할 건 누구?')",
@@ -205,9 +216,10 @@ practical_applications 예: "첫째, 콘텐츠를 질문-답변 구조로 다시
     throw new Error(`AI 응답 형식 오류: JSON 해석 실패 (응답 ${combinedText.length}자, ${e instanceof Error ? e.message.slice(0, 80) : "?"})`)
   }
 
-  const rawCategory = String(parsed.category ?? "")
+  const categoryKey = categorySlug(parsed.category)
+  if (!categoryKey) console.warn(`[analyze] 알 수 없는 카테고리 → ${CATEGORIES[0]}: ${String(parsed.category ?? "").slice(0, 40)}`)
   const classification = {
-    category: CATEGORIES.includes(rawCategory) ? rawCategory : CATEGORIES[0],
+    category: categoryKey ?? CATEGORIES[0],
     tags: Array.isArray(parsed.tags) ? parsed.tags : [],
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
   }
