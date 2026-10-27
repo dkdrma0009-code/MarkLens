@@ -38,6 +38,14 @@ export async function GET(req: Request) {
   let drip = { sent: 0 }
   try { drip = await runOnboardingDrip() } catch { /* 드립 실패는 수집·분석에 영향 없음 */ }
 
+  // 1.8) A run killed mid-analysis leaves rows in "analyzing" for good; put abandoned ones back in the queue first.
+  let recoveredAnalyzing = 0
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const { recoverStuckAnalyzing } = await import("@/lib/analysis/health")
+    recoveredAnalyzing = await recoverStuckAnalyzing(createAdminClient())
+  } catch (e) { console.warn("[collect] analyzing 복구 실패", e instanceof Error ? e.message : e) }
+
   // 2) 분석 — 신규 우선(최신) + 백로그 소량(오래된). FIFO 폐기: 그날 수집분이 그날 분석되게 하고,
   //    오래된 백로그도 소량은 계속 소진해 동결을 막는다. article당 2패스(생성+refine)로 무거워
   //    150s 예산 안에서 배치(3건/호출)를 목표치까지 반복 호출한다. (마지막 호출도 300s 내)
@@ -161,5 +169,25 @@ export async function GET(req: Request) {
     }
   } catch { /* 헬스체크 실패는 본 작업에 영향 없음 */ }
 
-  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, analysis, sitePublished, fallbackFilled, staleBacklog, dripSent: drip.sent })
+  // 3.5) Stall check from the database alone: it fires even when the analysis call never answered (timeout, crash,
+  //      every answer rejected), which the per-run alert above cannot see.
+  let stall: { stalled: boolean; freshPending: number; recentInsights: number; latestInsightAt: string | null } | null = null
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const { analysisStall } = await import("@/lib/analysis/health")
+    stall = await analysisStall(createAdminClient())
+    if (stall.stalled) {
+      await sendAdminAlert(
+        "기사 분석 정체 — 48시간 동안 새 분석 0건",
+        `분석할 수 있는(원문 7일 이내) 대기 기사가 ${stall.freshPending}건인데 최근 48시간 새 분석이 없습니다.
+` +
+        `마지막 분석: ${stall.latestInsightAt ?? "없음"} · 이번 실행 분석: ${analyzed}건
+` +
+        `오류(요약): ${analysis.errors.length ? analysis.errors.join(" / ") : "이번 실행에서 받은 오류 없음 — 시간 초과·중단 가능성"}
+시각: ${new Date().toISOString()}`
+      )
+    }
+  } catch { /* 상태 점검 실패는 본 작업에 영향 없음 */ }
+
+  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, analysis, sitePublished, fallbackFilled, staleBacklog, stall, recoveredAnalyzing, dripSent: drip.sent })
 }

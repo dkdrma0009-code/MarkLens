@@ -5,6 +5,7 @@ import { checkThreads } from "@/lib/threads"
 import { checkGa4 } from "@/lib/ga4"
 import { blockedReason, databaseIsolated, deployment, supabaseRef } from "@/lib/release/guard.mjs"
 import { summarizeError } from "@/lib/ai/errors"
+import { analysisStall } from "@/lib/analysis/health"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -53,6 +54,17 @@ async function checkGemini(): Promise<Check> {
   }
 }
 
+async function checkAnalysis(): Promise<Check> {
+  try {
+    const s = await analysisStall(createAdminClient())
+    const latest = s.latestInsightAt ? new Date(s.latestInsightAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "없음"
+    const detail = `마지막 분석 ${latest} · 48시간 새 분석 ${s.recentInsights}건 · 분석 가능한 대기 ${s.freshPending}건`
+    return { ok: !s.stalled, detail: s.stalled ? `정체 — ${detail}` : detail }
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 async function checkSupabase(): Promise<Check> {
   try {
     const sb = createAdminClient()
@@ -82,17 +94,18 @@ function checkEnvPresence(): Check {
 export async function GET(req: Request) {
   if (!await isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const [instagram, threads, ga4, brevo, supabase, gemini] = await Promise.all([
+  const [instagram, threads, ga4, brevo, supabase, gemini, analysis] = await Promise.all([
     checkInstagram(),
     checkThreads(),
     checkGa4(),
     checkBrevo(),
     checkSupabase(),
     checkGemini(),
+    checkAnalysis(),
   ])
   const env = checkEnvPresence()
 
-  const checks = { supabase, brevo, gemini, instagram, threads, ga4, env }
+  const checks = { supabase, analysis, gemini, brevo, instagram, threads, ga4, env }
   const allOk = Object.values(checks).every(c => c.ok)
   // How this deployment is classified by the release guard — the first thing to read on a Preview (names only).
   const actions = ["database", "instagram", "threads", "email", "aws", "ai", "cron"] as const
