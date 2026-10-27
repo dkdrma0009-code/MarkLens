@@ -3,6 +3,7 @@ import { geminiJson } from "@/lib/ai/gemini"
 import { buildTrendDigest } from "@/lib/ai/quiz"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { checkAiBudget } from "@/lib/ai/budget"
+import { fallbackQuestions } from "@/lib/interview/fallback-questions"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -24,21 +25,31 @@ JSON만 반환: {"questions":[{"question":"...","kind":"trend"},{"question":"...
 export async function POST(req: Request) {
   const limited = checkRateLimit(req, { key: "interview-questions", limit: 10, windowMs: 60_000 })
   if (limited) return limited
-  const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
-  if (overBudget) return overBudget
 
   const { role: rawRole, count } = await req.json()
   const role = String(rawRole ?? "마케팅").slice(0, 100) // 프롬프트 주입 페이로드 상한
   const n = Math.min(Math.max(Number(count) || 5, 3), 7)
 
-  const supabase = createAdminClient()
-  const { data: insights } = await supabase
-    .from("insights")
-    .select("hook, summary, why_it_matters")
-    .order("created_at", { ascending: false })
-    .limit(8)
+  // Published insights only: an interview must not quote an unpublished draft.
+  let insights: { hook: string | null; summary: string | null; why_it_matters: string | null }[] = []
+  try {
+    const supabase = createAdminClient()
+    const { data } = await supabase
+      .from("insights")
+      .select("hook, summary, why_it_matters, article:articles!inner(status)")
+      .eq("article.status", "published")
+      .order("created_at", { ascending: false })
+      .limit(8)
+    insights = data ?? []
+  } catch { /* the fixed question bank still works */ }
+  // No AI call: the interview still starts when the AI budget is used up or generation fails.
+  const fallback = (reason: "budget" | "ai") =>
+    NextResponse.json({ questions: fallbackQuestions(role, n, insights.map(i => i.hook ?? "")), fallback: reason })
 
-  const digest = insights?.length ? buildTrendDigest(insights) : ""
+  const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
+  if (overBudget) return fallback("budget")
+
+  const digest = insights.length ? buildTrendDigest(insights) : ""
 
   const result = await geminiJson<{ questions: Question[] }>(
     SYSTEM,
@@ -49,8 +60,6 @@ JSON만 반환해.`,
     1500
   )
 
-  if (!result?.questions?.length) {
-    return NextResponse.json({ error: "질문 생성 실패" }, { status: 500 })
-  }
+  if (!result?.questions?.length) return fallback("ai")
   return NextResponse.json({ questions: result.questions.slice(0, n) })
 }
