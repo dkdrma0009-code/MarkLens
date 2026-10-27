@@ -85,7 +85,7 @@ test('generateText: when every provider fails, the error names each provider (Ge
 function fakeDb(pool, { poolError = null } = {}) {
   const updates = [], upserts = []
   const from = table => {
-    if (table === 'insights') return { upsert: async row => { upserts.push(row); return { error: null } } }
+    if (table === 'insights') { const none = { eq: () => none, neq: () => none, limit: async () => ({ data: [], error: null }) }; return { upsert: async row => { upserts.push(row); return { error: null } }, select: () => none } } // no duplicate hooks
     const q = { select: () => q, eq: () => q, not: () => q, or: () => q, order: () => q, limit: async () => ({ data: pool, error: poolError }) }
     q.update = values => { const u = { values, filters: [] }; updates.push(u); const c = { eq: (k, v) => { u.filters.push([k, v]); return c }, then: (r, j) => Promise.resolve({ error: null }).then(r, j) }; return c }
     return q
