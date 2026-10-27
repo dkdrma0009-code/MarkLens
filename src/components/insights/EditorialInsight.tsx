@@ -4,11 +4,15 @@ import EditorialImage from "@/components/home/EditorialImage"
 import StoryMeta from "@/components/home/StoryMeta"
 import { headline, type HomeInsight } from "@/components/home/data"
 
+// Row thumbnails are cover-cropped into a box taller than the usual 1.91:1 source, so the source must be wider than
+// the box: sizes is the width that covers the box height (96×83 → 160, 280×181 → 346), not the box width.
+const ROW_SIZES = "(max-width: 767px) 160px, (max-width: 1023px) 248px, 346px"
+
 export default function EditorialInsight({ insight, variant = "row" }: { insight: HomeInsight; variant?: "row" | "featured" }) {
   const featured = variant === "featured"
   return <article className={`ml-editorial-insight ml-editorial-${variant}`}>
     <Link href={`/insights/${insight.slug}`} className="ml-editorial-image" aria-label={headline(insight)}>
-      <EditorialImage key={insight.id} insight={insight} sizes={featured ? "(max-width: 767px) 100vw, 60vw" : "(max-width: 767px) 96px, (max-width: 1023px) 200px, 280px"} eager={featured} />
+      <EditorialImage key={insight.id} insight={insight} sizes={featured ? "(max-width: 767px) 100vw, 60vw" : ROW_SIZES} eager={featured} />
     </Link>
     <div className="ml-editorial-copy">
       <p className="ml-category">{insight.category}</p>

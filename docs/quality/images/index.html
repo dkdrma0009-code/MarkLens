@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이미지 품질 감사</title>
+<style>
+@font-face { font-family: "Pretendard"; src: url("../../../public/fonts/Pretendard-Regular.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Pretendard"; src: url("../../../public/fonts/Pretendard-SemiBold.woff2") format("woff2"); font-weight: 600; }
+:root { --ink: #111114; --paper: #fff; --soft: #f5f5f3; --line: #dedee2; --muted: #686970; --blue: #164bff; --a: #0b7a3b; --b: #9a6a00; --c: #b4232c; --d: #6b3fa0; }
+@media (prefers-color-scheme: dark) { :root { --ink: #f0f0f2; --paper: #121315; --soft: #1b1c1f; --line: #34353a; --muted: #a5a6ae; --blue: #8aa6ff; --a: #5fd08d; --b: #f2c14e; --c: #ff8a8f; --d: #c7a4ff; } }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Pretendard", system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height: 1.6; word-break: keep-all; }
+a { color: var(--blue); }
+.wrap { width: min(1280px, 100% - 32px); margin: 0 auto; }
+header { padding: 40px 0 20px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 30px; letter-spacing: -.02em; }
+h2 { font-size: 21px; margin: 44px 0 12px; }
+p, li { font-size: 15px; }
+.muted { color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
+.tile { border: 1px solid var(--line); padding: 14px 16px; }
+.tile b { font-size: 28px; display: block; font-variant-numeric: tabular-nums; }
+.g { display: inline-block; min-width: 22px; text-align: center; font-weight: 700; border: 1.5px solid currentColor; padding: 0 5px; font-size: 13px; }
+.gA { color: var(--a); } .gB { color: var(--b); } .gC { color: var(--c); } .gD { color: var(--d); }
+.table { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
+th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+th { background: var(--soft); font-weight: 600; position: sticky; top: 0; }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.url { max-width: 220px; overflow-wrap: anywhere; font-size: 12px; color: var(--muted); }
+ul.plain { padding-left: 18px; } ul.plain li { margin: 4px 0; }
+.pair { border: 1px solid var(--line); margin-top: 18px; }
+.pair h3 { font-size: 16px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--soft); }
+.pair .meta { padding: 8px 14px 0; }
+.pair .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 14px 14px; }
+.frame { position: relative; height: 340px; overflow: hidden; background: #000; }
+.frame img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); object-fit: cover; max-width: none; image-rendering: auto; }
+.frame span { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,.75); color: #fff; font-size: 12px; padding: 3px 8px; z-index: 1; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.filters button { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+@media (max-width: 760px) { .tiles { grid-template-columns: 1fr 1fr; } .pair .row { grid-template-columns: 1fr; } .frame { height: 240px; } }
+</style>
+</head>
+<body>
+<header class="wrap">
+  <p class="muted" style="color:var(--blue);font-weight:600">MarkLens · 이미지 품질 전수 감사 · 2026-10-27 · fix/product-quality-audit</p>
+  <h1>공개 페이지 이미지 품질 감사</h1>
+  <p class="muted" style="margin-top:6px">대상 13개 페이지(홈, 인사이트 목록, 기사 3개, Brand Watch·MUSINSA, Career Lab, Insight Lab, Trend Quiz, AI Interview, Weekly, About) × 1440px@2x · 390px@3x. headless Chrome에서 보이는 모든 img를 수집하고, 브라우저가 실제로 받은 파일과 원본 파일을 각각 내려받아 픽셀 크기를 쟀습니다. 운영 이미지는 바꾸지 않았습니다.</p>
+  <div class="tiles" id="tiles"></div>
+</header>
+<main class="wrap">
+<h2>판정 기준</h2>
+<ul class="plain">
+  <li><b>선명도(eff)</b> = 화면의 기기 픽셀 1개에 원본 픽셀이 몇 개 대응하는가. object-fit: cover로 잘리는 부분까지 반영하고, 전달 파일과 원본 중 작은 쪽을 기준으로 합니다. weserv는 기본값이 확대 허용이라, 전달 파일이 커도 원본이 작으면 원본 크기로 계산합니다.</li>
+  <li><span class="g gA">A</span> 정상: 해당 기기 배율에서 eff ≥ 0.9 · <span class="g gB">B</span> 개선 권장: 1배율에서는 충분하지만 레티나에서 부족 · <span class="g gC">C</span> 교체 필요: 1배율에서도 확대되거나 로딩 실패 · <span class="g gD">D</span> 원본·이용 권한 확인 필요: A가 아닌데 권리 기록이 없는 외부 이미지(수집 기사 대표 이미지)</li>
+  <li>파일 크기가 작다는 이유만으로 저화질로 판정하지 않았습니다(예: 2KB 썸네일도 eff ≥ 0.9이면 A). SVG는 해상도 무관으로 A.</li>
+</ul>
+
+<h2>핵심 원인</h2>
+<ul class="plain">
+  <li><b>1. 수집 단계가 매체의 축소판 URL을 저장</b> — A가 아닌 33건 중 30건. Adweek는 <code>?w=600&amp;h=315&amp;crop=1</code>, Campaign Brief(WordPress)는 <code>-1024x565.jpg</code> 같은 축소판을 기사 대표 이미지로 저장합니다. 같은 매체 서버에 원본이 있습니다(600×315 → 1200×675~6000×4000, 1024 → 1200~1500). 화면이 커질수록 흐려집니다: 기사 상세 대표(1320px 폭)·홈 Collections·Latest 대표.</li>
+  <li><b>2. 목록 썸네일의 sizes가 크롭을 고려하지 않음</b> — 96×83 상자(390)와 280×181 상자(1440)는 1.91:1 원본보다 세로가 길어, 높이를 채우려면 상자 폭보다 넓은 원본이 필요합니다. 기존 sizes는 상자 폭만 알려 줘 브라우저가 320px(390@3x)·640px(1440@2x)을 고릅니다. <b>로컬 수정 완료</b>: sizes를 높이 기준 폭(160/248/346px)으로 바꿔 실제 Chrome에서 480px·768px을 고르는 것을 확인했습니다(src/components/insights/EditorialInsight.tsx).</li>
+  <li><b>3. 자체 자산</b> — 홈 Hero(1440@2x에서 1920px이 최대, B)와 Brand Watch MUSINSA 로고(243×60 PNG를 259×64로 확대, C). BAEMIN 로고도 같은 방식(284×64 → 표시 높이 72)입니다.</li>
+  <li>로딩 실패 0건, 사진 속 글자 깨짐은 축소판 확대가 원인인 경우(월마트 앱 화면 캡처 등)에서만 보였습니다. 과한 보정은 발견하지 못했습니다.</li>
+</ul>
+
+<h2>전후 비교</h2>
+<p class="muted">각 상자는 표시 영역을 기기 픽셀 1:1로 확대해 가운데를 잘라 보여 줍니다(레티나 화면에서 보이는 실제 밀도). “후보”는 같은 매체 서버의 원본을 같은 CDN·같은 폭으로 받은 결과로, 운영에는 반영하지 않았습니다.</p>
+<div id="pairs"></div>
+
+<h2>전체 목록</h2>
+<div class="filters" role="group" aria-label="등급 필터"><button type="button" data-g="!A" aria-pressed="true">문제만 (A 제외)</button><button type="button" data-g="" aria-pressed="false">전체</button><button type="button" data-g="A" aria-pressed="false">A</button><button type="button" data-g="B" aria-pressed="false">B</button><button type="button" data-g="C" aria-pressed="false">C</button><button type="button" data-g="D" aria-pressed="false">D</button></div>
+<div class="table"><table><thead><tr><th>등급</th><th>페이지 · 위치</th><th>표시 → 전달 / 저장 원본 / 매체 원본</th><th>eff · 크롭</th><th>문제</th><th>개선 방법 · 수정 가능</th><th>권리</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="muted" style="margin:30px 0 40px">원자료: audit.js (85행). 측정 스크립트는 세션 작업 폴더의 qa/img-audit.mjs · img-grade.mjs.</p>
+</main>
+<script src="audit.js"></script>
+<script>
+var A = window.AUDIT
+var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] }) }
+var t = { A: 0, B: 0, C: 0, D: 0 }; A.forEach(function (r) { t[r.grade]++ })
+var label = { A: "정상", B: "개선 권장", C: "교체 필요", D: "원본·권한 확인 필요" }
+document.getElementById("tiles").innerHTML = ["A", "B", "C", "D"].map(function (g) { return '<div class="tile"><span class="g g' + g + '">' + g + "</span> " + label[g] + "<b>" + t[g] + "</b><span class=muted>" + A.length + "건 중</span></div>" }).join("")
+
+var weserv = function (u, w) { return "https://images.weserv.nl/?url=" + encodeURIComponent(u.replace(/^https?:\/\//, "")) + "&w=" + w + "&output=webp&q=75&maxage=7d" }
+var fullUrl = function (u) { return u.replace(/\?w=\d+&h=\d+&crop=1$/, "").replace(/-\d{3,4}x\d{3,4}(\.(jpe?g|png|webp))$/i, "$1") }
+function pick(pred) { return A.filter(pred).sort(function (a, b) { return a.eff - b.eff })[0] }
+var PAIRS = [
+  ["목록 썸네일 · 390@3x — sizes 수정 (로컬 구현 완료)", pick(function (r) { return /PP-1\.jpeg/.test(r.origin) && r.vw === 390 }), "sizes"],
+  ["홈 Collections 커버 · 1440@2x", pick(function (r) { return /Collections/.test(r.loc) && /Denim/.test(r.origin) && r.vw === 1440 }), "full"],
+  ["기사 상세 대표 이미지 · 1440@2x (월마트)", pick(function (r) { return /기사 대표/.test(r.loc) && /Walmart-Express/.test(r.origin) && r.vw === 1440 }), "full"],
+  ["기사 상세 대표 이미지 · 1440@2x (Movember)", pick(function (r) { return /기사 대표/.test(r.loc) && /Screenshot-2026-10-12-at-8\.36/.test(r.origin) && r.vw === 1440 }), "full"],
+  ["홈 Latest Insights 대표 · 390@3x", pick(function (r) { return /Latest Insights 대표/.test(r.loc) && r.vw === 390 }), "full"]
+]
+document.getElementById("pairs").innerHTML = PAIRS.filter(function (p) { return p[1] }).map(function (p) {
+  var r = p[1], wh = r.rendered.split("×").map(Number), dw = wh[0] * r.dpr, dh = wh[1] * r.dpr
+  var before, after, bl, al
+  if (p[2] === "sizes") { before = weserv(r.origin, 320); after = weserv(r.origin, 480); bl = "현재: 320px 후보 선택"; al = "수정: 480px 후보 선택" }
+  else { var cw = r.delivered.split("×")[0]; before = weserv(r.origin, cw); after = weserv(fullUrl(r.origin), cw); bl = "현재: 저장된 축소판 " + r.original; al = "후보: 매체 원본 " + (r.fullOriginal || "?") + " (승인 필요)" }
+  var img = function (u, l) { return '<div class="frame"><span>' + esc(l) + '</span><img src="' + esc(u) + '" alt="" style="width:' + dw + "px;height:" + dh + 'px" loading="lazy" referrerpolicy="no-referrer"></div>' }
+  return '<section class="pair"><h3>' + esc(p[0]) + '</h3><p class="meta muted">표시 ' + r.rendered + " CSS px × " + r.dpr + " = 기기 " + dw + "×" + dh + "px · eff " + r.eff + " · 등급 " + r.grade + " · " + esc(r.rights) + '</p><div class="row">' + img(before, bl) + img(after, al) + "</div></section>"
+}).join("")
+
+function rows(g) {
+  // one row per (location, original, viewport): keep the worst measurement
+  var seen = {}
+  A.filter(function (r) { return !g || (g === "!A" ? r.grade !== "A" : r.grade === g) }).sort(function (a, b) { return "DCBA".indexOf(a.grade) - "DCBA".indexOf(b.grade) || (a.eff || 9) - (b.eff || 9) }).forEach(function (r) {
+    var k = r.loc + "|" + r.origin + "|" + r.vw; if (!seen[k]) seen[k] = r
+  })
+  document.getElementById("rows").innerHTML = Object.keys(seen).map(function (k) {
+    var r = seen[k]
+    return "<tr><td><span class=\"g g" + r.grade + '">' + r.grade + "</span></td><td>" + esc(r.loc) + '<br><span class="muted">' + r.vw + "@" + r.dpr + "x · " + esc(r.fmt) + (r.kb == null ? "" : " " + r.kb + "KB") + '</span><br><a class="muted" href="' + esc(r.origin) + '">원본 링크</a></td><td class="n">' + r.rendered + " → " + r.delivered + "<br>저장 " + r.original + " / 매체 " + (r.fullOriginal || "—") + '</td><td class="n">' + (r.eff == null ? "SVG" : r.eff) + " · " + r.crop + "%</td><td>" + esc(r.cause.join(" · ") || "—") + "</td><td>" + esc(r.fix) + '<br><b>' + esc(r.can) + "</b></td><td>" + esc(r.rights) + "</td></tr>"
+  }).join("")
+}
+rows("!A")
+document.querySelectorAll(".filters button").forEach(function (b) {
+  b.addEventListener("click", function () { document.querySelectorAll(".filters button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)) }); rows(b.dataset.g) })
+})
+</script>
+</body>
+</html>
