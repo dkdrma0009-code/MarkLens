@@ -38,21 +38,22 @@ const deadProviders = {
 const geminiOk = text => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text }] } }] }) })
 const geminiErr = (code, status, message) => ({ ok: false, status: code, json: async () => ({ error: { code, status, message } }) })
 
-test('lasting vs transient: only key, permission, quota, billing and credit failures bench a provider', () => {
-  const { isLastingFailure } = load('src/lib/ai/llm.ts', deadProviders)
+test('bench vs retry: key, permission, quota, billing, credit and timeouts bench a provider; fast transient errors do not', () => {
+  const { benchesProvider } = load('src/lib/ai/llm.ts', deadProviders)
   for (const msg of [
     'flash-lite: Gemini error 429 RESOURCE_EXHAUSTED Quota exceeded / flash: Gemini error 429 RESOURCE_EXHAUSTED',
     'Gemini error 400 INVALID_ARGUMENT API key not valid. Please pass a valid API key.',
     'Gemini error 403 PERMISSION_DENIED',
     'Gemini error 400 FAILED_PRECONDITION User location is not supported / billing',
     '400 Your credit balance is too low',
-  ]) assert.equal(isLastingFailure(new Error(msg)), true, msg)
-  for (const msg of [
+    // each retry would wait up to 2×60s and can push the collect cron past 300s before it alerts
     'flash-lite: The operation was aborted due to timeout / flash: The operation was aborted due to timeout',
+  ]) assert.equal(benchesProvider(new Error(msg)), true, msg)
+  for (const msg of [
     'Gemini error 503 UNAVAILABLE The model is overloaded',
     'Gemini empty response (gemini-2.5-flash, finishReason=MAX_TOKENS)',
     'fetch failed',
-  ]) assert.equal(isLastingFailure(new Error(msg)), false, msg)
+  ]) assert.equal(benchesProvider(new Error(msg)), false, msg)
 })
 
 test('a transient Gemini failure is retried on the next call instead of being skipped for 30 minutes', async () => {

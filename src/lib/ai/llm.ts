@@ -12,17 +12,19 @@ function available(provider: string): boolean {
   return !t || Date.now() - t > COOLDOWN_MS
 }
 
-/** Failures that will not clear within minutes: key, permission, quota, billing, credit. A timeout, a 5xx or an empty
- *  answer is not one of them — benching a provider for those let one hiccup fail the rest of the once-a-day run. */
-export function isLastingFailure(err: unknown): boolean {
+/** Bench a provider only when retrying is pointless or costly: failures that will not clear within minutes (key,
+ *  permission, quota, billing, credit) and timeouts (each retry waits up to 2×60s, which can push the collect cron past
+ *  300s before it alerts). A fast 5xx or an empty answer is retried on the next call — benching for those let one
+ *  hiccup fail the rest of the once-a-day run. */
+export function benchesProvider(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
   return /\b(401|403|429)\b/.test(msg) ||
-    ["api key", "api_key", "permission_denied", "resource_exhausted", "quota", "billing", "failed_precondition", "credit", "insufficient"].some(k => msg.includes(k))
+    ["api key", "api_key", "permission_denied", "resource_exhausted", "quota", "billing", "failed_precondition", "credit", "insufficient", "timeout", "timed out"].some(k => msg.includes(k))
 }
 
 function markFailed(provider: string, err: unknown) {
   lastError.set(provider, summarizeError(err))
-  if (!isLastingFailure(err)) {
+  if (!benchesProvider(err)) {
     console.log(`[AI] ${provider} 일시 실패 → 다음 호출에서 다시 시도: ${lastError.get(provider)}`)
     return
   }
