@@ -22,6 +22,7 @@
 .marklens-public .ml-home .ml-pulse .ml-category { font-size: 10px; }
 .marklens-public .ml-home .ml-pulse :is(.ml-index, .ml-pulse-label h2 span) { color: #89a5ff; }
 .marklens-public .ml-home .ml-pulse .ml-meta { font-size: 9px; color: #9699a4; gap: 4px 8px; }
+.marklens-public .ml-home .ml-pulse .ml-empty { color: #a5abb6; } /* empty state on the always-dark pulse: --ml-muted is 3.4:1 here */
 .marklens-public .ml-home .ml-pulse a:is(:hover, :focus-visible) h3 { color: #a8baff; }
 
 /* Main Story: a full editorial spread with a dominant image and large copy. */
