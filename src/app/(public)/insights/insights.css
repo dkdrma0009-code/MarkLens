@@ -53,6 +53,7 @@
 .marklens-public .ml-article-sharing > a { display: flex; align-items: center; gap: 6px; min-height: 44px; }
 .marklens-public .ml-article-sharing button { border-radius: 0; border-color: var(--ml-line); }
 .marklens-public .ml-article-sharing .fill-gray-600 { fill: var(--ml-ink); }
+.marklens-public .ml-article-sharing .text-gray-400 { color: var(--ml-muted); } /* "공유" label: gray-400 is 2.6:1 on paper */
 .marklens-public .ml-article-lede { max-width: 820px; margin-bottom: 40px; scroll-margin-top: 112px; }
 /* The hidden heading keeps the body font: the global h2 heading face at weight 400 would download Gmarket Sans Medium (360KB) for invisible text. */
 .marklens-public .ml-article-lede > h2 { font: inherit; }
