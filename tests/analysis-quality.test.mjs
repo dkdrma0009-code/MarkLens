@@ -122,7 +122,7 @@ test('pipeline: stalled only when analysable articles wait and no insight was ma
   assert.equal((await analysisStall(db(75, 3))).stalled, false)
 })
 
-test('collect: recovers abandoned rows before analysing and alerts on a stall even when no batch answered', async () => {
+test('collect: recovers abandoned rows and alerts on a stall before analysing, so a run cut off later still alerts', async () => {
   const realFetch = globalThis.fetch
   const alerts = [], order = []
   process.env.CRON_SECRET = 'c1'; process.env.N8N_WEBHOOK_SECRET = 's3'; process.env.NEXT_PUBLIC_SITE_URL = 'https://site.test'
@@ -136,7 +136,7 @@ test('collect: recovers abandoned rows before analysing and alerts on a stall ev
   try {
     const { GET } = load('src/app/api/cron/collect/route.ts', {
       'next/server': { NextResponse },
-      '@/lib/alert': { sendAdminAlert: async (subject, body) => { alerts.push({ subject, body }) } },
+      '@/lib/alert': { sendAdminAlert: async (subject, body) => { alerts.push({ subject, body }); order.push('alert') } },
       '@/lib/newsletter/onboarding': { runOnboardingDrip: async () => ({ sent: 0 }) },
       '@/lib/release/guard.mjs': { blockedReason: () => null },
       '@/lib/supabase/admin': { createAdminClient: () => db },
@@ -144,16 +144,17 @@ test('collect: recovers abandoned rows before analysing and alerts on a stall ev
       '@/lib/revalidate': { revalidatePublicContent: () => {} },
       '@/lib/analysis/health': {
         recoverStuckAnalyzing: async () => { order.push('recover'); return 2 },
-        analysisStall: async () => ({ stalled: true, freshPending: 75, recentInsights: 0, latestInsightAt: '2026-10-12T00:58:00Z' }),
+        analysisStall: async () => { order.push('stall'); return { stalled: true, freshPending: 75, recentInsights: 0, latestInsightAt: '2026-10-12T00:58:00Z' } },
       },
     })
     const res = await GET(new Request('https://site.test/api/cron/collect', { headers: { authorization: 'Bearer c1' } }))
-    assert.equal(order[0], 'recover')
+    // recovery, then the stall check and its alert, all before the first analysis call: a run cut off later still alerts
+    assert.deepEqual(order.slice(0, 4), ['recover', 'stall', 'alert', 'analyze'])
     assert.equal(res.body.recoveredAnalyzing, 2)
     const stall = alerts.filter(a => /분석 정체/.test(a.subject))
     assert.equal(stall.length, 1)
     assert.match(stall[0].body, /대기 기사가 75건/)
-    assert.match(stall[0].body, /시간 초과·중단 가능성/)
+    assert.match(stall[0].body, /중간에 끊겼을 수 있습니다/)
   } finally { globalThis.fetch = realFetch }
 })
 
