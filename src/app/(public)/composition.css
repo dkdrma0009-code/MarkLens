@@ -41,6 +41,8 @@
 .marklens-public .ml-home .ml-signals .ml-section-heading h2 { font-size: clamp(72px, 8vw, 120px); }
 .marklens-public .ml-signals .ml-blue { color: #89a5ff; }
 .marklens-public .ml-signals :is(.ml-section-heading .ml-eyebrow, .ml-section-heading > p, .ml-meta) { color: #a5abb6; }
+.marklens-public .ml-home .ml-signals .ml-empty { color: #a5abb6; } /* empty state on the always-dark Signals band: --ml-muted is 3.4:1 here */
+.marklens-public .ml-home .ml-signals .ml-empty a { color: #89a5ff; text-decoration: underline; text-underline-offset: 3px; } /* not colour alone */
 .marklens-public .ml-signals-layout { display: grid; grid-template-columns: .7fr 1.5fr; gap: 72px; }
 .marklens-public .ml-signals-intro { display: flex; flex-direction: column; align-items: start; }
 .marklens-public .ml-signal-mark { color: #89a5ff; font-size: 112px; font-weight: 300; line-height: 1; margin-bottom: 36px; }
