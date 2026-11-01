@@ -1,3 +1,4 @@
+process.env.AI_PUBLIC_ENABLED = 'on'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'

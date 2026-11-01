@@ -4,7 +4,7 @@ import nodePath from "node:path"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchImageDataUri } from "@/lib/cardnews/image"
 import { isAdmin } from "@/lib/api-auth"
-import { blockedReason } from "@/lib/release/guard.mjs"
+import { automaticAIStopped, automaticAISkip, blockedReason } from "@/lib/release/guard.mjs"
 import { generateReelScript } from "@/lib/shorts/reel-script"
 import type { Slide } from "@/lib/cardnews/types"
 
@@ -74,6 +74,7 @@ export async function POST(req: Request) {
   }
   const filePrefix = compositionId.toLowerCase()
   const isKinetic = compositionId === "ReelKineticVideo"
+  if (isKinetic && automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const supabase = createAdminClient()
   const [{ data: card }, { data: insight }, { data: article }] = await Promise.all([

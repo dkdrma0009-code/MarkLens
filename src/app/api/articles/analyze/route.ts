@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeArticle } from "@/lib/ai/analyze"
 import { summarizeError } from "@/lib/ai/errors"
@@ -10,6 +11,8 @@ export async function POST(req: Request) {
   if (!await isAdmin()) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const { articleId } = await req.json()
   if (!articleId) return NextResponse.json({ error: "articleId required" }, { status: 400 })

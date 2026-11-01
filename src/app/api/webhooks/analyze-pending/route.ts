@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeArticle } from "@/lib/ai/analyze"
 import { summarizeError } from "@/lib/ai/errors"
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
   if (secret !== process.env.N8N_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   // 분석 순서: 기본 asc(오래된 순 — 기존 호출자 동작 유지). desc = 최신 우선(그날 수집분 우선 분석).
   const newestFirst = searchParams.get("order") === "desc"

@@ -304,7 +304,12 @@ export default function useSocialOperations({ initialRows, autoPublish, initialT
       }
 
       // 프로덕션: 비동기 — renderId 받아서 폴링
-      const { renderId, bucketName, functionName, slug, caption } = await triggerRes.json()
+      const data = await triggerRes.json()
+      if (data.skipped) {
+        toast.info("AI 영상 생성이 일시 중지되어 렌더를 건너뛰었습니다.", { id: toastId })
+        return
+      }
+      const { renderId, bucketName, functionName, slug, caption } = data
       toast.loading("렌더 중... (Lambda)", { id: toastId })
 
       // 2) 상태 폴링 (최대 5분)

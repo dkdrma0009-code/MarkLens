@@ -51,6 +51,12 @@ export function databaseIsolated(env = process.env) {
 /** @param {Env} [env] */
 export const aiKillSwitch = (env = process.env) => env.AI_KILL_SWITCH === "on"
 
+export const aiAutoPaused = (env = process.env) => env.AI_AUTO_PAUSED === "on"
+export const automaticAIStopped = (env = process.env) => aiKillSwitch(env) || aiAutoPaused(env)
+export const publicAIEnabled = (env = process.env) => env.AI_PUBLIC_ENABLED === "on"
+
+export const automaticAISkip = () => ({ skipped: true, reason: "automatic_ai_paused" })
+
 /** Why this action is refused here, or null when it may run. @param {GuardedAction} action @param {Env} [env] */
 export function blockedReason(action, env = process.env) {
   if (action === "ai" && aiKillSwitch(env)) return "AI 기능이 일시 중지되어 있습니다(AI_KILL_SWITCH)."
@@ -99,15 +105,22 @@ export function egressAction(url, method = "GET") {
 
 /** Wraps fetch so a Preview cannot reach side-effect or paid hosts even from a call site without its own check (and,
  *  with AI_KILL_SWITCH=on, no deployment can reach a paid AI host).
- *  @param {typeof fetch} fetchImpl @param {Env} [env] @returns {typeof fetch} */
-export function guardFetch(fetchImpl, env = process.env) {
-  if (deployment(env) !== "preview" && !aiKillSwitch(env)) return fetchImpl
+ *  @param {typeof fetch} fetchImpl @param {Env} [env] @param {() => boolean} [manualAuthorization] @returns {typeof fetch} */
+export function guardFetch(fetchImpl, env = process.env, manualAuthorization) {
+  if (deployment(env) !== "preview" && !aiKillSwitch(env) && !aiAutoPaused(env) && !manualAuthorization) return fetchImpl
   return function guardedFetch(input, init) {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
     const method = init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET")
     const action = egressAction(url, method)
     const reason = action && blockedReason(action, env)
     if (reason) return Promise.reject(new ReleaseGuardError(/** @type {GuardedAction} */ (action), reason))
+    if (action === "ai") {
+      try {
+        const manual = manualAuthorization?.() ?? false
+        if (aiAutoPaused(env) && !manual) return Promise.reject(new ReleaseGuardError("ai", "Automatic AI is paused"))
+        if (manual) init = { ...init, signal: AbortSignal.any([...(init?.signal ? [init.signal] : []), AbortSignal.timeout(20_000)]) }
+      } catch (error) { return Promise.reject(error) }
+    }
     return fetchImpl(input, init)
   }
 }

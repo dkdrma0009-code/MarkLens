@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { clientId } from "@/lib/rate-limit"
-import { blockedReason } from "@/lib/release/guard.mjs"
+import { blockedReason, publicAIEnabled } from "@/lib/release/guard.mjs"
 
 /* Global AI budget (R-2). The in-memory limiter (rate-limit.ts) is per serverless instance, so it cannot cap the total
    number of paid AI calls. Each public AI request also takes one slot from two database counters (migration 024):
@@ -37,6 +37,7 @@ const unavailable = () => NextResponse.json({ error: "AI 기능을 잠시 사용
 export async function checkAiBudget(req: Request, feature: AiFeature, userId?: string | null): Promise<NextResponse | null> {
   const stopped = blockedReason("ai")
   if (stopped) return NextResponse.json({ error: stopped }, { status: 503 })
+  if (!publicAIEnabled()) return NextResponse.json({ error: "공개 AI 기능은 현재 중지되어 있습니다." }, { status: 503 })
   const limits = aiDailyLimits()
   const db = createAdminClient()
   for (const [scope, key, limit] of [[`feature:${feature}`, clientKey(req, userId), limits[feature]], ["global", "all", limits.global]] as const) {

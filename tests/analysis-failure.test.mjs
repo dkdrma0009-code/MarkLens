@@ -154,7 +154,7 @@ function collectRoute(analyzeResponses, alerts, urls) {
     'next/server': { NextResponse },
     '@/lib/alert': { sendAdminAlert: async (subject, body) => { alerts.push({ subject, body }) } },
     '@/lib/newsletter/onboarding': { runOnboardingDrip: async () => ({ sent: 0 }) },
-    '@/lib/release/guard.mjs': { blockedReason: () => null },
+    '@/lib/release/guard.mjs': { blockedReason: () => null, automaticAIStopped: () => false },
     '@/lib/supabase/admin': { createAdminClient: () => db },
     '@/lib/fallback-image': { backfillFallbackImages: async () => ({ filled: 0 }) },
     '@/lib/revalidate': { revalidatePublicContent: () => {} },

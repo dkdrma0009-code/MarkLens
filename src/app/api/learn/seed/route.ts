@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateQuestions, buildTrendDigest } from "@/lib/ai/quiz"
 import { isAdmin } from "@/lib/api-auth"
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
   if (!isN8n && !await isAdmin()) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const body = await req.json().catch(() => ({}))
   const perCombo = Math.min(Math.max(Number(body.perCombo) || 20, 1), 50)

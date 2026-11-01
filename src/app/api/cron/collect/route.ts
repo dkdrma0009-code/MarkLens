@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { sendAdminAlert } from "@/lib/alert"
 import { summarizeError } from "@/lib/ai/errors"
 import { runOnboardingDrip } from "@/lib/newsletter/onboarding"
-import { blockedReason } from "@/lib/release/guard.mjs"
+import { blockedReason, automaticAIStopped } from "@/lib/release/guard.mjs"
 
 // Vercel Cron이 매일 UTC 00:00에 호출
 // CRON_SECRET 환경변수로 인증
@@ -38,12 +38,14 @@ export async function GET(req: Request) {
   let drip = { sent: 0 }
   try { drip = await runOnboardingDrip() } catch { /* 드립 실패는 수집·분석에 영향 없음 */ }
 
+  const aiPaused = automaticAIStopped()
+
   // 1.8) A run killed mid-analysis leaves rows in "analyzing" for good; put abandoned ones back in the queue first.
   let recoveredAnalyzing = 0
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const { recoverStuckAnalyzing } = await import("@/lib/analysis/health")
-    recoveredAnalyzing = await recoverStuckAnalyzing(createAdminClient())
+    if (!aiPaused) recoveredAnalyzing = await recoverStuckAnalyzing(createAdminClient())
   } catch (e) { console.warn("[collect] analyzing 복구 실패", e instanceof Error ? e.message : e) }
 
   // 1.9) Stall check from the database alone, before analysing: it must not depend on this run finishing — a run cut
@@ -54,7 +56,7 @@ export async function GET(req: Request) {
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const { analysisStall } = await import("@/lib/analysis/health")
     stall = await analysisStall(createAdminClient())
-    if (stall.stalled) {
+    if (stall.stalled && !aiPaused) {
       await sendAdminAlert(
         "기사 분석 정체 — 48시간 동안 새 분석 0건",
         [
@@ -104,13 +106,13 @@ export async function GET(req: Request) {
   }
 
   let analyzedNew = 0
-  while (analyzedNew < NEW_TARGET && budgetLeft()) {
+  while (!aiPaused && analyzedNew < NEW_TARGET && budgetLeft()) {
     const r = await analyzeBatch("desc")           // 최신 우선
     analyzedNew += r.n
     if (r.stop) break
   }
   let analyzedBacklog = 0
-  while (!analysis.outage && analyzedBacklog < BACKLOG_TARGET && budgetLeft()) {
+  while (!aiPaused && !analysis.outage && analyzedBacklog < BACKLOG_TARGET && budgetLeft()) {
     const r = await analyzeBatch("asc")            // 오래된 백로그 소량
     analyzedBacklog += r.n
     if (r.stop) break
@@ -182,7 +184,7 @@ export async function GET(req: Request) {
       .lt("created_at", cutoff)
       .or(freshSourceFilter())
     staleBacklog = count ?? 0
-    if (staleBacklog > 20) {
+    if (!aiPaused && staleBacklog > 20) {
       await sendAdminAlert(
         "분석 파이프라인 적체 경고",
         `48시간 이상 미분석 상태인 pending 아티클이 ${staleBacklog}건입니다.\n분석이 밀리거나 멈췄을 수 있습니다 (이번 실행 분석: ${analyzed}건).\n시각: ${new Date().toISOString()}`
@@ -191,5 +193,5 @@ export async function GET(req: Request) {
   } catch { /* 헬스체크 실패는 본 작업에 영향 없음 */ }
 
 
-  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, analysis, sitePublished, fallbackFilled, staleBacklog, stall, recoveredAnalyzing, dripSent: drip.sent })
+  return NextResponse.json({ collect: data, analyzed, analyzedNew, analyzedBacklog, analysis, aiPaused, sitePublished, fallbackFilled, staleBacklog, stall, recoveredAnalyzing, dripSent: drip.sent })
 }

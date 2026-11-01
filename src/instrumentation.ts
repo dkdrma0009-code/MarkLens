@@ -6,8 +6,11 @@
 export async function register() {
   const { aiKillSwitch, deployment, guardFetch } = await import("./lib/release/guard.mjs")
   const preview = deployment() === "preview"
+  const { authorizeManualRequest } = process.env.NEXT_RUNTIME === "edge"
+    ? { authorizeManualRequest: () => false }
+    : await import("./lib/ai/manual-context")
+  globalThis.fetch = guardFetch(globalThis.fetch, process.env, authorizeManualRequest)
   if (!preview && !aiKillSwitch()) return
-  globalThis.fetch = guardFetch(globalThis.fetch)
   console.warn(preview
     ? "[release-guard] Preview deployment: publishing, mail, paid AI and production database access are blocked."
     : "[release-guard] AI_KILL_SWITCH=on: paid AI calls are blocked.")

@@ -138,7 +138,7 @@ test('collect: recovers abandoned rows and alerts on a stall before analysing, s
       'next/server': { NextResponse },
       '@/lib/alert': { sendAdminAlert: async (subject, body) => { alerts.push({ subject, body }); order.push('alert') } },
       '@/lib/newsletter/onboarding': { runOnboardingDrip: async () => ({ sent: 0 }) },
-      '@/lib/release/guard.mjs': { blockedReason: () => null },
+      '@/lib/release/guard.mjs': { blockedReason: () => null, automaticAIStopped: () => false },
       '@/lib/supabase/admin': { createAdminClient: () => db },
       '@/lib/fallback-image': { backfillFallbackImages: async () => ({ filled: 0 }) },
       '@/lib/revalidate': { revalidatePublicContent: () => {} },

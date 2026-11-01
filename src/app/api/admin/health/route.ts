@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { checkInstagram } from "@/lib/instagram"
 import { checkThreads } from "@/lib/threads"
 import { checkGa4 } from "@/lib/ga4"
-import { blockedReason, databaseIsolated, deployment, supabaseRef } from "@/lib/release/guard.mjs"
+import { blockedReason, databaseIsolated, deployment, supabaseRef, automaticAIStopped } from "@/lib/release/guard.mjs"
 import { summarizeError } from "@/lib/ai/errors"
 import { analysisStall } from "@/lib/analysis/health"
 import { NextResponse } from "next/server"
@@ -42,6 +42,7 @@ async function checkBrevo(): Promise<Check> {
 async function checkGemini(): Promise<Check> {
   const key = process.env.GEMINI_API_KEY?.trim()
   if (!key) return { ok: false, detail: "미설정 (GEMINI_API_KEY)" }
+  if (automaticAIStopped()) return { ok: true, detail: "AI 자동 실행 일시 중지 · 키 유효성·결제 상태는 조회하지 않음" }
   try {
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite", {
       headers: { "x-goog-api-key": key },
@@ -59,6 +60,7 @@ async function checkAnalysis(): Promise<Check> {
     const s = await analysisStall(createAdminClient())
     const latest = s.latestInsightAt ? new Date(s.latestInsightAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "없음"
     const detail = `마지막 분석 ${latest} · 48시간 새 분석 ${s.recentInsights}건 · 분석 가능한 대기 ${s.freshPending}건`
+    if (automaticAIStopped()) return { ok: true, detail: `운영자 설정으로 자동 분석 일시 중지 — ${detail}` }
     return { ok: !s.stalled, detail: s.stalled ? `정체 — ${detail}` : detail }
   } catch (e) {
     return { ok: false, detail: e instanceof Error ? e.message : String(e) }

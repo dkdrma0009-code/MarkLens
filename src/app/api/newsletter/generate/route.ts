@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { generateNewsletter } from "@/lib/ai/newsletter"
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
   }
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
+
   const supabase = createAdminClient()
 
   // 최근 발행된 인사이트 가져오기

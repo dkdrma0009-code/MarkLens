@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
@@ -49,6 +50,8 @@ export async function POST(req: Request) {
   if (!await isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const { insightId, content } = await req.json()
   if (!insightId || typeof content !== "string" || !content) {

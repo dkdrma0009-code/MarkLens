@@ -81,7 +81,7 @@ test('egress: a Preview cannot reach posting, mail or paid AI hosts; reads and p
   assert.equal(sent.length, 4)
   // The SDKs MarkLens builds per request take the global fetch at construction, so the egress guard covers them too.
   for (const file of ['node_modules/@anthropic-ai/sdk/client.js', 'node_modules/openai/client.js']) assert.match(readFileSync(file, 'utf8'), /this\.fetch = options\.fetch \?\? Shims\.getDefaultFetch\(\)/)
-  assert.match(readFileSync('src/instrumentation.ts', 'utf8'), /globalThis\.fetch = guardFetch\(globalThis\.fetch\)/)
+  assert.match(readFileSync('src/instrumentation.ts', 'utf8'), /globalThis\.fetch = guardFetch\(globalThis\.fetch, process.env, authorizeManualRequest\)/)
   // Kill switch in production: AI hosts refused, every other request untouched.
   const killed = guard.guardFetch(base, { ...production, AI_KILL_SWITCH: 'on' })
   await assert.rejects(killed('https://api.anthropic.com/v1/messages', { method: 'POST' }), guard.ReleaseGuardError)

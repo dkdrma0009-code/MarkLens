@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
@@ -38,6 +39,8 @@ export async function POST() {
   if (!user || !adminEmail || user.email?.trim().toLowerCase() !== adminEmail) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const supabase = createAdminClient()
 

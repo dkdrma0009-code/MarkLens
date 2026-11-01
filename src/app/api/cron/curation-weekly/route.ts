@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { generateCuration } from "@/lib/cardnews/curation-generate"
 import { publishCuration } from "@/lib/cardnews/curation-publish"
 import { NextResponse } from "next/server"
-import { blockedReason } from "@/lib/release/guard.mjs"
+import { blockedReason, automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 
 export const maxDuration = 300
 
@@ -16,6 +16,8 @@ export async function GET(req: Request) {
   }
   const blocked = blockedReason("cron") // Preview never runs production jobs (collect, publish, mail)
   if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const supabase = createAdminClient()
   const result: Record<string, unknown> = {}

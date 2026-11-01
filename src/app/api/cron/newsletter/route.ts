@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { sendAdminAlert } from "@/lib/alert"
-import { blockedReason } from "@/lib/release/guard.mjs"
+import { blockedReason, automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 
 export const maxDuration = 300
 
@@ -13,6 +13,8 @@ export async function GET(req: Request) {
   }
   const blocked = blockedReason("cron") // Preview never runs production jobs (collect, publish, mail)
   if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marklens.site"
   const secret = process.env.N8N_WEBHOOK_SECRET // generate/send가 받는 웹훅 시크릿 재사용

@@ -1,3 +1,4 @@
+import { automaticAIStopped, automaticAISkip } from "@/lib/release/guard.mjs"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdmin } from "@/lib/api-auth"
@@ -27,6 +28,8 @@ const SYSTEM = `너는 MarkLens의 인스타그램 성장 분석가다. 발행�
 
 export async function POST(req: Request) {
   if (!await isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  if (automaticAIStopped()) return NextResponse.json(automaticAISkip())
 
   const { articleId } = await req.json().catch(() => ({}))
   if (!articleId) return NextResponse.json({ error: "articleId required" }, { status: 400 })
