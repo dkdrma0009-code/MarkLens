@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { geminiJson } from "@/lib/ai/gemini"
 import { buildTrendDigest } from "@/lib/ai/quiz"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { checkAiBudget } from "@/lib/ai/budget"
+import { aiPaused, checkAiBudget } from "@/lib/ai/budget"
 import { fallbackQuestions } from "@/lib/interview/fallback-questions"
 import { NextResponse } from "next/server"
 
@@ -43,11 +43,12 @@ export async function POST(req: Request) {
     insights = data ?? []
   } catch { /* the fixed question bank still works */ }
   // No AI call: the interview still starts when the AI budget is used up or generation fails.
-  const fallback = (reason: "budget" | "ai") =>
+  // "paused" tells the client that AI is stopped on purpose, so it can skip per-answer feedback and the report.
+  const fallback = (reason: "paused" | "budget" | "ai") =>
     NextResponse.json({ questions: fallbackQuestions(role, n, insights.map(i => i.hook ?? "")), fallback: reason })
 
   const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
-  if (overBudget) return fallback("budget")
+  if (overBudget) return fallback(aiPaused() ? "paused" : "budget")
 
   const digest = insights.length ? buildTrendDigest(insights) : ""
 

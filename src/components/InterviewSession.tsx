@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Mic, MicOff, Volume2, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
-import { apiFailureMessage, classifyMediaError, classifySpeechError, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, type MediaIssue } from "@/lib/interview/support"
+import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, recordingExtension, type MediaIssue } from "@/lib/interview/support"
 
 type Stage = "settings" | "loading" | "interview" | "grading" | "report"
 
@@ -17,6 +17,13 @@ interface Feedback {
   improve: string
   model_answer: string
   star?: { s: boolean; t: boolean; a: boolean; r: boolean } | null
+}
+
+// One answered question. The result screen is built from these, so it works without any AI response.
+interface QaEntry {
+  question: string
+  answer: string
+  feedback: Feedback | null // null: skipped, failed or AI stopped
 }
 
 // 답변별 스피치 지표 (클라이언트 측정 — 서버 전송 없음)
@@ -33,6 +40,8 @@ function countFillers(text: string): number {
   const tokens = text.split(/\s+/)
   return tokens.filter(t => FILLER_WORDS.includes(t.replace(/[,.]/g, ""))).length
 }
+
+const formatDuration = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`)
 
 interface Report {
   score: number
@@ -83,8 +92,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [answer, setAnswer] = useState("")
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [grading, setGrading] = useState(false)
-  const [qa, setQa] = useState<{ question: string; answer: string }[]>([])
+  const [qa, setQa] = useState<QaEntry[]>([])
   const [report, setReport] = useState<Report | null>(null)
+  // Why the AI summary is missing, and whether asking again can help (not after an operator stop or a spent quota).
+  const [reportFailure, setReportFailure] = useState<{ message: string; retry: boolean } | null>(null)
+  const reportBusyRef = useRef(false)
+  // Set once the AI is known to be stopped or out of quota: the rest of the session skips AI requests.
+  const [aiOff, setAiOff] = useState<"paused" | "quota" | null>(null)
+  const aiOffRef = useRef<"paused" | "quota" | null>(null)
   const [copied, setCopied] = useState(false)
   const [metrics, setMetrics] = useState<(AnswerMetrics | null)[]>([])
   const qStartRef = useRef<number>(0)
@@ -109,7 +124,9 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [notice, setNotice] = useState("") // e.g. questions came from the no-AI fallback bank
   const [feedbackFailed, setFeedbackFailed] = useState(false)
   const [clipRecording, setClipRecording] = useState(false)
-  const [clips, setClips] = useState<(string | null)[]>([])
+  // type = what the browser recorded (webm, mp4, …); the download name follows it, nothing is converted
+  const [clips, setClips] = useState<({ url: string; type: string } | null)[]>([])
+  const clipMimeRef = useRef("")
   const camVideoRef = useRef<HTMLVideoElement | null>(null)
   const clipRecRef = useRef<MediaRecorder | null>(null)
   const clipChunksRef = useRef<Blob[]>([])
@@ -133,6 +150,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       const mimeType = pickRecorderMime(t => MediaRecorder.isTypeSupported(t)) // iOS Safari records mp4
       if (!mimeType) return
       const mr = new MediaRecorder(stream, { mimeType })
+      clipMimeRef.current = mimeType
       mr.ondataavailable = e => { if (e.data.size > 0) clipChunksRef.current.push(e.data) }
       clipRecRef.current = mr
       mr.start()
@@ -144,11 +162,11 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     const mr = clipRecRef.current
     if (!mr || mr.state !== "recording") return
     mr.onstop = () => {
-      const blob = new Blob(clipChunksRef.current, { type: mr.mimeType || "video/webm" })
-      const url = URL.createObjectURL(blob)
+      const type = mr.mimeType || clipMimeRef.current // the recorder's actual type; else the one it was started with
+      const url = URL.createObjectURL(new Blob(clipChunksRef.current, { type }))
       setClips(prev => {
         const next = [...prev]
-        next[saveIndex] = url
+        next[saveIndex] = { url, type }
         return next
       })
     }
@@ -164,14 +182,18 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       // eslint-disable-next-line react-hooks/set-state-in-effect
       startClip()
       const text = questions[current]?.question
-      const startListening = () => { if (speechSupported && !stopRequestedRef.current) startSpeech() }
+      // The answer starts once the question has been read (or reading failed): the reading is not answer time.
+      const startListening = () => {
+        qStartRef.current = Date.now()
+        if (speechSupported && !stopRequestedRef.current) startSpeech()
+      }
       if (text) speak(text, startListening)
       else startListening()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, current, feedback, camStream])
 
-  // 답변 타이머 시작 (질문 표시 시점)
+  // 답변 타이머 시작 (질문 표시 시점). 화상 모드는 면접관이 질문을 다 읽은 뒤 다시 시작한다(startListening).
   useEffect(() => {
     if (stage === "interview" && !feedback) {
       qStartRef.current = Date.now()
@@ -179,6 +201,16 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       answerRef.current = ""
     }
   }, [stage, current, feedback])
+
+  // Leaving with answers on screen asks the browser for its "leave site?" prompt. Browsers may skip it (often on mobile)
+  // and in-site links do not trigger it: a warning against accidents, not a way to keep the answers.
+  const unsaved = (stage === "interview" || stage === "grading") && (qa.length > 0 || !!answer.trim())
+  useEffect(() => {
+    if (!unsaved) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [unsaved])
 
   useEffect(() => { videoModeRef.current = videoMode }, [videoMode])
   useEffect(() => { answerRef.current = answer }, [answer])
@@ -266,7 +298,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   function retryAnswer() {
     setQa(prev => prev.slice(0, current))
     setMetrics(prev => { const n = [...prev]; n[current] = null; return n })
-    setClips(prev => { const u = prev[current]; if (u) URL.revokeObjectURL(u); const n = [...prev]; n[current] = null; return n })
+    setClips(prev => { const c = prev[current]; if (c) URL.revokeObjectURL(c.url); const n = [...prev]; n[current] = null; return n })
     answerRef.current = ""
     setAnswer("")
     setFeedback(null)
@@ -318,6 +350,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     return true
   }
 
+  function markAiOff(kind: "paused" | "quota") {
+    aiOffRef.current = kind
+    setAiOff(kind)
+    setNotice(kind === "paused"
+      ? "지금은 AI 기능이 중지되어 있어 AI 피드백과 종합 평가 없이 진행해요. 답변 기록과 참고 지표는 결과 화면에서 볼 수 있어요."
+      : "오늘 AI 사용 한도에 도달해 AI 피드백과 종합 평가 없이 진행해요. 답변 기록과 참고 지표는 결과 화면에서 볼 수 있어요.")
+  }
+
   // 카메라 없이 기본 면접으로 전환 (진행 중인 질문·답변은 유지)
   function continueWithoutCamera() {
     stopCamera()
@@ -328,10 +368,13 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   async function start(prevStage: Stage = "settings") {
     setError("")
     setNotice("")
+    aiOffRef.current = null
+    setAiOff(null)
+    setReportFailure(null)
     setStage("loading")
 
     // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행 — 원인과 다음 행동을 화면에 안내)
-    clips.forEach(u => { if (u) URL.revokeObjectURL(u) })
+    clips.forEach(c => { if (c) URL.revokeObjectURL(c.url) })
     setClips([])
     setMetrics([])
     if (videoMode && !camStreamRef.current) await openCamera()
@@ -348,10 +391,11 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
           body: JSON.stringify({ role, count }),
         })
         const data = await res.json().catch(() => ({}))
-        if (!res.ok || !data.questions?.length) throw Object.assign(new Error("questions"), { status: res.status })
+        if (!res.ok || !data.questions?.length) throw Object.assign(new Error("questions"), { status: res.status, code: data.code })
         newQuestions = data.questions
-        if (data.fallback) setNotice(data.fallback === "budget"
-          ? "오늘 AI 사용량이 많아 기본 질문으로 진행해요. 질문별 AI 피드백은 잠시 뒤에 다시 받을 수 있어요."
+        if (data.fallback === "paused") markAiOff("paused")
+        else if (data.fallback) setNotice(data.fallback === "budget"
+          ? "지금은 AI 질문을 만들 수 없어 최근 MarkLens 기사와 기본 질문으로 진행해요. AI 피드백은 답변마다 다시 시도해요."
           : "AI 질문 생성이 지연돼 최근 MarkLens 기사와 기본 질문으로 진행해요.")
       }
       setQuestions(newQuestions)
@@ -362,23 +406,18 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       setReport(null)
       setStage("interview")
     } catch (err) {
+      const { status = null, code } = err as { status?: number; code?: unknown }
       setStage(prevStage)
-      setError(apiFailureMessage("questions", (err as { status?: number })?.status ?? null, navigator.onLine))
+      setError(apiFailureMessage("questions", status, navigator.onLine, code))
     }
   }
 
-  async function submitAnswer() {
-    if (!answer.trim() || grading) return
-    stopRequestedRef.current = true // STT 자동 재시작 차단
-    if (recording) { try { recRef.current?.stop() } catch {}; setRecording(false) }
-    stopClip(current) // 화상 모드: 이 답변의 녹화 저장
-
-    // 스피치 지표 측정
-    const sec = Math.round((Date.now() - qStartRef.current) / 1000)
+  // 스피치 지표 측정 — 이 질문의 답변 시간·글자 수·필러 단어 (브라우저에서만 계산)
+  function recordMetrics(text: string) {
     const m: AnswerMetrics = {
-      sec,
-      chars: answer.replace(/\s/g, "").length,
-      fillers: countFillers(answer),
+      sec: Math.round((Date.now() - qStartRef.current) / 1000),
+      chars: text.replace(/\s/g, "").length,
+      fillers: countFillers(text),
       voice: voiceUsedRef.current,
     }
     setMetrics(prev => {
@@ -386,11 +425,39 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       next[current] = m
       return next
     })
+  }
+
+  // 여기까지 하고 결과 보기: 기록된 답변과 작성 중인 답변으로 결과 화면에 간다. 답변이 하나도 없으면 아무 일도 하지 않는다.
+  async function finishEarly() {
+    const draft = feedback ? "" : answer.trim() // with feedback on screen, this answer is already recorded
+    const entries = draft ? [...qa, { question: questions[current].question, answer: draft, feedback: null }] : qa
+    if (!entries.length || grading) return
+    stopRequestedRef.current = true // 음성 인식 자동 재시작 차단
+    try { recRef.current?.stop() } catch {}
+    setRecording(false)
+    if (draft) { stopClip(current); recordMetrics(draft) } // keep this answer's recording; stopCamera discards an unused one
+    setQa(entries)
+    setFeedbackFailed(false)
+    setError("")
+    await generateReport(entries) // stops camera, recording and question speech
+  }
+
+  async function submitAnswer() {
+    if (!answer.trim() || grading) return
+    stopRequestedRef.current = true // STT 자동 재시작 차단
+    if (recording) { try { recRef.current?.stop() } catch {}; setRecording(false) }
+    stopClip(current) // 화상 모드: 이 답변의 녹화 저장
+    recordMetrics(answer)
 
     setError("")
     setFeedbackFailed(false)
-    setGrading(true)
     const q = questions[current]
+    // AI known to be stopped (or out of quota) in this session: keep the answer, skip the request that cannot succeed.
+    if (aiOffRef.current) {
+      await advanceWith([...qa, { question: q.question, answer, feedback: null }])
+      return
+    }
+    setGrading(true)
     try {
       const res = await fetch("/api/interview/feedback", {
         method: "POST",
@@ -398,21 +465,26 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         body: JSON.stringify({ question: q.question, answer, role, context: feedbackContext }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data.improve) throw Object.assign(new Error("feedback"), { status: res.status })
+      if (!res.ok || !data.improve) throw Object.assign(new Error("feedback"), { status: res.status, code: data.code })
       setFeedback(data)
-      setQa(prev => [...prev, { question: q.question, answer }])
+      setQa(prev => [...prev, { question: q.question, answer, feedback: data }])
     } catch (err) {
-      setError(apiFailureMessage("feedback", (err as { status?: number })?.status ?? null, navigator.onLine))
-      setFeedbackFailed(true) // 다시 제출하거나, 피드백 없이 다음 질문으로 넘어갈 수 있다
+      const { status = null, code } = err as { status?: number; code?: unknown }
+      const kind = aiFailureKind(status, code, navigator.onLine)
+      if (aiOffForSession(kind)) {
+        markAiOff(kind as "paused" | "quota")
+        await advanceWith([...qa, { question: q.question, answer, feedback: null }])
+      } else {
+        setError(apiFailureMessage("feedback", status, navigator.onLine, code))
+        setFeedbackFailed(true) // 다시 제출하거나, 피드백 없이 다음 질문으로 넘어갈 수 있다
+      }
     } finally {
       setGrading(false)
     }
   }
 
-  // 피드백 생성이 실패해도 면접이 멈추지 않게: 답변은 기록하고 다음 질문(또는 리포트)으로
-  async function skipFeedback() {
-    const q = questions[current]
-    const entries = [...qa, { question: q.question, answer }]
+  // Record the answers so far and move to the next question, or to the result screen after the last one.
+  async function advanceWith(entries: QaEntry[]) {
     setQa(entries)
     setFeedbackFailed(false)
     setError("")
@@ -425,22 +497,41 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     }
   }
 
+  // 피드백 생성이 실패해도 면접이 멈추지 않게: 답변은 기록하고 다음 질문(또는 리포트)으로
+  async function skipFeedback() {
+    await advanceWith([...qa, { question: questions[current].question, answer, feedback: null }])
+  }
+
+  // The result screen shows the local record (answers, feedback received, metrics, recordings) whatever happens
+  // here; the AI summary is only added when it was really generated.
   async function generateReport(entries = qa) {
+    if (reportBusyRef.current) return // one request at a time
     stopCamera() // 면접 종료 — 카메라 해제 (녹화 클립은 유지)
+    setReport(null)
+    setReportFailure(null)
+    if (aiOffRef.current) {
+      setReportFailure({ message: apiFailureMessage("report", null, true, aiOffRef.current === "paused" ? "ai_paused" : "ai_quota"), retry: false })
+      setStage("report")
+      return
+    }
+    reportBusyRef.current = true
     setStage("grading")
     try {
       const res = await fetch("/api/interview/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, qa: entries, companyName: externalCompanyName }),
+        body: JSON.stringify({ role, qa: entries.map(({ question, answer }) => ({ question, answer })), companyName: externalCompanyName }),
       })
-      const data = await res.json()
-      if (!data.summary) throw new Error()
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.summary) throw Object.assign(new Error("report"), { status: res.status, code: data.code })
       setReport(data)
-      setStage("report")
-    } catch {
-      // 실패 시 report 화면에서 재시도 UI 노출 (report=null)
-      setReport(null)
+    } catch (err) {
+      const { status = null, code } = err as { status?: number; code?: unknown }
+      const kind = aiFailureKind(status, code, navigator.onLine)
+      if (aiOffForSession(kind)) markAiOff(kind as "paused" | "quota")
+      setReportFailure({ message: apiFailureMessage("report", status, navigator.onLine, code), retry: !aiOffForSession(kind) })
+    } finally {
+      reportBusyRef.current = false
       setStage("report")
     }
   }
@@ -704,7 +795,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
             )}
             <button onClick={submitAnswer} disabled={answer.trim().length < 10 || grading}
               className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-              {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : "답변 완료"}
+              {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : aiOff ? "답변 저장하고 다음으로" : "답변 완료"}
             </button>
           </div>
         </div>
@@ -732,7 +823,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
           </div>
           <button onClick={submitAnswer} disabled={!answer.trim() || grading}
             className="w-full py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-            {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : "답변 제출"}
+            {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : aiOff ? "답변 저장하고 다음으로" : "답변 제출"}
           </button>
         </div>
       )}
@@ -749,12 +840,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
                 </span>
                 {metrics[current].voice && metrics[current].sec >= 5 && (
                   <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                    🗣 분당 {Math.round(metrics[current].chars / (metrics[current].sec / 60))}자 {(() => { const v = Math.round(metrics[current].chars / (metrics[current].sec / 60)); return v > 400 ? "(빠른 편)" : v < 200 ? "(느린 편)" : "(적정)" })()}
+                    🗣 분당 {Math.round(metrics[current].chars / (metrics[current].sec / 60))}자 {(() => { const v = Math.round(metrics[current].chars / (metrics[current].sec / 60)); return v > 400 ? "(빠른 편)" : v < 200 ? "(느린 편)" : "(보통)" })()} · 참고
                   </span>
                 )}
                 {metrics[current].voice && metrics[current].fillers > 0 && (
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${metrics[current].fillers >= 5 ? "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}`}>
-                    🤔 필러 {metrics[current].fillers}회
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                    🤔 필러로 잡힌 단어 {metrics[current].fillers}회 · 참고
                   </span>
                 )}
               </>
@@ -798,6 +889,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
           </button>
         </div>
       )}
+
+      {/* 중간 종료 — 답변이 하나라도 있을 때만 (빈 결과를 완료한 면접처럼 보여 주지 않는다) */}
+      {(qa.length > 0 || (!feedback && !!answer.trim())) && !(feedback && current + 1 >= questions.length) && (
+        <button onClick={finishEarly} disabled={grading}
+          className="mt-6 w-full py-3 text-sm font-semibold text-gray-500 dark:text-gray-400 underline underline-offset-4 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-40">
+          여기까지 하고 결과 보기
+        </button>
+      )}
     </div>
   )
 
@@ -812,52 +911,65 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 종합 리포트 ──
   if (stage === "report") return (
     <div>
+      {/* e.g. "새 질문으로 다시" failed: the error must be visible here, not only on the interview screen */}
+      {error && <p role="alert" className="text-sm text-red-500 mb-4">{error}</p>}
+      {/* AI 종합 평가 — 실제로 생성됐을 때만. 없으면 이유와, 다시 요청해서 나아질 수 있을 때만 재시도 버튼 */}
       {!report && (
-        <div className="text-center py-12 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6">
-          <p className="text-base font-bold text-gray-700 dark:text-gray-300 mb-2">리포트 생성에 실패했어요</p>
-          <p className="text-sm text-gray-500 mb-5">잠시 후 다시 시도해주세요.</p>
-          <button onClick={() => generateReport()}
-            className="px-6 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
-            <RotateCcw className="w-4 h-4" /> 리포트 다시 생성
-          </button>
+        <div className="text-center py-10 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6 px-6">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{role}{isPrepMode ? " · 맞춤 면접 기록" : " · 모의면접 기록"}</p>
+          <p className="text-base font-bold text-gray-700 dark:text-gray-300 mb-2">AI 종합 평가 없이 면접 기록을 정리했어요</p>
+          {reportFailure && <p role="status" className="text-sm text-gray-500 leading-relaxed">{reportFailure.message}</p>}
+          {reportFailure?.retry && (
+            <button onClick={() => generateReport()}
+              className="mt-5 px-6 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
+              <RotateCcw className="w-4 h-4" /> AI 종합 평가 다시 받기
+            </button>
+          )}
         </div>
       )}
       {report && (
-        <>
-          <div className="text-center py-10 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{role}{isPrepMode ? " · 맞춤 면접 결과" : " · 모의면접 결과"}</p>
-            <p className="text-6xl font-black text-gray-900 dark:text-gray-100 mb-2">{report.score}<span className="text-3xl text-gray-400">점</span></p>
-            <p className="text-gray-500 text-base px-8 leading-relaxed">{report.summary}</p>
-          </div>
+        <div className="text-center py-10 border border-gray-100 dark:border-gray-800 rounded-2xl mb-6">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{role}{isPrepMode ? " · 맞춤 면접 결과" : " · 모의면접 결과"}</p>
+          <p className="text-6xl font-black text-gray-900 dark:text-gray-100 mb-2">{report.score}<span className="text-3xl text-gray-400">점</span></p>
+          <p className="text-gray-500 text-base px-8 leading-relaxed">{report.summary}</p>
+        </div>
+      )}
 
-          {/* 스피치 요약 (음성/화상 답변이 있을 때) */}
-          {metrics.some(Boolean) && (() => {
-            const ms = metrics.filter((m): m is AnswerMetrics => !!m)
-            const avgSec = Math.round(ms.reduce((a, m) => a + m.sec, 0) / ms.length)
-            const voiced = ms.filter(m => m.voice && m.sec >= 5)
-            const avgRate = voiced.length ? Math.round(voiced.reduce((a, m) => a + m.chars / (m.sec / 60), 0) / voiced.length) : null
-            const totalFillers = ms.reduce((a, m) => a + m.fillers, 0)
-            return (
-              <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5 mb-6">
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">🎙 스피치 분석</p>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{avgSec >= 60 ? `${Math.floor(avgSec / 60)}분+` : `${avgSec}초`}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">평균 답변 시간</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{avgRate ? `${avgRate}자` : "—"}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">분당 말속도 {avgRate ? (avgRate > 400 ? "(빠름)" : avgRate < 200 ? "(느림)" : "(적정)") : "(음성 답변 없음)"}</p>
-                  </div>
-                  <div>
-                    <p className={`text-2xl font-black ${totalFillers >= 10 ? "text-red-500" : "text-gray-900 dark:text-gray-100"}`}>{totalFillers}회</p>
-                    <p className="text-xs text-gray-400 mt-0.5">필러 단어 (음·어·그…)</p>
-                  </div>
-                </div>
+      {/* 스피치 요약 (음성/화상 답변이 있을 때) */}
+      {metrics.some(Boolean) && (() => {
+        const ms = metrics.filter((m): m is AnswerMetrics => !!m)
+        const avgSec = Math.round(ms.reduce((a, m) => a + m.sec, 0) / ms.length)
+        const voiced = ms.filter(m => m.voice && m.sec >= 5)
+        const avgRate = voiced.length ? Math.round(voiced.reduce((a, m) => a + m.chars / (m.sec / 60), 0) / voiced.length) : null
+        const totalFillers = ms.reduce((a, m) => a + m.fillers, 0)
+        return (
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5 mb-6">
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">🎙 답변 참고 지표</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{avgSec >= 60 ? `${Math.floor(avgSec / 60)}분+` : `${avgSec}초`}</p>
+                <p className="text-xs text-gray-400 mt-0.5">평균 답변 시간</p>
               </div>
-            )
-          })()}
+              <div>
+                <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{avgRate ? `${avgRate}자` : "—"}</p>
+                <p className="text-xs text-gray-400 mt-0.5">분당 글자 수 {avgRate ? (avgRate > 400 ? "(빠른 편)" : avgRate < 200 ? "(느린 편)" : "(보통)") : "(음성 답변 없음)"}</p>
+              </div>
+              <div>
+                <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{totalFillers}회</p>
+                <p className="text-xs text-gray-400 mt-0.5">필러로 잡힌 단어</p>
+              </div>
+            </div>
+            {/* Heuristics on the transcript and the clock — say so, so they are not read as voice analysis. */}
+            <p className="text-xs text-gray-400 mt-4 leading-relaxed">
+              답변 글자 수와 시간으로 계산한 참고 값이에요. 목소리·발음은 분석하지 않아요.
+              필러는 &lsquo;음·어·그·이제·막&rsquo; 같은 단어를 센 것이라, 음성 인식이 지운 필러는 빠지고 일반 단어로 쓴 경우도 함께 세요.
+            </p>
+          </div>
+        )
+      })()}
 
+      {report && (
+        <>
           <div className="grid sm:grid-cols-2 gap-4 mb-6">
             <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950 p-5">
               <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-2">💪 강점</p>
@@ -887,31 +999,57 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
               </button>
             </div>
           )}
-
-          {clips.some(Boolean) && (
-            <div className="mb-6">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">📹 내 답변 다시보기</h2>
-              <p className="text-xs text-gray-400 mb-4">영상은 이 브라우저에만 있어요 — 보관하려면 다운로드하세요. 탭을 닫으면 사라집니다.</p>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {clips.map((url, i) => url && (
-                  <div key={i} className="rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                    <video src={url} controls playsInline className="w-full aspect-video object-cover bg-black" />
-                    <div className="flex items-center justify-between px-4 py-2.5">
-                      <p className="text-xs font-semibold text-gray-500 line-clamp-1 flex-1 pr-2">Q{i + 1}. {qa[i]?.question ?? ""}</p>
-                      <a href={url} download={`marklens-면접답변-${i + 1}.webm`}
-                        className="text-xs font-semibold text-indigo-600 hover:underline whitespace-nowrap">저장</a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button onClick={shareReport}
-            className="w-full mb-3 py-4 rounded-2xl bg-emerald-600 text-white text-base font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
-            <Share2 className="w-5 h-5" /> 결과 공유하기
-          </button>
         </>
+      )}
+
+      {/* 내 답변 기록 — AI 결과와 무관하게 항상: 질문, 답변, 받은 피드백, 답변 시간, 녹화 */}
+      {qa.length > 0 ? (
+        <section className="mb-6" aria-labelledby="interview-record">
+          <h2 id="interview-record" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">📝 내 답변 기록</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            {qa.length}/{questions.length}문항 답변
+            {clips.some(Boolean) ? " · 영상은 이 브라우저에만 있어요 — 보관하려면 저장하세요. 탭을 닫으면 사라집니다." : ""}
+          </p>
+          <ol className="space-y-4">
+            {qa.map((entry, i) => (
+              <li key={i} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+                <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-relaxed">Q{i + 1}. {entry.question}</p>
+                {metrics[i] && <p className="text-xs text-gray-400 mt-1">⏱ 답변 시간 {formatDuration(metrics[i]!.sec)}</p>}
+                <p className="mt-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{entry.answer}</p>
+                {entry.feedback ? (
+                  <div className="mt-4 space-y-2 text-sm leading-relaxed">
+                    {entry.feedback.good?.trim() && <p><span className="font-bold text-emerald-700 dark:text-emerald-400">👍 잘한 점 </span>{entry.feedback.good}</p>}
+                    <p><span className="font-bold text-amber-700 dark:text-amber-400">🔧 아쉬운 점 </span>{entry.feedback.improve}</p>
+                    <p><span className="font-bold text-gray-500">💬 이렇게 답하면 더 좋아요 </span>{entry.feedback.model_answer}</p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-gray-400">이 답변에는 AI 피드백이 없어요.</p>
+                )}
+                {clips[i] && (() => {
+                  const clip = clips[i]!, ext = recordingExtension(clip.type)
+                  return (
+                    <div className="mt-4">
+                      <video src={clip.url} controls playsInline className="w-full aspect-video object-cover bg-black" />
+                      <a href={clip.url} download={`marklens-면접답변-${i + 1}${ext ? `.${ext}` : ""}`}
+                        className="inline-block mt-2 text-xs font-semibold text-indigo-600 hover:underline">
+                        영상 저장{ext ? ` (${ext.toUpperCase()})` : ""}
+                      </a>
+                    </div>
+                  )
+                })()}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : (
+        <p className="mb-6 text-sm text-gray-500">기록된 답변이 없어요.</p>
+      )}
+
+      {report && (
+        <button onClick={shareReport}
+          className="w-full mb-3 py-4 rounded-2xl bg-emerald-600 text-white text-base font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+          <Share2 className="w-5 h-5" /> 결과 공유하기
+        </button>
       )}
 
       <div className="flex gap-3">

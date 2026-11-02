@@ -55,11 +55,42 @@ export function pickRecorderMime(isTypeSupported: (type: string) => boolean): st
   return null
 }
 
-/** Message for a failed interview API call, by HTTP status and connectivity. */
-export function apiFailureMessage(step: "questions" | "feedback" | "report", status: number | null, online: boolean): string {
-  const what = step === "questions" ? "질문" : step === "feedback" ? "피드백" : "리포트"
-  if (!online) return `인터넷 연결이 끊겨 ${what}을 불러오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.`
-  if (status === 429) return `요청이 많아 ${what} 생성이 잠시 막혔어요. 1분 뒤 다시 시도해 주세요.`
-  if (status === 503) return `오늘 AI 사용량이 많아 ${what}을 만들 수 없어요. 잠시 뒤 다시 시도해 주세요.`
-  return `AI ${what} 생성에 실패했어요. 다시 시도해 주세요.`
+/** Why an interview AI call failed. `code` is the stable code from the AI budget check (src/lib/ai/budget.ts); a bare
+ *  status cannot tell an operator stop from a temporary outage (both can be 503). */
+export type AiFailure = "offline" | "paused" | "quota" | "rate" | "unavailable" | "failed"
+export function aiFailureKind(status: number | null, code: unknown, online: boolean): AiFailure {
+  if (!online) return "offline"
+  if (code === "ai_paused") return "paused"
+  if (code === "ai_quota") return "quota"
+  if (status === 429) return "rate" // per-minute request limit
+  if (status === 503 || code === "ai_unavailable") return "unavailable"
+  return "failed" // AI provider error or bad answer
+}
+
+/** A stop or a spent daily quota will not clear during this interview: retrying only repeats the failure. */
+export const aiOffForSession = (kind: AiFailure) => kind === "paused" || kind === "quota"
+
+/** File extension for a recording, from the type the browser actually produced (MediaRecorder.mimeType). No
+ *  conversion happens, so an unknown type gets no extension rather than a guessed one. */
+export function recordingExtension(mimeType: string): string | null {
+  const type = mimeType.split(";")[0].trim().toLowerCase()
+  if (type === "video/webm") return "webm"
+  if (type === "video/mp4") return "mp4"
+  if (type === "video/x-matroska") return "mkv" // some Chrome versions report webm-requested H.264 recordings this way
+  return null
+}
+
+/** Message for a failed interview API call, by HTTP status, connectivity and the budget check's code. */
+export function apiFailureMessage(step: "questions" | "feedback" | "report", status: number | null, online: boolean, code?: unknown): string {
+  const [what, obj] = step === "questions" ? ["질문", "질문을"] : step === "feedback" ? ["피드백", "피드백을"] : ["리포트", "리포트를"]
+  // Only custom (prep) questions can fail this way; the general interview starts with basic questions instead.
+  const next = step === "questions" ? "일반 모의면접은 기본 질문으로 진행할 수 있어요." : "답변 기록은 결과 화면에서 볼 수 있어요."
+  switch (aiFailureKind(status, code, online)) {
+    case "offline": return `인터넷 연결이 끊겨 ${obj} 불러오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.`
+    case "paused": return `지금은 AI 기능이 중지되어 있어 AI ${obj} 받을 수 없어요. ${next}`
+    case "quota": return `오늘 AI 사용 한도에 도달해 AI ${obj} 받을 수 없어요. ${next}`
+    case "rate": return `요청이 많아 ${what} 생성이 잠시 막혔어요. 1분 뒤 다시 시도해 주세요.`
+    case "unavailable": return `지금은 AI 사용량을 확인할 수 없어 ${obj} 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.`
+    default: return `AI ${what} 생성에 실패했어요. 다시 시도해 주세요.`
+  }
 }

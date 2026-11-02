@@ -65,6 +65,35 @@ test('quota: per-client then service-wide; 429 when either is spent; 503 wheneve
   } finally { delete process.env.AI_KILL_SWITCH }
 })
 
+test('codes: a deliberate stop, a spent quota and an uncounted call carry distinct codes; statuses and refusals unchanged', async () => {
+  let b = budgetWith([false])
+  let res = await b.checkAiBudget(req(), 'interview')
+  assert.deepEqual([res.status, res.body.code], [429, 'ai_quota'])
+  b = budgetWith([true, false])
+  res = await b.checkAiBudget(req(), 'interview')
+  assert.deepEqual([res.status, res.body.code], [429, 'ai_quota'])
+  b = budgetWith([{ code: '08006', message: 'connection failure' }])
+  res = await b.checkAiBudget(req(), 'interview')
+  assert.deepEqual([res.status, res.body.code], [503, 'ai_unavailable'])
+  assert.equal(b.aiPaused(), false)
+
+  process.env.AI_KILL_SWITCH = 'on'
+  try {
+    b = budgetWith([true, true])
+    res = await b.checkAiBudget(req(), 'interview')
+    assert.deepEqual([res.status, res.body.code, b.calls.length], [503, 'ai_paused', 0])
+    assert.equal(b.aiPaused(), true)
+  } finally { delete process.env.AI_KILL_SWITCH }
+
+  process.env.AI_PUBLIC_ENABLED = 'off'
+  try {
+    b = budgetWith([true, true])
+    res = await b.checkAiBudget(req(), 'interview')
+    assert.deepEqual([res.status, res.body.code, b.calls.length], [503, 'ai_paused', 0])
+    assert.equal(b.aiPaused(), true)
+  } finally { process.env.AI_PUBLIC_ENABLED = 'on' }
+})
+
 test('routes: every public AI endpoint checks the quota before its first paid call; Insight Lab after login and validation', async () => {
   const ROUTES = { chat: 'chat', 'interview/questions': 'interview', 'interview/feedback': 'interview', 'interview/report': 'interview', 'interview/custom-questions': 'interview', 'learn/generate': 'learn', 'learn/grade': 'learn', 'insight-lab/evaluate': 'insight-lab' }
   for (const [route, feature] of Object.entries(ROUTES)) {

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react"
 import { Loader2 } from "lucide-react"
 import InterviewSession from "@/components/InterviewSession"
+import { apiFailureMessage } from "@/lib/interview/support"
 
 interface Question {
   question: string
@@ -32,8 +33,9 @@ export default function PrepInterviewClient() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyName, jobTitle, jd, coverLetter, portfolio, count }),
     })
-    const data = await res.json()
-    if (!data.questions?.length) throw new Error(data.error ?? "질문 생성 실패")
+    const data = await res.json().catch(() => ({}))
+    // status and code let the caller tell an AI stop from a temporary failure (see apiFailureMessage)
+    if (!res.ok || !data.questions?.length) throw Object.assign(new Error(data.error ?? "질문 생성 실패"), { status: res.status, code: data.code })
     return data.questions as Question[]
   }
 
@@ -50,7 +52,9 @@ export default function PrepInterviewClient() {
       setSessionKey(k => k + 1)
       setStep("interview")
     } catch (e) {
-      setError(e instanceof Error ? e.message : "질문 생성에 실패했어요. 다시 시도해주세요.")
+      const { status = null, code } = e as { status?: number; code?: unknown }
+      // 400 = input the server rejected: its message says what to fix. Otherwise explain the AI or network state.
+      setError(status === 400 && e instanceof Error ? e.message : apiFailureMessage("questions", status, navigator.onLine, code))
     } finally {
       setLoading(false)
     }

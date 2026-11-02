@@ -31,13 +31,19 @@ export function aiDailyLimits(raw = process.env.AI_DAILY_LIMITS): Record<AiFeatu
 // Never store a raw address: a truncated hash is enough to tell clients apart for a day.
 const clientKey = (req: Request, userId?: string | null) => userId ? `user:${userId}` : `ip:${createHash("sha256").update(clientId(req)).digest("hex").slice(0, 32)}`
 const isMissingQuota = (error: { code?: string; message?: string }) => error.code === "PGRST202" || error.code === "42883" || /consume_ai_quota/.test(error.message ?? "")
-const unavailable = () => NextResponse.json({ error: "AI 기능을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해주세요." }, { status: 503 })
+// Stable `code` values let clients tell a deliberate stop from a temporary failure; status codes alone overlap (503).
+//   ai_paused: kill switch, public AI off or AI blocked in this environment; ai_quota: daily quota spent;
+//   ai_unavailable: the quota could not be counted (temporary).
+const unavailable = () => NextResponse.json({ error: "AI 기능을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해주세요.", code: "ai_unavailable" }, { status: 503 })
+
+/** True when public AI is stopped on purpose, so a caller can skip the paid path without counting quota. */
+export const aiPaused = () => !!blockedReason("ai") || !publicAIEnabled()
 
 /** null when the call may proceed; otherwise the response to return (429 over quota, 503 when it cannot be counted). */
 export async function checkAiBudget(req: Request, feature: AiFeature, userId?: string | null): Promise<NextResponse | null> {
   const stopped = blockedReason("ai")
-  if (stopped) return NextResponse.json({ error: stopped }, { status: 503 })
-  if (!publicAIEnabled()) return NextResponse.json({ error: "공개 AI 기능은 현재 중지되어 있습니다." }, { status: 503 })
+  if (stopped) return NextResponse.json({ error: stopped, code: "ai_paused" }, { status: 503 })
+  if (!publicAIEnabled()) return NextResponse.json({ error: "공개 AI 기능은 현재 중지되어 있습니다.", code: "ai_paused" }, { status: 503 })
   const limits = aiDailyLimits()
   const db = createAdminClient()
   for (const [scope, key, limit] of [[`feature:${feature}`, clientKey(req, userId), limits[feature]], ["global", "all", limits.global]] as const) {
@@ -47,7 +53,7 @@ export async function checkAiBudget(req: Request, feature: AiFeature, userId?: s
       return unavailable()
     }
     if (data !== true) {
-      return NextResponse.json({ error: scope === "global" ? "오늘 AI 기능 사용량이 많아 잠시 쉬어갑니다. 내일 다시 이용해주세요." : "오늘 이 기능의 AI 사용 한도에 도달했습니다. 내일 다시 이용해주세요." }, { status: 429 })
+      return NextResponse.json({ error: scope === "global" ? "오늘 AI 기능 사용량이 많아 잠시 쉬어갑니다. 내일 다시 이용해주세요." : "오늘 이 기능의 AI 사용 한도에 도달했습니다. 내일 다시 이용해주세요.", code: "ai_quota" }, { status: 429 })
     }
   }
   return null

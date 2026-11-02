@@ -60,7 +60,7 @@ test('fallback questions: n questions, trend ones quote real headlines only, no 
 
 // ── /api/interview/questions with the AI and database mocked ──
 const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) }
-function questionsRoute({ budget = null, ai = null, rows = [{ hook: '공개된 기사 제목', summary: 's', why_it_matters: 'w' }] } = {}) {
+function questionsRoute({ budget = null, paused = false, ai = null, rows = [{ hook: '공개된 기사 제목', summary: 's', why_it_matters: 'w' }] } = {}) {
   const calls = { ai: 0, filters: [] }
   const q = { select: s => { calls.filters.push(['select', s]); return q }, eq: (k, v) => { calls.filters.push(['eq', k, v]); return q }, order: () => q, limit: async () => ({ data: rows }) }
   const POST = load('src/app/api/interview/questions/route.ts', {
@@ -69,7 +69,7 @@ function questionsRoute({ budget = null, ai = null, rows = [{ hook: '공개된 �
     '@/lib/ai/gemini': { geminiJson: async () => { calls.ai++; return ai } },
     '@/lib/ai/quiz': { buildTrendDigest: () => 'digest' },
     '@/lib/rate-limit': { checkRateLimit: () => null },
-    '@/lib/ai/budget': { checkAiBudget: async () => budget },
+    '@/lib/ai/budget': { checkAiBudget: async () => budget, aiPaused: () => paused },
     '@/lib/interview/fallback-questions': { fallbackQuestions },
   }).POST
   const call = () => POST(new Request('https://x/api/interview/questions', { method: 'POST', body: JSON.stringify({ role: '브랜드 마케팅', count: 3 }) }))
@@ -90,6 +90,101 @@ test('questions API: AI down or budget used up still starts the interview with n
   const ok = questionsRoute({ ai: { questions: [{ question: 'AI 질문', kind: 'role' }] } })
   res = await ok.call()
   assert.deepEqual(res.body, { questions: [{ question: 'AI 질문', kind: 'role' }] })
+
+  // An operator stop is reported as such, so the client can skip per-answer feedback and the report.
+  const stopped = questionsRoute({ budget: { status: 503, body: { error: 'stop', code: 'ai_paused' } }, paused: true })
+  res = await stopped.call()
+  assert.equal(res.status, 200); assert.equal(res.body.fallback, 'paused'); assert.equal(res.body.questions.length, 3); assert.equal(stopped.calls.ai, 0)
+})
+
+// 2026-11-02 Career Lab resilience: AI stop vs temporary failure, and a result screen that never depends on the AI.
+test('AI failures: an operator stop and a spent quota are told apart from temporary errors by code, not by status', () => {
+  const kind = (status, code, online = true) => support.aiFailureKind(status, code, online)
+  assert.equal(kind(503, 'ai_paused'), 'paused')
+  assert.equal(kind(429, 'ai_quota'), 'quota')
+  assert.equal(kind(429, undefined), 'rate', 'per-minute limiter has no code')
+  assert.equal(kind(503, 'ai_unavailable'), 'unavailable')
+  assert.equal(kind(503, undefined), 'unavailable', 'a bare 503 is never taken as a stop')
+  assert.equal(kind(500, undefined), 'failed', 'provider error')
+  assert.equal(kind(null, undefined), 'failed', 'network error while online')
+  assert.equal(kind(503, 'ai_paused', false), 'offline')
+  assert.deepEqual(['paused', 'quota', 'rate', 'unavailable', 'failed', 'offline'].map(k => support.aiOffForSession(k)), [true, true, false, false, false, false])
+
+  assert.match(support.apiFailureMessage('feedback', 503, true, 'ai_paused'), /AI 기능이 중지되어 있어 AI 피드백을 받을 수 없어요/)
+  assert.doesNotMatch(support.apiFailureMessage('feedback', 503, true, 'ai_paused'), /다시 시도/, 'no retry advice for a stop')
+  assert.match(support.apiFailureMessage('report', 429, true, 'ai_quota'), /오늘 AI 사용 한도에 도달해 AI 리포트를/)
+  assert.match(support.apiFailureMessage('report', 503, true, 'ai_unavailable'), /리포트를 만들지 못했어요. 잠시 뒤 다시 시도/)
+  assert.doesNotMatch(support.apiFailureMessage('report', 500, true), /리포트을/)
+})
+
+test('interview client: results come from the local record; AI stop skips later AI calls; one report request at a time', () => {
+  const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
+  const results = src.slice(src.indexOf('if (stage === "report") return ('))
+  // The answer record and the speech summary are direct children of the result screen, not inside {report && (…)}.
+  assert.match(results, /\n {6}\{metrics\.some\(Boolean\) && \(\(\) => \{/)
+  assert.match(results, /\n {6}\{qa\.length > 0 \? \(\r?\n {8}<section className="mb-6" aria-labelledby="interview-record">/)
+  assert.match(results, /\{qa\.map\(\(entry, i\) => \(/)
+  assert.match(results, /entry\.feedback \?/)
+  assert.match(results, /reportFailure\?\.retry &&/, 'retry only when it can help')
+  assert.match(results, /\{report && \(\s+<button onClick=\{shareReport\}/, 'no score card to share without an AI score')
+  // Session-wide AI stop: feedback and report requests are skipped once a stop or spent quota is known.
+  assert.match(src, /if \(aiOffRef\.current\) \{\s+await advanceWith\(/)
+  assert.match(src, /if \(aiOffRef\.current\) \{\s+setReportFailure\(/)
+  assert.match(src, /if \(data\.fallback === "paused"\) markAiOff\("paused"\)/)
+  assert.match(src, /if \(reportBusyRef\.current\) return/)
+  // The report request carries question and answer only, not the feedback kept for the result screen.
+  assert.match(src, /qa: entries\.map\(\(\{ question, answer \}\) => \(\{ question, answer \}\)\)/)
+})
+
+test('progress: finish early with at least one answer, warn before leaving, show retry errors on the result screen', () => {
+  const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
+  const early = src.slice(src.indexOf('async function finishEarly()'), src.indexOf('async function submitAnswer()'))
+  assert.match(early, /if \(!entries\.length \|\| grading\) return/, 'no empty result shown as a finished interview')
+  assert.match(early, /const draft = feedback \? "" : answer\.trim\(\)/, 'an answer being written is kept, a recorded one not doubled')
+  assert.match(early, /stopRequestedRef\.current = true/); assert.match(early, /recRef\.current\?\.stop\(\)/)
+  assert.match(early, /if \(draft\) \{ stopClip\(current\); recordMetrics\(draft\) \}/)
+  assert.match(early, /await generateReport\(entries\)/) // which stops camera, recording and speech synthesis
+  assert.match(src, /function stopCamera\(\) \{[\s\S]*?speechSynthesis\.cancel\(\)[\s\S]*?getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
+  // The button exists only when there is something to show.
+  assert.match(src, /\{\(qa\.length > 0 \|\| \(!feedback && !!answer\.trim\(\)\)\) && !\(feedback && current \+ 1 >= questions\.length\) && \(\s+<button onClick=\{finishEarly\}/)
+  // beforeunload only while answers are on screen, and removed afterwards.
+  assert.match(src, /const unsaved = \(stage === "interview" \|\| stage === "grading"\) && \(qa\.length > 0 \|\| !!answer\.trim\(\)\)/)
+  assert.match(src, /if \(!unsaved\) return\s+const warn = \(e: BeforeUnloadEvent\) => \{ e\.preventDefault\(\); e\.returnValue = "" \}\s+window\.addEventListener\("beforeunload", warn\)\s+return \(\) => window\.removeEventListener\("beforeunload", warn\)/)
+  // "새 질문으로 다시" (prep) returns to the result screen on failure: the error must render there.
+  const results = src.slice(src.indexOf('if (stage === "report") return ('))
+  assert.match(results.slice(0, 400), /\{error && <p role="alert"/)
+  const prep = readFileSync('src/components/PrepInterviewClient.tsx', 'utf8')
+  assert.match(prep, /throw Object\.assign\(new Error\(data\.error \?\? "질문 생성 실패"\), \{ status: res\.status, code: data\.code \}\)/)
+  assert.match(prep, /apiFailureMessage\("questions", status, navigator\.onLine, code\)/)
+  assert.match(support.apiFailureMessage('questions', 503, true, 'ai_paused'), /일반 모의면접은 기본 질문으로 진행할 수 있어요/)
+})
+
+test('measurements: answer time starts after the question is read; recordings keep their real format; metrics say they are heuristics', () => {
+  // Extension from what the browser recorded; nothing is converted, an unknown type gets no extension.
+  assert.equal(support.recordingExtension('video/webm;codecs=vp9'), 'webm')
+  assert.equal(support.recordingExtension('video/webm'), 'webm')
+  assert.equal(support.recordingExtension('video/mp4'), 'mp4') // Safari
+  assert.equal(support.recordingExtension('video/mp4;codecs=avc1.42E01E,mp4a.40.2'), 'mp4')
+  assert.equal(support.recordingExtension('video/x-matroska;codecs=avc1,opus'), 'mkv')
+  assert.equal(support.recordingExtension(''), null)
+  assert.equal(support.recordingExtension('video/ogg'), null)
+
+  const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
+  // Video mode: the timer restarts when speech synthesis ends or fails (speak() calls onEnd on error and when unsupported).
+  assert.match(src, /const startListening = \(\) => \{\s+qStartRef\.current = Date\.now\(\)/)
+  assert.match(src, /u\.onend = \(\) => \{ setSpeaking\(false\); onEnd\?\.\(\) \}/)
+  assert.match(src, /u\.onerror = \(\) => \{ setSpeaking\(false\); onEnd\?\.\(\) \}/)
+  assert.match(src, /\} catch \{ setSpeaking\(false\); onEnd\?\.\(\) \}/)
+  // Recording type: the recorder's own, else the one it was started with — never a hard-coded webm guess.
+  assert.match(src, /const type = mr\.mimeType \|\| clipMimeRef\.current/)
+  assert.doesNotMatch(src, /\|\| "video\/webm"/)
+  assert.doesNotMatch(src, /면접답변-\$\{i \+ 1\}\.webm/)
+  assert.match(src, /download=\{`marklens-면접답변-\$\{i \+ 1\}\$\{ext \? `\.\$\{ext\}` : ""\}`\}/)
+  // Labels: reference values from text and time, not voice analysis; no alarm colours for a word count.
+  assert.doesNotMatch(src, /스피치 분석/)
+  assert.match(src, /목소리·발음은 분석하지 않아요/)
+  assert.doesNotMatch(src, /totalFillers >= 10 \? "text-red-500"/)
+  assert.doesNotMatch(src, /fillers >= 5 \? "bg-red-50/)
 })
 
 test('interview client: no restart loop after a fatal speech error, typing fallback and question caption in video mode, skip on feedback failure', () => {
