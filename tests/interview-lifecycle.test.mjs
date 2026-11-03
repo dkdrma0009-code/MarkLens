@@ -178,6 +178,31 @@ test('fatal speech error stops for good; a second start while listening creates 
   assert.equal(s.recs.length, 1, 'no restart loop after a refused microphone')
 })
 
+test('abort() never followed by end (browser fault): the waiting start gives up after the cap; a stop cancels it', () => {
+  const s = speechHarness({ videoMode: true })
+  s.input.start(); s.recs[0].say('지금까지 답변')
+  s.input.stop() // this recognizer will never send end
+  s.input.start()
+  assert.equal(s.recs.length, 1, 'waits for the old recognizer first')
+  s.runTimers() // the 1 s cap
+  assert.equal(s.recs.length, 2, 'listening again without the end event'); assert.equal(s.state.listening, true)
+  s.recs[1].say('이어서')
+  s.recs[0].say('늦은 결과'); s.recs[0].end(); s.runTimers()
+  assert.equal(s.state.answer, '지금까지 답변 이어서', 'the abandoned recognizer changes nothing')
+  assert.equal(s.recs.length, 2)
+
+  const cancelled = speechHarness({ videoMode: true })
+  cancelled.input.start(); cancelled.input.stop(); cancelled.input.start(); cancelled.input.stop()
+  cancelled.runTimers()
+  assert.deepEqual([cancelled.recs.length, cancelled.state.listening], [1, false], 'stopped while waiting: no start')
+
+  const normal = speechHarness()
+  normal.input.start(); normal.input.stop(); normal.input.start(); normal.recs[0].end()
+  assert.equal(normal.recs.length, 2, 'end arrived: starts at once')
+  normal.runTimers()
+  assert.equal(normal.recs.length, 2, 'the cap does nothing once the end has arrived')
+})
+
 test('B-5 reading: ends normally once; timer cleared', () => {
   const r = readerHarness()
   let ends = 0

@@ -55,8 +55,20 @@ export function createSpeechInput(o: SpeechInputOptions): SpeechInput {
 
   function start() {
     if (listening || fatal) return
-    // Chrome runs one recognition at a time: start after the stopped one has ended, not on a guessed delay.
-    if (ending) { startWhenEnded = gen; return }
+    // Chrome runs one recognition at a time: start after the stopped one has ended, not on a guessed delay. Chrome sends
+    // end at once on abort() (2026-11 QA); a browser that never does must not leave the microphone off for good, so the
+    // wait gives up after 1 s (the old recognizer's events are ignored either way). A stop in between cancels it.
+    if (ending) {
+      const waitingFor = ending, requested = gen
+      startWhenEnded = requested
+      schedule(() => {
+        if (ending !== waitingFor || startWhenEnded !== requested || gen !== requested) return
+        ending = null
+        startWhenEnded = -1
+        start()
+      }, 1000)
+      return
+    }
     const r = o.create()
     if (!r) return
     const mine = ++gen
