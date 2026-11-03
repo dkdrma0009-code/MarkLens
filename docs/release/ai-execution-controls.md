@@ -8,7 +8,7 @@ No production deployment, settings changes, live AI, emails, social publishing o
 | Setting | Behavior |
 | --- | --- |
 | `AI_KILL_SWITCH=on` | Highest priority. All paid AI denied, including manual context. Keep production unchanged. |
-| `AI_AUTO_PAUSED=on` | Cron and shared legacy generation/webhook entry points return a successful intentional skip before AI or content writes. Unscoped AI egress is also refused. |
+| `AI_AUTO_PAUSED=on` | Cron and shared legacy generation/webhook entry points return a successful intentional skip before AI or content writes. Unscoped AI egress is also refused, so public AI routes answer 503 `ai_paused` before taking a daily quota slot (`checkAiBudget`). |
 | `AI_PUBLIC_ENABLED=on` | Separate explicit opt-in for public chat/interview/learn/Lab AI. Default is disabled; emergency switch still wins. |
 | `AI_MANUAL_TEST_ENABLED=on` | Opt-in for the authenticated, nonpersisting admin sample endpoint only; does not bypass emergency or Preview protection. Default disabled. |
 

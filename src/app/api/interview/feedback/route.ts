@@ -15,16 +15,25 @@ const SYSTEM = `너는 친절하지만 솔직한 한국 마케팅 면접 코치�
 - 전부 한국어, 마크다운 금지
 JSON만 반환: {"good":"...","improve":"...","model_answer":"...","star":{"s":true,"t":false,"a":true,"r":false}}`
 
+// Interview questions are one sentence (fallback bank ≤ ~110 characters). The cap keeps a forged request from turning
+// one quota slot into a huge prompt; an over-long question is refused, not cut into a different question.
+const MAX_QUESTION = 500
+
 export async function POST(req: Request) {
   const limited = checkRateLimit(req, { key: "interview-feedback", limit: 20, windowMs: 60_000 })
   if (limited) return limited
-  const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
-  if (overBudget) return overBudget
 
-  const { question, answer, role, context } = await req.json()
-  if (!question || !answer) {
+  // Input is checked before the quota: a request that will be refused spends nothing.
+  const { question, answer, role, context } = (await req.json().catch(() => null)) ?? {}
+  if (typeof question !== "string" || !question.trim() || !answer) {
     return NextResponse.json({ error: "question, answer 필수" }, { status: 400 })
   }
+  if (question.length > MAX_QUESTION) {
+    return NextResponse.json({ error: `질문은 ${MAX_QUESTION}자 이하여야 합니다.` }, { status: 400 })
+  }
+
+  const overBudget = await checkAiBudget(req, "interview") // global daily AI quota (migration 024)
+  if (overBudget) return overBudget
 
   const contextLine = context?.trim()
     ? `\n지원자 배경 (자소서/JD 요약): ${String(context).slice(0, 600)}`

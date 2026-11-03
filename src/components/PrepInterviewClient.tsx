@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import InterviewSession from "@/components/InterviewSession"
 import { apiFailureMessage } from "@/lib/interview/support"
@@ -67,8 +67,16 @@ export default function PrepInterviewClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyName, jobTitle, jd, coverLetter, portfolio, count])
 
-  // InterviewSession의 "정보 다시 입력" 버튼이 호출
+  // InterviewSession의 "정보 다시 입력" 버튼이 호출 (확인은 InterviewSession이 이미 했다)
   function handleGoBack() {
+    setStep("form")
+  }
+
+  // 상단 "정보 수정"은 면접 중에도 보인다: 면접 기록이 사라진다면 먼저 묻는다(문구는 InterviewSession이 알려 준다)
+  const leaveWarningRef = useRef("")
+  const setLeaveWarning = useCallback((message: string) => { leaveWarningRef.current = message }, [])
+  function editInfo() {
+    if (leaveWarningRef.current && !window.confirm(leaveWarningRef.current)) return
     setStep("form")
   }
 
@@ -91,7 +99,7 @@ export default function PrepInterviewClient() {
             {(companyName || jobTitle) && " "}맞춤 질문 <span className="font-bold">{questions.length}개</span> 준비됐어요
           </p>
           <button
-            onClick={handleGoBack}
+            onClick={editInfo}
             className="text-xs text-emerald-600 dark:text-emerald-400 underline underline-offset-2 whitespace-nowrap ml-3"
           >
             정보 수정
@@ -105,6 +113,7 @@ export default function PrepInterviewClient() {
           feedbackContext={feedbackContext}
           onGoBack={handleGoBack}
           onRetry={handleRetry}
+          onLeaveWarningChange={setLeaveWarning}
         />
       </div>
     )

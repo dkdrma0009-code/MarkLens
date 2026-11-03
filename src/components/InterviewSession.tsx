@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Mic, MicOff, Volume2, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
-import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, recordingExtension, type MediaIssue } from "@/lib/interview/support"
+import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, isInSiteLeave, leaveWarning, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, READING_TIMEOUT_MESSAGE, recordingExtension, type MediaIssue } from "@/lib/interview/support"
+import { createQuestionReader, createSpeechInput, type QuestionReader, type RecognitionLike, type SpeechInput, type UtteranceLike } from "@/lib/interview/voice"
 
 type Stage = "settings" | "loading" | "interview" | "grading" | "report"
 
@@ -72,6 +73,7 @@ interface InterviewSessionProps {
   feedbackContext?: string  // 자소서/JD 요약 — 피드백 API에 전달해 모범답안 맥락화
   onGoBack?: () => void     // "직무 바꾸기" 오버라이드 — prep 모드에서 폼으로 돌아가기
   onRetry?: () => Promise<Question[]>  // "같은 설정으로 다시" 오버라이드 — prep 모드 재생성
+  onLeaveWarningChange?: (message: string) => void // prep 모드: "정보 수정"이 이 기록을 지우기 전에 물어볼 문구("" = 지울 것 없음)
 }
 
 // Browser capabilities are read after hydration; SSR uses a stable snapshot.
@@ -81,7 +83,7 @@ function getSpeechSupport() {
   return !!(w.SpeechRecognition || w.webkitSpeechRecognition)
 }
 
-export default function InterviewSession({ externalQuestions, externalRole, externalCompanyName, feedbackContext, onGoBack, onRetry }: InterviewSessionProps = {}) {
+export default function InterviewSession({ externalQuestions, externalRole, externalCompanyName, feedbackContext, onGoBack, onRetry, onLeaveWarningChange }: InterviewSessionProps = {}) {
   const isPrepMode = !!externalQuestions?.length
   const [error, setError] = useState("")
   const [stage, setStage] = useState<Stage>(isPrepMode ? "interview" : "settings")
@@ -103,24 +105,28 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [copied, setCopied] = useState(false)
   const [metrics, setMetrics] = useState<(AnswerMetrics | null)[]>([])
   const qStartRef = useRef<number>(0)
+  const answerEndRef = useRef<number | null>(null) // first submission of this answer: a retried request is not answer time
   const voiceUsedRef = useRef(false)
-  const stopRequestedRef = useRef(false) // 화상 모드 STT 자동 재시작 제어
   const videoModeRef = useRef(false)
   const answerRef = useRef("")
 
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
-  const [speaking, setSpeaking] = useState(false) // 면접관 TTS 발화 중
+  const [speaking, setSpeaking] = useState(false) // 면접관이 질문을 읽는 중
+  const [readingNotice, setReadingNotice] = useState("") // 질문 읽기가 끝나지 않아 멈췄을 때
   const speechSupported = useSyncExternalStore(subscribeSpeechSupport, getSpeechSupport, () => false)
-  const recRef = useRef<{ stop: () => void } | null>(null)
+  // Speech input and question reading (src/lib/interview/voice.ts), created on first use in the browser. Their callbacks
+  // use only state setters and refs, so an event from an earlier render or question never acts on stale state.
+  const speechRef = useRef<SpeechInput | null>(null)
+  const readerRef = useRef<QuestionReader | null>(null)
 
   // ── 화상 모드 (v2.1) — 영상은 브라우저에만 저장, 서버 전송 없음 ──
   const [videoMode, setVideoMode] = useState(false)
   const [camStream, setCamStream] = useState<MediaStream | null>(null)
   const [camIssue, setCamIssue] = useState<MediaIssue | null>(null)
+  const camRequestRef = useRef(0) // bumped by every camera request and by stopCamera: a late answer is dropped
   // A fatal speech-recognition error (mic refused, no mic, no service) stops the automatic restart and opens typing.
   const [speechIssue, setSpeechIssue] = useState("")
-  const speechFatalRef = useRef(false)
   const [notice, setNotice] = useState("") // e.g. questions came from the no-AI fallback bank
   const [feedbackFailed, setFeedbackFailed] = useState(false)
   const [clipRecording, setClipRecording] = useState(false)
@@ -132,10 +138,46 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const clipChunksRef = useRef<Blob[]>([])
   const camStreamRef = useRef<MediaStream | null>(null)
 
+  const clipsRef = useRef(clips) // for the unmount cleanup
+
+  function speech() {
+    return speechRef.current ??= createSpeechInput({
+      create: () => {
+        const w = window as unknown as Record<string, (new () => RecognitionLike) | undefined>
+        const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition
+        return SR ? new SR() : null
+      },
+      baseText: () => answerRef.current,
+      onText: text => { voiceUsedRef.current = true; answerRef.current = text; setAnswer(text) },
+      onListening: setRecording,
+      onFatal: setSpeechIssue,
+      // 화상 모드: 침묵으로 인식이 끊겨도 답변 중이면 다시 듣는다(치명적 오류 뒤에는 다시 시작하지 않는다)
+      autoRestart: () => videoModeRef.current,
+      classifyError: classifySpeechError,
+    })
+  }
+
+  function reader() {
+    return readerRef.current ??= createQuestionReader({
+      synth: () => (typeof speechSynthesis === "undefined" ? null : speechSynthesis as unknown as { speak: (u: UtteranceLike) => void; cancel: () => void }),
+      utterance: text => {
+        const u = new SpeechSynthesisUtterance(text)
+        u.lang = "ko-KR"
+        u.rate = 1.02
+        const voices = speechSynthesis.getVoices()
+        const ko = voices.find(v => v.lang === "ko-KR") || voices.find(v => v.lang?.startsWith("ko"))
+        if (ko) u.voice = ko
+        return u as unknown as UtteranceLike
+      },
+      onReading: on => { setSpeaking(on); if (on) setReadingNotice("") },
+      onTimeout: () => setReadingNotice(READING_TIMEOUT_MESSAGE),
+    })
+  }
+
   function stopCamera() {
+    camRequestRef.current++ // a camera request still waiting for permission is dropped when it answers
     try { if (clipRecRef.current?.state === "recording") clipRecRef.current.stop() } catch {}
-    try { speechSynthesis.cancel() } catch {}
-    setSpeaking(false)
+    reader().cancel() // a question being read must not open the microphone after this
     camStreamRef.current?.getTracks().forEach(t => t.stop())
     camStreamRef.current = null
     setCamStream(null)
@@ -178,16 +220,16 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // (턴제로 실제 화상면접처럼. TTS가 끝난 뒤 받아적기를 시작해 면접관 음성이 마이크에 잡혀 오인식되는 것도 방지)
   useEffect(() => {
     if (stage === "interview" && videoMode && camStream && !feedback && !grading) {
-      stopRequestedRef.current = false
       // eslint-disable-next-line react-hooks/set-state-in-effect
       startClip()
       const text = questions[current]?.question
-      // The answer starts once the question has been read (or reading failed): the reading is not answer time.
+      // The answer starts once the question has been read, skipped or given up on: the reading is not answer time.
+      // A reading cancelled because the answer was submitted or the interview ended never gets here (voice.ts).
       const startListening = () => {
         qStartRef.current = Date.now()
-        if (speechSupported && !stopRequestedRef.current) startSpeech()
+        if (speechSupported) speech().start()
       }
-      if (text) speak(text, startListening)
+      if (text) reader().read(text, startListening)
       else startListening()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -197,23 +239,47 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   useEffect(() => {
     if (stage === "interview" && !feedback) {
       qStartRef.current = Date.now()
+      answerEndRef.current = null
       voiceUsedRef.current = false
       answerRef.current = ""
     }
   }, [stage, current, feedback])
 
-  // Leaving with answers on screen asks the browser for its "leave site?" prompt. Browsers may skip it (often on mobile)
-  // and in-site links do not trigger it: a warning against accidents, not a way to keep the answers.
-  const unsaved = (stage === "interview" || stage === "grading") && (qa.length > 0 || !!answer.trim())
+  // Leaving would lose answers of the interview in progress, or recordings (only in this tab). Closing or reloading the
+  // tab asks through beforeunload (browsers may skip it, often on mobile); a click on an in-site link asks here, because
+  // client-side navigation fires no beforeunload. Back/forward cannot be asked (popstate cannot be cancelled).
+  const inInterview = stage === "interview" || stage === "grading"
+  const leaveMessage = leaveWarning({
+    // while the report is generated the last answer is already in qa: count a draft only on the interview screen
+    answers: inInterview ? qa.length + (stage === "interview" && !feedback && answer.trim() ? 1 : 0) : 0,
+    recordings: clips.filter(Boolean).length,
+    finished: !inInterview,
+  })
+  const confirmLeave = () => !leaveMessage || window.confirm(leaveMessage)
   useEffect(() => {
-    if (!unsaved) return
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+    if (!leaveMessage) return
+    let leaving = false // confirmed: a full page load must not ask a second time
+    const warn = (e: BeforeUnloadEvent) => { if (leaving) return; e.preventDefault(); e.returnValue = "" }
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!a || !isInSiteLeave({ href: a.href, target: a.target, download: a.hasAttribute("download") }, { button: e.button, modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey }, location.href)) return
+      if (window.confirm(leaveMessage)) { leaving = true; return }
+      // Capture phase on document: the click never reaches next/link's handler or the browser's default navigation.
+      e.preventDefault()
+      e.stopPropagation()
+    }
     window.addEventListener("beforeunload", warn)
-    return () => window.removeEventListener("beforeunload", warn)
-  }, [unsaved])
+    document.addEventListener("click", onClick, true)
+    return () => {
+      window.removeEventListener("beforeunload", warn)
+      document.removeEventListener("click", onClick, true)
+    }
+  }, [leaveMessage])
+  useEffect(() => { onLeaveWarningChange?.(leaveMessage) }, [leaveMessage, onLeaveWarningChange])
 
   useEffect(() => { videoModeRef.current = videoMode }, [videoMode])
   useEffect(() => { answerRef.current = answer }, [answer])
+  useEffect(() => { clipsRef.current = clips }, [clips])
 
   // 미러 프리뷰 연결
   useEffect(() => {
@@ -224,74 +290,26 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
   useEffect(() => {
     return () => {
-      try { recRef.current?.stop() } catch {}
-      try { speechSynthesis.cancel() } catch {}
+      speechRef.current?.stop()
+      readerRef.current?.cancel()
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- a request counter, not a DOM node: drop a late camera answer
+      camRequestRef.current++
       camStreamRef.current?.getTracks().forEach(t => t.stop())
+      clipsRef.current.forEach(c => { if (c) URL.revokeObjectURL(c.url) }) // recordings live only as long as this screen
     }
   }, [])
 
   function toggleMic() {
-    if (recording) {
-      try { recRef.current?.stop() } catch {}
-      setRecording(false)
-      return
-    }
-    startSpeech()
+    if (speech().listening) speech().stop()
+    else speech().start()
   }
 
-  function startSpeech() {
-    if (recording) return
-    const w = window as unknown as Record<string, new () => unknown>
-    const SR = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as new () => {
-      lang: string; continuous: boolean; interimResults: boolean
-      onresult: ((e: { resultIndex: number; results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } } }) => void) | null
-      onend: (() => void) | null; onerror: ((e: { error?: string }) => void) | null
-      start: () => void; stop: () => void
-    }
-    if (!SR || speechFatalRef.current) return
-    const rec = new SR()
-    rec.lang = "ko-KR"
-    rec.continuous = true
-    rec.interimResults = true
-    voiceUsedRef.current = true
-    let base = answerRef.current
-    rec.onresult = (e) => {
-      let interim = "", final = ""
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript
-        if (e.results[i].isFinal) final += t
-        else interim += t
-      }
-      if (final) base = (base + " " + final).trim()
-      const text = (base + " " + interim).trim()
-      answerRef.current = text
-      setAnswer(text)
-    }
-    rec.onend = () => {
-      setRecording(false)
-      // 화상 모드: 침묵으로 STT가 끊겨도 답변 중이면 자동 재시작 (권한 거부 등 치명적 오류 뒤에는 재시작하지 않는다 —
-      // 예전에는 onerror → onend → 재시작이 끝없이 반복돼 화면이 먹통처럼 보였다)
-      if (videoModeRef.current && !stopRequestedRef.current && !speechFatalRef.current) {
-        setTimeout(() => { if (!stopRequestedRef.current && !speechFatalRef.current) startSpeech() }, 250)
-      }
-    }
-    rec.onerror = (e) => {
-      setRecording(false)
-      const { fatal, message } = classifySpeechError(e?.error ?? "")
-      if (fatal) { speechFatalRef.current = true; stopRequestedRef.current = true; setSpeechIssue(message) }
-    }
-    recRef.current = rec
-    try { rec.start(); setRecording(true) } catch { /* 이미 실행 중 등 */ }
-  }
-
-  // 화상 모드: 받아적기 초기화 후 재시작
+  // 화상 모드: 받아적기 초기화 후 재시작 (이전 인식이 끝나면 새로 시작 — voice.ts)
   function retrySpeak() {
-    stopRequestedRef.current = true
-    try { recRef.current?.stop() } catch {}
-    setRecording(false)
+    speech().stop()
     answerRef.current = ""
     setAnswer("")
-    setTimeout(() => { stopRequestedRef.current = false; startSpeech() }, 300)
+    speech().start()
   }
 
   // 피드백 후 같은 질문 재도전 (짧은 답변 구제 — 질문 낭비 없음)
@@ -304,35 +322,18 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     setFeedback(null)
   }
 
-  // ── 면접관이 질문 읽어주기 (TTS) — 끝나면 onEnd 콜백 ──
-  function speak(text: string, onEnd?: () => void) {
-    try {
-      speechSynthesis.cancel()
-      const u = new SpeechSynthesisUtterance(text)
-      u.lang = "ko-KR"
-      u.rate = 1.02
-      const voices = speechSynthesis.getVoices()
-      const ko = voices.find(v => v.lang === "ko-KR") || voices.find(v => v.lang?.startsWith("ko"))
-      if (ko) u.voice = ko
-      u.onstart = () => setSpeaking(true)
-      u.onend = () => { setSpeaking(false); onEnd?.() }
-      u.onerror = () => { setSpeaking(false); onEnd?.() }
-      speechSynthesis.speak(u)
-    } catch { setSpeaking(false); onEnd?.() }
-  }
-
-  // 질문 다시 듣기 — 듣는 동안 마이크를 멈췄다가 발화가 끝나면 재개(에코로 오인식 방지)
+  // 질문 다시 듣기 — 듣는 동안 마이크를 멈췄다가 읽기가 끝나면 재개(에코로 오인식 방지). 그사이 답변을 제출하거나
+  // 면접을 끝내면 읽기가 취소돼 마이크가 다시 켜지지 않는다.
   function replayQuestion() {
-    stopRequestedRef.current = true
-    try { recRef.current?.stop() } catch {}
-    setRecording(false)
-    speak(questions[current]?.question ?? "", () => {
-      if (speechSupported) { stopRequestedRef.current = false; startSpeech() }
-    })
+    speech().stop()
+    reader().read(questions[current]?.question ?? "", () => { if (speechSupported) speech().start() })
   }
 
   // 화상 모드 카메라: 원인별 안내. 마이크만 거부된 경우 카메라만이라도 켠다(답변은 입력창으로 가능).
+  // 권한 응답이 면접 종료(stopCamera) 뒤나 더 새로운 요청 뒤에 오면, 받은 장치를 바로 해제하고 버린다.
   async function openCamera(): Promise<boolean> {
+    const request = ++camRequestRef.current
+    const stale = () => request !== camRequestRef.current
     setCamIssue(null)
     const pre = mediaSupportIssue({ isSecureContext: window.isSecureContext, hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia })
     if (pre) { setCamIssue(pre); return false }
@@ -341,10 +342,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video, audio: true })
     } catch (err) {
+      if (stale()) return false
       const issue = classifyMediaError(err)
       if (issue !== "denied" && issue !== "no-device") { setCamIssue(issue); return false }
-      try { stream = await navigator.mediaDevices.getUserMedia({ video }) } catch (err2) { setCamIssue(classifyMediaError(err2)); return false }
+      try { stream = await navigator.mediaDevices.getUserMedia({ video }) } catch (err2) { if (!stale()) setCamIssue(classifyMediaError(err2)); return false }
     }
+    if (stale()) { stream.getTracks().forEach(t => t.stop()); return false }
     camStreamRef.current = stream
     setCamStream(stream)
     return true
@@ -365,22 +368,18 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     setVideoMode(false)
   }
 
+  // The previous result (answers, recordings, metrics, AI state) is replaced only once the new questions have arrived:
+  // a failed request returns to it intact, with no camera left on for an interview that never started.
   async function start(prevStage: Stage = "settings") {
     setError("")
-    setNotice("")
-    aiOffRef.current = null
-    setAiOff(null)
-    setReportFailure(null)
     setStage("loading")
 
     // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행 — 원인과 다음 행동을 화면에 안내)
-    clips.forEach(c => { if (c) URL.revokeObjectURL(c.url) })
-    setClips([])
-    setMetrics([])
-    if (videoMode && !camStreamRef.current) await openCamera()
+    const openedCamera = videoMode && !camStreamRef.current ? await openCamera() : false
 
     try {
       let newQuestions: Question[]
+      let fallback: unknown = null
       if (onRetry) {
         // prep 모드: 커스텀 질문 재생성 (onRetry는 PrepInterviewClient가 주입)
         newQuestions = await onRetry()
@@ -393,11 +392,20 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         const data = await res.json().catch(() => ({}))
         if (!res.ok || !data.questions?.length) throw Object.assign(new Error("questions"), { status: res.status, code: data.code })
         newQuestions = data.questions
-        if (data.fallback === "paused") markAiOff("paused")
-        else if (data.fallback) setNotice(data.fallback === "budget"
-          ? "지금은 AI 질문을 만들 수 없어 최근 MarkLens 기사와 기본 질문으로 진행해요. AI 피드백은 답변마다 다시 시도해요."
-          : "AI 질문 생성이 지연돼 최근 MarkLens 기사와 기본 질문으로 진행해요.")
+        fallback = data.fallback
       }
+      // The new interview is certain from here: release the previous result.
+      clips.forEach(c => { if (c) URL.revokeObjectURL(c.url) })
+      setClips([])
+      setMetrics([])
+      setReportFailure(null)
+      setNotice("")
+      aiOffRef.current = null
+      setAiOff(null)
+      if (fallback === "paused") markAiOff("paused")
+      else if (fallback) setNotice(fallback === "budget"
+        ? "지금은 AI 질문을 만들 수 없어 최근 MarkLens 기사와 기본 질문으로 진행해요. AI 피드백은 답변마다 다시 시도해요."
+        : "AI 질문 생성이 지연돼 최근 MarkLens 기사와 기본 질문으로 진행해요.")
       setQuestions(newQuestions)
       setCurrent(0)
       setAnswer("")
@@ -407,15 +415,18 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       setStage("interview")
     } catch (err) {
       const { status = null, code } = err as { status?: number; code?: unknown }
+      if (openedCamera) stopCamera()
       setStage(prevStage)
       setError(apiFailureMessage("questions", status, navigator.onLine, code))
     }
   }
 
   // 스피치 지표 측정 — 이 질문의 답변 시간·글자 수·필러 단어 (브라우저에서만 계산)
+  // 답변 시간은 처음 제출한 시점까지: 실패한 피드백 요청을 다시 보내도 늘어나지 않는다.
   function recordMetrics(text: string) {
+    const end = answerEndRef.current ??= Date.now()
     const m: AnswerMetrics = {
-      sec: Math.round((Date.now() - qStartRef.current) / 1000),
+      sec: Math.round((end - qStartRef.current) / 1000),
       chars: text.replace(/\s/g, "").length,
       fillers: countFillers(text),
       voice: voiceUsedRef.current,
@@ -432,9 +443,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     const draft = feedback ? "" : answer.trim() // with feedback on screen, this answer is already recorded
     const entries = draft ? [...qa, { question: questions[current].question, answer: draft, feedback: null }] : qa
     if (!entries.length || grading) return
-    stopRequestedRef.current = true // 음성 인식 자동 재시작 차단
-    try { recRef.current?.stop() } catch {}
-    setRecording(false)
+    speech().stop() // its late results are ignored and it does not restart
     if (draft) { stopClip(current); recordMetrics(draft) } // keep this answer's recording; stopCamera discards an unused one
     setQa(entries)
     setFeedbackFailed(false)
@@ -444,8 +453,9 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
   async function submitAnswer() {
     if (!answer.trim() || grading) return
-    stopRequestedRef.current = true // STT 자동 재시작 차단
-    if (recording) { try { recRef.current?.stop() } catch {}; setRecording(false) }
+    speech().stop() // late results of this answer must not reach the next one
+    reader().cancel() // a replayed question must not reopen the microphone after this answer
+    setReadingNotice("") // it was about this question's reading
     stopClip(current) // 화상 모드: 이 답변의 녹화 저장
     recordMetrics(answer)
 
@@ -506,7 +516,8 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // here; the AI summary is only added when it was really generated.
   async function generateReport(entries = qa) {
     if (reportBusyRef.current) return // one request at a time
-    stopCamera() // 면접 종료 — 카메라 해제 (녹화 클립은 유지)
+    speech().stop() // 면접 종료 — 음성 인식이 다시 켜지지 않게
+    stopCamera() // 면접 종료 — 카메라와 질문 읽기 해제 (녹화 클립은 유지)
     setReport(null)
     setReportFailure(null)
     if (aiOffRef.current) {
@@ -750,13 +761,15 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
           <div className="flex items-start gap-3">
             <span className="text-2xl flex-shrink-0">🧑‍💼</span>
             <p className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1">{q.question}</p>
-            <button onClick={() => speak(q.question)} aria-label="질문 읽어주기"
+            <button onClick={() => reader().read(q.question)} aria-label="질문 읽어주기"
               className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors">
               <Volume2 className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
+
+      {readingNotice && <p role="status" className="mb-4 text-sm text-amber-700 dark:text-amber-400">{readingNotice}</p>}
 
       {/* 답변 — 화상 모드: 마이크 받아적기. 음성 인식이 없거나 실패하면 입력창으로 답한다(예전엔 여기서 멈췄다) */}
       {!feedback && videoMode && (
@@ -787,9 +800,16 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
               className="px-3.5 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-40">
               🔊
             </button>
-            {speechSupported && !speechIssue && (
-            <button onClick={retrySpeak} disabled={grading}
+            {/* 읽기가 끝나지 않거나 이미 질문을 읽었을 때: 읽기를 멈추고 바로 답한다(답변 시간은 이때부터) */}
+            {speaking && (
+            <button onClick={() => reader().skip()}
               className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap">
+              읽기 건너뛰기
+            </button>
+            )}
+            {speechSupported && !speechIssue && (
+            <button onClick={retrySpeak} disabled={grading || speaking}
+              className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-40">
               🔁 다시 말하기
             </button>
             )}
@@ -1053,14 +1073,20 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       )}
 
       <div className="flex gap-3">
-        <button onClick={() => start("report")}
+        {/* 새 면접은 질문을 받은 뒤에 이 결과를 대신한다. 영상이 사라지므로 먼저 묻는다. */}
+        <button onClick={() => { if (confirmLeave()) void start("report") }}
           className="flex-1 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
           <RotateCcw className="w-4 h-4" /> {isPrepMode ? "새 질문으로 다시" : "같은 직무로 다시"}
         </button>
         <button onClick={() => {
+          if (!confirmLeave()) return
           stopCamera()
-          if (onGoBack) onGoBack()
-          else setStage("settings")
+          if (onGoBack) onGoBack() // prep: this component unmounts and its cleanup releases the recordings
+          else {
+            clips.forEach(c => { if (c) URL.revokeObjectURL(c.url) })
+            setClips([])
+            setStage("settings")
+          }
         }}
           className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity">
           {isPrepMode ? "정보 다시 입력" : "직무 바꾸기"}

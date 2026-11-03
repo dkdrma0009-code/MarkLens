@@ -92,6 +92,20 @@ test('codes: a deliberate stop, a spent quota and an uncounted call carry distin
     assert.deepEqual([res.status, res.body.code, b.calls.length], [503, 'ai_paused', 0])
     assert.equal(b.aiPaused(), true)
   } finally { process.env.AI_PUBLIC_ENABLED = 'on' }
+
+  // AI_AUTO_PAUSED: the egress guard refuses unscoped AI calls, so public routes stop here without taking a quota slot.
+  process.env.AI_AUTO_PAUSED = 'on'
+  try {
+    b = budgetWith([true, true])
+    res = await b.checkAiBudget(req(), 'interview')
+    assert.deepEqual([res.status, res.body.code, b.calls.length], [503, 'ai_paused', 0])
+    assert.equal(b.aiPaused(), true)
+    // It agrees with the guard: an unscoped AI call is refused in this state (manual tests run in their own scope).
+    await assert.rejects(releaseGuard.guardFetch(async () => new Response(), process.env, () => false)('https://generativelanguage.googleapis.com/x', { method: 'POST' }), /Automatic AI is paused/)
+  } finally { delete process.env.AI_AUTO_PAUSED }
+  b = budgetWith([true, true])
+  assert.equal(await b.checkAiBudget(req(), 'interview'), null, 'unchanged when the pause is off')
+  assert.equal(b.aiPaused(), false)
 })
 
 test('routes: every public AI endpoint checks the quota before its first paid call; Insight Lab after login and validation', async () => {

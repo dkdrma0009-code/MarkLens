@@ -80,6 +80,29 @@ export function recordingExtension(mimeType: string): string | null {
   return null
 }
 
+/** Shown when the question reading neither ended nor failed in time (see readingTimeoutMs in voice.ts). */
+export const READING_TIMEOUT_MESSAGE = "질문 읽기가 응답하지 않아 멈췄어요. 질문은 화면에서 확인하고 바로 답해 주세요."
+
+/** What leaving would destroy, as a confirmation question; "" when nothing would be lost. Nothing is stored on a server,
+ *  so answers of an unfinished interview and recordings (kept only in this tab) are lost on leaving. On the result
+ *  screen only the recordings are asked about: the answers are there to read, the recordings are files to save. */
+export function leaveWarning({ answers, recordings, finished }: { answers: number; recordings: number; finished: boolean }): string {
+  if (finished) return recordings ? `녹화한 답변 영상 ${recordings}개는 이 브라우저에만 있어요. 저장하지 않고 이 화면을 벗어나면 사라져요. 계속할까요?` : ""
+  if (!answers && !recordings) return ""
+  const what = [answers && `답변 ${answers}개`, recordings && `영상 ${recordings}개`].filter(Boolean).join(", ")
+  return `진행 중인 면접 기록(${what})은 저장되지 않아 이 화면을 벗어나면 사라져요. 계속할까요?`
+}
+
+/** True when a click on this link leaves the page for another page of this site. Such a client-side navigation never
+ *  fires beforeunload, so the interview asks itself. Downloads, new tabs or windows, other sites (beforeunload covers
+ *  them) and links to this same page are left alone. */
+export function isInSiteLeave(link: { href: string; target?: string | null; download?: boolean }, click: { button: number; modified: boolean }, here: string): boolean {
+  if (click.button !== 0 || click.modified || link.download || (link.target && link.target !== "_self")) return false
+  let to: URL, from: URL
+  try { to = new URL(link.href, here); from = new URL(here) } catch { return false }
+  return to.origin === from.origin && (to.pathname !== from.pathname || to.search !== from.search)
+}
+
 /** Message for a failed interview API call, by HTTP status, connectivity and the budget check's code. */
 export function apiFailureMessage(step: "questions" | "feedback" | "report", status: number | null, online: boolean, code?: unknown): string {
   const [what, obj] = step === "questions" ? ["질문", "질문을"] : step === "feedback" ? ["피드백", "피드백을"] : ["리포트", "리포트를"]

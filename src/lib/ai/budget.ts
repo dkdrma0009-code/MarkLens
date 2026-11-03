@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { clientId } from "@/lib/rate-limit"
-import { blockedReason, publicAIEnabled } from "@/lib/release/guard.mjs"
+import { aiAutoPaused, blockedReason, publicAIEnabled } from "@/lib/release/guard.mjs"
 
 /* Global AI budget (R-2). The in-memory limiter (rate-limit.ts) is per serverless instance, so it cannot cap the total
    number of paid AI calls. Each public AI request also takes one slot from two database counters (migration 024):
@@ -37,12 +37,15 @@ const isMissingQuota = (error: { code?: string; message?: string }) => error.cod
 const unavailable = () => NextResponse.json({ error: "AI 기능을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해주세요.", code: "ai_unavailable" }, { status: 503 })
 
 /** True when public AI is stopped on purpose, so a caller can skip the paid path without counting quota. */
-export const aiPaused = () => !!blockedReason("ai") || !publicAIEnabled()
+export const aiPaused = () => !!blockedReason("ai") || aiAutoPaused() || !publicAIEnabled()
 
 /** null when the call may proceed; otherwise the response to return (429 over quota, 503 when it cannot be counted). */
 export async function checkAiBudget(req: Request, feature: AiFeature, userId?: string | null): Promise<NextResponse | null> {
   const stopped = blockedReason("ai")
   if (stopped) return NextResponse.json({ error: stopped, code: "ai_paused" }, { status: 503 })
+  // AI_AUTO_PAUSED: the egress guard refuses every AI call outside an authorized manual test (guard.mjs guardFetch), and
+  // public routes never run in one. Refuse here, before the quota is spent on a call that cannot leave the server.
+  if (aiAutoPaused()) return NextResponse.json({ error: "AI 기능이 일시 중지되어 있습니다.", code: "ai_paused" }, { status: 503 })
   if (!publicAIEnabled()) return NextResponse.json({ error: "공개 AI 기능은 현재 중지되어 있습니다.", code: "ai_paused" }, { status: 503 })
   const limits = aiDailyLimits()
   const db = createAdminClient()

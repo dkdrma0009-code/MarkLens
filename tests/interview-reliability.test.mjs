@@ -130,7 +130,8 @@ test('interview client: results come from the local record; AI stop skips later 
   // Session-wide AI stop: feedback and report requests are skipped once a stop or spent quota is known.
   assert.match(src, /if \(aiOffRef\.current\) \{\s+await advanceWith\(/)
   assert.match(src, /if \(aiOffRef\.current\) \{\s+setReportFailure\(/)
-  assert.match(src, /if \(data\.fallback === "paused"\) markAiOff\("paused"\)/)
+  assert.match(src, /fallback = data\.fallback/)
+  assert.match(src, /if \(fallback === "paused"\) markAiOff\("paused"\)/)
   assert.match(src, /if \(reportBusyRef\.current\) return/)
   // The report request carries question and answer only, not the feedback kept for the result screen.
   assert.match(src, /qa: entries\.map\(\(\{ question, answer \}\) => \(\{ question, answer \}\)\)/)
@@ -141,15 +142,15 @@ test('progress: finish early with at least one answer, warn before leaving, show
   const early = src.slice(src.indexOf('async function finishEarly()'), src.indexOf('async function submitAnswer()'))
   assert.match(early, /if \(!entries\.length \|\| grading\) return/, 'no empty result shown as a finished interview')
   assert.match(early, /const draft = feedback \? "" : answer\.trim\(\)/, 'an answer being written is kept, a recorded one not doubled')
-  assert.match(early, /stopRequestedRef\.current = true/); assert.match(early, /recRef\.current\?\.stop\(\)/)
+  assert.match(early, /speech\(\)\.stop\(\)/) // late results ignored, no restart (tests/interview-lifecycle.test.mjs)
   assert.match(early, /if \(draft\) \{ stopClip\(current\); recordMetrics\(draft\) \}/)
   assert.match(early, /await generateReport\(entries\)/) // which stops camera, recording and speech synthesis
-  assert.match(src, /function stopCamera\(\) \{[\s\S]*?speechSynthesis\.cancel\(\)[\s\S]*?getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
+  assert.match(src, /function stopCamera\(\) \{[\s\S]*?reader\(\)\.cancel\(\)[\s\S]*?getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
   // The button exists only when there is something to show.
   assert.match(src, /\{\(qa\.length > 0 \|\| \(!feedback && !!answer\.trim\(\)\)\) && !\(feedback && current \+ 1 >= questions\.length\) && \(\s+<button onClick=\{finishEarly\}/)
-  // beforeunload only while answers are on screen, and removed afterwards.
-  assert.match(src, /const unsaved = \(stage === "interview" \|\| stage === "grading"\) && \(qa\.length > 0 \|\| !!answer\.trim\(\)\)/)
-  assert.match(src, /if \(!unsaved\) return\s+const warn = \(e: BeforeUnloadEvent\) => \{ e\.preventDefault\(\); e\.returnValue = "" \}\s+window\.addEventListener\("beforeunload", warn\)\s+return \(\) => window\.removeEventListener\("beforeunload", warn\)/)
+  // beforeunload (and the in-site link check) only while something would be lost, and removed afterwards.
+  assert.match(src, /const leaveMessage = leaveWarning\(\{[\s\S]*?answers: inInterview \? qa\.length \+ \(stage === "interview" && !feedback && answer\.trim\(\) \? 1 : 0\) : 0,/)
+  assert.match(src, /if \(!leaveMessage\) return[\s\S]*?window\.addEventListener\("beforeunload", warn\)[\s\S]*?window\.removeEventListener\("beforeunload", warn\)/)
   // "새 질문으로 다시" (prep) returns to the result screen on failure: the error must render there.
   const results = src.slice(src.indexOf('if (stage === "report") return ('))
   assert.match(results.slice(0, 400), /\{error && <p role="alert"/)
@@ -170,11 +171,12 @@ test('measurements: answer time starts after the question is read; recordings ke
   assert.equal(support.recordingExtension('video/ogg'), null)
 
   const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
-  // Video mode: the timer restarts when speech synthesis ends or fails (speak() calls onEnd on error and when unsupported).
+  // Video mode: the timer restarts when the reading ends, fails, times out or is skipped (behaviour: interview-lifecycle).
   assert.match(src, /const startListening = \(\) => \{\s+qStartRef\.current = Date\.now\(\)/)
-  assert.match(src, /u\.onend = \(\) => \{ setSpeaking\(false\); onEnd\?\.\(\) \}/)
-  assert.match(src, /u\.onerror = \(\) => \{ setSpeaking\(false\); onEnd\?\.\(\) \}/)
-  assert.match(src, /\} catch \{ setSpeaking\(false\); onEnd\?\.\(\) \}/)
+  const voiceSrc = readFileSync('src/lib/interview/voice.ts', 'utf8')
+  assert.match(voiceSrc, /u\.onend = \(\) => finish\("end"\)/)
+  assert.match(voiceSrc, /u\.onerror = \(\) => finish\("end"\)/)
+  assert.match(voiceSrc, /\} catch \{ finish\("end"\) \}/)
   // Recording type: the recorder's own, else the one it was started with — never a hard-coded webm guess.
   assert.match(src, /const type = mr\.mimeType \|\| clipMimeRef\.current/)
   assert.doesNotMatch(src, /\|\| "video\/webm"/)
@@ -189,8 +191,11 @@ test('measurements: answer time starts after the question is read; recordings ke
 
 test('interview client: no restart loop after a fatal speech error, typing fallback and question caption in video mode, skip on feedback failure', () => {
   const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
-  assert.match(src, /if \(videoModeRef\.current && !stopRequestedRef\.current && !speechFatalRef\.current\)/)
-  assert.match(src, /if \(fatal\) \{ speechFatalRef\.current = true; stopRequestedRef\.current = true; setSpeechIssue\(message\) \}/)
+  // The restart loop guard now lives in voice.ts (behaviour: interview-lifecycle "fatal speech error stops for good").
+  const voiceSrc = readFileSync('src/lib/interview/voice.ts', 'utf8')
+  assert.match(voiceSrc, /if \(isFatal\) \{ fatal = true; o\.onFatal\(message\) \}/)
+  assert.match(voiceSrc, /if \(!fatal && o\.autoRestart\(\)\)/)
+  assert.match(src, /autoRestart: \(\) => videoModeRef\.current/)
   assert.match(src, /\{!speechSupported \|\| speechIssue \? \(/)
   assert.match(src, /<span className="sr-only">면접 질문: <\/span>\{q\.question\}/)
   assert.match(src, /MEDIA_MESSAGES\[camIssue\]\.title/)
