@@ -90,10 +90,8 @@
   .ml-room-heading h1 { font-size: 30px; }
   .ml-room-description { font-size: 14px; }
   .ml-training .ml-career-question { font-size: 22px; }
-  .ml-training textarea[rows="5"] { min-height: 175px; padding-right: 64px; }
+  .ml-training textarea[rows="5"] { min-height: 175px; }
   .ml-training .aspect-\[4\/3\] { aspect-ratio: 16 / 9; }
-  .ml-training .flex.gap-2:has(> button[aria-label="질문 다시 듣기"]) { flex-wrap: wrap; }
-  .ml-training .flex.gap-2:has(> button[aria-label="질문 다시 듣기"]) > button:last-child { flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ml-career *, .ml-career *::before, .ml-career *::after { animation: none !important; transition: none !important; }

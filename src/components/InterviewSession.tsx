@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { Mic, MicOff, Volume2, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
+import { Volume2, VolumeX, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
 import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, isInSiteLeave, leaveWarning, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, READING_TIMEOUT_MESSAGE, recordingExtension, type MediaIssue } from "@/lib/interview/support"
 import { createQuestionReader, createSpeechInput, type QuestionReader, type RecognitionLike, type SpeechInput, type UtteranceLike } from "@/lib/interview/voice"
 
@@ -32,7 +32,9 @@ interface AnswerMetrics {
   sec: number      // 답변 소요 시간
   chars: number    // 글자 수 (공백 제외)
   fillers: number  // 필러 단어 횟수
-  voice: boolean   // 음성 답변 여부 (말속도 지표는 음성일 때만 의미)
+  // How the answer was written. Speaking rate and fillers are measured only on "voice": a typed or edited text is not
+  // what was said, so it is never reported as speech.
+  input: "voice" | "text" | "mixed"
 }
 
 const FILLER_WORDS = ["음", "어", "그", "이제", "막", "약간", "뭐", "어떤"]
@@ -106,9 +108,28 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [metrics, setMetrics] = useState<(AnswerMetrics | null)[]>([])
   const qStartRef = useRef<number>(0)
   const answerEndRef = useRef<number | null>(null) // first submission of this answer: a retried request is not answer time
-  const voiceUsedRef = useRef(false)
-  const videoModeRef = useRef(false)
+  const spokenRef = useRef(false) // this answer got recognized speech
+  const typedRef = useRef(false)  // this answer was typed or edited by hand
   const answerRef = useRef("")
+
+  // ── 장치 선택 — 모두 기본 꺼짐. 답변은 언제나 입력창으로 할 수 있고, 카메라·마이크·질문 읽기는 켤 때만 쓴다 ──
+  // Preferences, kept for the whole session (restart, change role). The refs serve callbacks of the voice controllers.
+  const [cameraOn, setCameraOn] = useState(false)
+  const [micOn, setMicOn] = useState(false)
+  const [autoRead, setAutoRead] = useState(false)
+  const micOnRef = useRef(false)
+  const autoReadRef = useRef(false)
+  const setMic = (on: boolean) => { micOnRef.current = on; setMicOn(on) }
+  const setRead = (on: boolean) => { autoReadRef.current = on; setAutoRead(on) }
+  // Sound in the recording: a sub-option of the camera, off by default and separate from "음성 답변" (speech-to-text).
+  // Only when it is on does the camera request use the microphone.
+  const [recordAudio, setRecordAudio] = useState(false)
+  const recordAudioRef = useRef(false)
+  const setSound = (on: boolean) => { recordAudioRef.current = on; setRecordAudio(on) }
+  // Changed while an answer was being recorded: that recording keeps its setting (no track swap during a recording) and
+  // the camera reopens with the new one once it has ended, for the next answer.
+  const [soundChangePending, setSoundChangePending] = useState(false)
+  const [soundNotice, setSoundNotice] = useState("")
 
   // ── 음성 입력 (Web Speech API, 크롬 계열) ──
   const [recording, setRecording] = useState(false)
@@ -120,8 +141,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const speechRef = useRef<SpeechInput | null>(null)
   const readerRef = useRef<QuestionReader | null>(null)
 
-  // ── 화상 모드 (v2.1) — 영상은 브라우저에만 저장, 서버 전송 없음 ──
-  const [videoMode, setVideoMode] = useState(false)
+  // ── 카메라 녹화 (v2.1) — 영상은 브라우저에만 저장, 서버 전송 없음 ──
   const [camStream, setCamStream] = useState<MediaStream | null>(null)
   const [camIssue, setCamIssue] = useState<MediaIssue | null>(null)
   const camRequestRef = useRef(0) // bumped by every camera request and by stopCamera: a late answer is dropped
@@ -130,9 +150,11 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [notice, setNotice] = useState("") // e.g. questions came from the no-AI fallback bank
   const [feedbackFailed, setFeedbackFailed] = useState(false)
   const [clipRecording, setClipRecording] = useState(false)
-  // type = what the browser recorded (webm, mp4, …); the download name follows it, nothing is converted
-  const [clips, setClips] = useState<({ url: string; type: string } | null)[]>([])
+  // type = what the browser recorded (webm, mp4, …); the download name follows it, nothing is converted.
+  // audio = the recording has a sound track (the result screen says so).
+  const [clips, setClips] = useState<({ url: string; type: string; audio: boolean } | null)[]>([])
   const clipMimeRef = useRef("")
+  const clipAudioRef = useRef(false)
   const camVideoRef = useRef<HTMLVideoElement | null>(null)
   const clipRecRef = useRef<MediaRecorder | null>(null)
   const clipChunksRef = useRef<Blob[]>([])
@@ -148,11 +170,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         return SR ? new SR() : null
       },
       baseText: () => answerRef.current,
-      onText: text => { voiceUsedRef.current = true; answerRef.current = text; setAnswer(text) },
+      onText: text => { spokenRef.current = true; answerRef.current = text; setAnswer(text) },
       onListening: setRecording,
-      onFatal: setSpeechIssue,
-      // 화상 모드: 침묵으로 인식이 끊겨도 답변 중이면 다시 듣는다(치명적 오류 뒤에는 다시 시작하지 않는다)
-      autoRestart: () => videoModeRef.current,
+      // Refused microphone, no microphone, no service: the microphone setting turns off and typing carries on.
+      onFatal: message => { setSpeechIssue(message); setMic(false) },
+      // 마이크를 켜 둔 동안: 침묵으로 인식이 끊겨도 다시 듣는다(치명적 오류 뒤에는 다시 시작하지 않는다)
+      autoRestart: () => micOnRef.current,
       classifyError: classifySpeechError,
     })
   }
@@ -177,11 +200,13 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   function stopCamera() {
     camRequestRef.current++ // a camera request still waiting for permission is dropped when it answers
     try { if (clipRecRef.current?.state === "recording") clipRecRef.current.stop() } catch {}
-    reader().cancel() // a question being read must not open the microphone after this
     camStreamRef.current?.getTracks().forEach(t => t.stop())
     camStreamRef.current = null
     setCamStream(null)
     setClipRecording(false)
+    // a sound change waiting for this camera is moot: the next openCamera reads the setting itself
+    setSoundChangePending(false)
+    setSoundNotice("")
   }
 
   function startClip() {
@@ -193,6 +218,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       if (!mimeType) return
       const mr = new MediaRecorder(stream, { mimeType })
       clipMimeRef.current = mimeType
+      clipAudioRef.current = stream.getAudioTracks().some(t => t.readyState === "live")
       mr.ondataavailable = e => { if (e.data.size > 0) clipChunksRef.current.push(e.data) }
       clipRecRef.current = mr
       mr.start()
@@ -203,12 +229,13 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   function stopClip(saveIndex: number) {
     const mr = clipRecRef.current
     if (!mr || mr.state !== "recording") return
+    const audio = clipAudioRef.current
     mr.onstop = () => {
       const type = mr.mimeType || clipMimeRef.current // the recorder's actual type; else the one it was started with
       const url = URL.createObjectURL(new Blob(clipChunksRef.current, { type }))
       setClips(prev => {
         const next = [...prev]
-        next[saveIndex] = { url, type }
+        next[saveIndex] = { url, type, audio }
         return next
       })
     }
@@ -216,34 +243,47 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     setClipRecording(false)
   }
 
-  // 새 질문이 표시되면(화상 모드): 녹화 시작 → 면접관이 질문을 말함 → 발화가 끝나면 마이크 ON
-  // (턴제로 실제 화상면접처럼. TTS가 끝난 뒤 받아적기를 시작해 면접관 음성이 마이크에 잡혀 오인식되는 것도 방지)
+  // 새 질문이 표시되면: (질문 자동 읽기를 켰다면) 면접관이 질문을 읽고 → 답변 시작. 답변 시간은 이때부터 재고,
+  // 마이크를 켰다면 이때 듣기 시작한다(읽는 동안 듣지 않아 면접관 음성이 받아 적히지 않는다).
   useEffect(() => {
-    if (stage === "interview" && videoMode && camStream && !feedback && !grading) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      startClip()
-      const text = questions[current]?.question
-      // The answer starts once the question has been read, skipped or given up on: the reading is not answer time.
-      // A reading cancelled because the answer was submitted or the interview ended never gets here (voice.ts).
-      const startListening = () => {
-        qStartRef.current = Date.now()
-        if (speechSupported) speech().start()
-      }
-      if (text) reader().read(text, startListening)
-      else startListening()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, current, feedback, camStream])
-
-  // 답변 타이머 시작 (질문 표시 시점). 화상 모드는 면접관이 질문을 다 읽은 뒤 다시 시작한다(startListening).
-  useEffect(() => {
-    if (stage === "interview" && !feedback) {
+    if (stage !== "interview" || feedback) return
+    qStartRef.current = Date.now()
+    answerEndRef.current = null
+    spokenRef.current = false
+    typedRef.current = false
+    answerRef.current = ""
+    const text = questions[current]?.question
+    // The answer starts once the question has been read, skipped or given up on: the reading is not answer time.
+    // A reading cancelled because the answer was submitted or the interview ended never gets here (voice.ts).
+    const beginAnswer = () => {
       qStartRef.current = Date.now()
-      answerEndRef.current = null
-      voiceUsedRef.current = false
-      answerRef.current = ""
+      if (micOnRef.current) speech().start()
     }
+    if (autoReadRef.current && text) reader().read(text, beginAnswer)
+    else beginAnswer()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, current, feedback])
+
+  // 녹화 소리 설정이 녹화 도중 바뀌었다면: 그 녹화가 끝난 뒤 카메라를 새 설정으로 다시 연다(다음 답변부터 적용).
+  // Declared before the recording effect, which waits while a change is pending, so no answer starts on the old stream.
+  useEffect(() => {
+    if (!soundChangePending || clipRecording || !camStream) return
+    if (camStream.getAudioTracks().length > 0 === recordAudioRef.current) {
+      // toggled back before it applied: nothing to reopen
+      setSoundChangePending(false)
+      setSoundNotice("")
+      return
+    }
+    void reopenCamera()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundChangePending, clipRecording, camStream])
+
+  // 카메라가 켜져 있으면 답변마다 녹화한다(질문이 열려 있을 때만; 피드백·평가 중에는 녹화하지 않는다).
+  // An answer already recorded is not overwritten when the camera is turned on again on the same question.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stage === "interview" && camStream && !feedback && !grading && !clips[current] && !soundChangePending) startClip()
+  }, [stage, current, feedback, grading, camStream, clips, soundChangePending])
 
   // Leaving would lose answers of the interview in progress, or recordings (only in this tab). Closing or reloading the
   // tab asks through beforeunload (browsers may skip it, often on mobile); a click on an in-site link asks here, because
@@ -277,7 +317,6 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   }, [leaveMessage])
   useEffect(() => { onLeaveWarningChange?.(leaveMessage) }, [leaveMessage, onLeaveWarningChange])
 
-  useEffect(() => { videoModeRef.current = videoMode }, [videoMode])
   useEffect(() => { answerRef.current = answer }, [answer])
   useEffect(() => { clipsRef.current = clips }, [clips])
 
@@ -299,16 +338,55 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     }
   }, [])
 
+  // 마이크 켜기/끄기 — 켜는 순간에만 음성 인식을 시작한다. 질문을 읽는 중이면 읽기가 끝난 뒤, 피드백 화면이면
+  // 다음 질문에서 시작한다. 끄면 인식을 바로 멈춘다(늦게 오는 결과는 voice.ts가 버린다).
   function toggleMic() {
-    if (speech().listening) speech().stop()
-    else speech().start()
+    if (micOnRef.current) { setMic(false); speech().stop(); return }
+    setMic(true)
+    if (stage === "interview" && !feedback && !grading && !speaking) speech().start()
   }
 
-  // 화상 모드: 받아적기 초기화 후 재시작 (이전 인식이 끝나면 새로 시작 — voice.ts)
+  function toggleRead() { setRead(!autoReadRef.current) }
+
+  // 카메라 켜기/끄기 — 켜는 순간에만 권한을 묻는다(설정 화면에서 켰다면 면접을 시작할 때). 끄면 이 답변의 녹화를
+  // 저장하고 카메라·마이크 트랙을 실제로 해제한다. 권한이 거부돼도 면접은 입력창으로 계속된다.
+  async function toggleCamera() {
+    if (cameraOn) {
+      setCameraOn(false)
+      stopClip(current)
+      stopCamera()
+      setCamIssue(null)
+      return
+    }
+    setCameraOn(true)
+    if (stage !== "settings") await openCamera()
+  }
+
+  // 녹화에 소리 포함 켜기/끄기 — '음성 답변'(받아쓰기)과 따로 움직인다. 카메라가 열려 있으면 새 설정으로 다시 여는데,
+  // 답변을 녹화하는 중이면 그 녹화는 그대로 두고 끝난 뒤에 적용한다(녹화 중 트랙 교체는 하지 않는다).
+  function toggleSound() {
+    const on = !recordAudioRef.current
+    setSound(on)
+    setSoundNotice("")
+    if (!camStreamRef.current) return // applied when the camera opens
+    if (clipRecRef.current?.state === "recording") {
+      setSoundChangePending(true)
+      setSoundNotice(on ? "이 답변 녹화는 그대로 두고, 다음 답변부터 소리를 함께 녹화해요." : "이 답변 녹화는 그대로 두고, 다음 답변부터 영상만 녹화해요.")
+    } else void reopenCamera()
+  }
+
+  async function reopenCamera() {
+    stopCamera() // also clears the pending change and its notice
+    await openCamera()
+  }
+
+  // 마이크를 켠 동안: 받아적기 초기화 후 재시작 (이전 인식이 끝나면 새로 시작 — voice.ts)
   function retrySpeak() {
     speech().stop()
     answerRef.current = ""
     setAnswer("")
+    spokenRef.current = false
+    typedRef.current = false
     speech().start()
   }
 
@@ -326,10 +404,11 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // 면접을 끝내면 읽기가 취소돼 마이크가 다시 켜지지 않는다.
   function replayQuestion() {
     speech().stop()
-    reader().read(questions[current]?.question ?? "", () => { if (speechSupported) speech().start() })
+    reader().read(questions[current]?.question ?? "", () => { if (micOnRef.current) speech().start() })
   }
 
-  // 화상 모드 카메라: 원인별 안내. 마이크만 거부된 경우 카메라만이라도 켠다(답변은 입력창으로 가능).
+  // 카메라: 원인별 안내. 마이크는 '녹화에 소리 포함'을 켰을 때만 요청한다. 마이크만 거부·없음이면 영상만 녹화하고
+  // 그 사실을 알린다(답변은 입력창으로 가능).
   // 권한 응답이 면접 종료(stopCamera) 뒤나 더 새로운 요청 뒤에 오면, 받은 장치를 바로 해제하고 버린다.
   async function openCamera(): Promise<boolean> {
     const request = ++camRequestRef.current
@@ -338,14 +417,19 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     const pre = mediaSupportIssue({ isSecureContext: window.isSecureContext, hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia })
     if (pre) { setCamIssue(pre); return false }
     const video = { width: { ideal: 1280 }, facingMode: "user" }
+    const withSound = recordAudioRef.current
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video, audio: true })
+      stream = await navigator.mediaDevices.getUserMedia({ video, audio: withSound })
     } catch (err) {
       if (stale()) return false
       const issue = classifyMediaError(err)
-      if (issue !== "denied" && issue !== "no-device") { setCamIssue(issue); return false }
+      if (!withSound || (issue !== "denied" && issue !== "no-device")) { setCamIssue(issue); return false }
       try { stream = await navigator.mediaDevices.getUserMedia({ video }) } catch (err2) { if (!stale()) setCamIssue(classifyMediaError(err2)); return false }
+      if (!stale()) {
+        setSound(false)
+        setSoundNotice("마이크를 쓸 수 없어 소리 없이 영상만 녹화해요. 면접은 그대로 계속돼요.")
+      }
     }
     if (stale()) { stream.getTracks().forEach(t => t.stop()); return false }
     camStreamRef.current = stream
@@ -361,21 +445,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       : "오늘 AI 사용 한도에 도달해 AI 피드백과 종합 평가 없이 진행해요. 답변 기록과 참고 지표는 결과 화면에서 볼 수 있어요.")
   }
 
-  // 카메라 없이 기본 면접으로 전환 (진행 중인 질문·답변은 유지)
-  function continueWithoutCamera() {
-    stopCamera()
-    setCamIssue(null)
-    setVideoMode(false)
-  }
-
   // The previous result (answers, recordings, metrics, AI state) is replaced only once the new questions have arrived:
   // a failed request returns to it intact, with no camera left on for an interview that never started.
   async function start(prevStage: Stage = "settings") {
     setError("")
     setStage("loading")
 
-    // 화상 모드: 카메라 권한 + 스트림 (실패해도 면접은 진행 — 원인과 다음 행동을 화면에 안내)
-    const openedCamera = videoMode && !camStreamRef.current ? await openCamera() : false
+    // 카메라를 켜 두었다면: 권한 + 스트림 (실패해도 면접은 진행 — 원인과 다음 행동을 화면에 안내)
+    const openedCamera = cameraOn && !camStreamRef.current ? await openCamera() : false
 
     try {
       let newQuestions: Question[]
@@ -429,7 +506,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       sec: Math.round((end - qStartRef.current) / 1000),
       chars: text.replace(/\s/g, "").length,
       fillers: countFillers(text),
-      voice: voiceUsedRef.current,
+      input: spokenRef.current ? (typedRef.current ? "mixed" : "voice") : "text",
     }
     setMetrics(prev => {
       const next = [...prev]
@@ -517,7 +594,8 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   async function generateReport(entries = qa) {
     if (reportBusyRef.current) return // one request at a time
     speech().stop() // 면접 종료 — 음성 인식이 다시 켜지지 않게
-    stopCamera() // 면접 종료 — 카메라와 질문 읽기 해제 (녹화 클립은 유지)
+    reader().cancel() // 읽던 질문이 끝나도 마이크를 다시 켜지 않게
+    stopCamera() // 면접 종료 — 카메라 해제 (녹화 클립은 유지)
     setReport(null)
     setReportFailure(null)
     if (aiOffRef.current) {
@@ -610,6 +688,39 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
   const q = questions[current]
 
+  // 카메라·마이크·질문 읽기 — 설정 화면과 면접 화면이 같은 버튼을 쓴다(맞춤 면접도 면접 화면에서 켤 수 있다).
+  const toggleClass = (on: boolean) => `flex-1 min-w-[6.5rem] py-2.5 px-3 rounded-xl border-2 text-sm font-semibold transition-all disabled:opacity-40 ${on ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`
+  const inSettings = stage === "settings"
+  const cameraState = !cameraOn ? "꺼짐" : inSettings ? "켜짐" : camStream ? (clipRecording ? "녹화 중" : "켜짐") : camIssue ? "연결 안 됨" : "연결 중…"
+  const micState = !speechSupported ? "지원 안 됨" : speechIssue ? "사용 불가" : !micOn ? "꺼짐" : recording ? "듣는 중" : "켜짐"
+  const streamHasSound = !!camStream && camStream.getAudioTracks().length > 0
+  const deviceToggles = (
+    <div className="space-y-2">
+      <div role="group" aria-label="면접 장치 설정" className="flex flex-wrap gap-2">
+        <button type="button" aria-pressed={cameraOn} onClick={() => { void toggleCamera() }} className={toggleClass(cameraOn)}>
+          <span aria-hidden="true">📷 </span>카메라 녹화 <span className="font-normal opacity-80">· {cameraState}</span>
+        </button>
+        <button type="button" aria-pressed={micOn} onClick={toggleMic} disabled={!speechSupported || !!speechIssue || grading} className={toggleClass(micOn)}>
+          <span aria-hidden="true">🎙 </span>음성 답변 <span className="font-normal opacity-80">· {micState}</span>
+        </button>
+        <button type="button" aria-pressed={autoRead} onClick={toggleRead} className={toggleClass(autoRead)}>
+          <span aria-hidden="true">🔊 </span>질문 자동 읽기 <span className="font-normal opacity-80">· {autoRead ? "켜짐" : "꺼짐"}</span>
+        </button>
+      </div>
+      {/* 카메라의 하위 옵션 — 녹화용 마이크. '음성 답변'(받아쓰기)과는 따로 켜고 끈다 */}
+      {cameraOn && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button type="button" aria-pressed={recordAudio} onClick={toggleSound}
+            className={`py-2 px-3 rounded-xl border-2 text-xs font-semibold transition-all ${recordAudio ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
+            <span aria-hidden="true">🔈 </span>녹화에 소리 포함 <span className="font-normal opacity-80">· {recordAudio ? "켜짐" : "꺼짐"}</span>
+          </button>
+          <span className="text-xs text-gray-400">카메라 녹화용 마이크예요. ‘음성 답변’과는 따로 켜고 꺼요.</span>
+        </div>
+      )}
+      {soundNotice && <p role="status" className="text-xs text-amber-700 dark:text-amber-400">{soundNotice}</p>}
+    </div>
+  )
+
   // ── 설정 ──
   if (stage === "settings") return (
     <div className="space-y-8">
@@ -639,34 +750,23 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       </div>
 
       <div>
-        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">면접 방식</p>
-        <div className="flex gap-3">
-          <button aria-pressed={!videoMode} onClick={() => setVideoMode(false)}
-            className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${!videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
-            <p className="text-sm font-bold">기본</p>
-            <p className={`text-xs mt-0.5 ${!videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>타이핑 · 음성 답변</p>
-          </button>
-          <button aria-pressed={videoMode} onClick={() => setVideoMode(true)}
-            className={`flex-1 py-3 px-2 rounded-xl border-2 transition-all ${videoMode ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}>
-            <p className="text-sm font-bold">📹 화상 면접</p>
-            <p className={`text-xs mt-0.5 ${videoMode ? "text-white/70 dark:text-black/60" : "text-gray-400"}`}>카메라 켜고 말로만 답변</p>
-          </button>
-        </div>
-        {videoMode && (
+        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">카메라·마이크·질문 읽기 <span className="font-normal text-gray-400">(선택)</span></p>
+        <p className="text-xs text-gray-400 mb-3">답변은 언제나 입력창에 쓸 수 있어요. 필요한 것만 켜세요 — 면접 중에도 바꿀 수 있어요.</p>
+        {deviceToggles}
+        {cameraOn && (
           <p className="text-xs text-gray-400 mt-2">
-            🔒 영상은 내 브라우저에만 저장돼요 — 서버로 전송되지 않고, 탭을 닫으면 사라집니다.
+            🔒 카메라 녹화는 답변마다 영상을 녹화해 내 브라우저에만 저장해요 — 서버로 전송되지 않고, 탭을 닫으면 사라집니다. 소리는 ‘녹화에 소리 포함’을 켰을 때만 녹음해요. 권한은 면접을 시작할 때 물어요.
           </p>
         )}
-        {videoMode && !speechSupported && (
+        {!speechSupported && (
           <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5">
-            이 브라우저는 음성 인식을 지원하지 않아 화상 면접에서도 답변을 입력창에 써야 해요. 음성 답변은 Chrome·Edge에서 지원돼요.
+            이 브라우저는 음성 인식을 지원하지 않아 답변은 입력창에 써 주세요. 음성 답변은 Chrome·Edge에서 지원돼요.
           </p>
         )}
       </div>
 
       <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
         💡 최근 마케팅 트렌드를 인용한 질문이 섞여 나와요. 실제 면접처럼 소리 내어 답해보세요.
-        {speechSupported ? " 마이크 버튼으로 음성 답변도 가능해요." : " (음성 답변은 크롬 브라우저에서 지원돼요)"}
       </div>
 
       <button onClick={() => start("settings")}
@@ -714,137 +814,80 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
           style={{ width: `${((current + (feedback ? 1 : 0)) / questions.length) * 100}%` }} />
       </div>
 
-      {/* 화상 모드 — 카메라 풀뷰 (질문은 면접관 음성으로만 전달) */}
-      {videoMode && (
-        <div className="relative w-full mb-5 rounded-2xl overflow-hidden bg-black aspect-[4/3]">
-          {camStream ? (
-            <video ref={camVideoRef} autoPlay muted playsInline
-              className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
-          ) : camIssue ? (
-            <div role="alert" className="w-full h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
-              <p className="text-white text-base font-semibold">{MEDIA_MESSAGES[camIssue].title}</p>
-              <p className="text-white/70 text-sm leading-relaxed">{MEDIA_MESSAGES[camIssue].action}</p>
-              <div className="flex flex-wrap justify-center gap-2 mt-1">
-                {camIssue !== "insecure" && camIssue !== "unsupported" && (
-                  <button onClick={() => { void openCamera() }} className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold">다시 시도</button>
-                )}
-                <button onClick={continueWithoutCamera} className="px-4 py-2 rounded-xl border border-white/50 text-white text-sm font-semibold">카메라 없이 계속</button>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-white/40 text-sm px-4 text-center">카메라 연결 중…</div>
-          )}
-          {/* 상태 (상단 중앙) — 면접관이 말하는 중 / 내가 답할 차례 */}
-          <span className={`absolute top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full whitespace-nowrap ${
-            speaking ? "bg-emerald-500/90 text-white" : recording ? "bg-black/65 text-white" : "bg-black/55 text-white/70"
-          }`}>
-            {speaking ? "🔊 면접관이 질문하고 있어요" : recording ? "🎙 말씀하세요" : "잠시만요…"}
-          </span>
+      {/* 카메라·마이크·질문 읽기 — 면접 중에도 켜고 끌 수 있다. 무엇을 켜든 끄든 답변은 입력창으로 계속된다. */}
+      <div className="mb-3">{deviceToggles}</div>
+      {speechIssue && <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-400">{speechIssue}</p>}
+      {/* 지금 일어나는 일 — 읽는 중 / 듣는 중 / 녹화 중 (스크린리더에도 알린다) */}
+      <p role="status" className="mb-4 min-h-[1.25rem] text-xs font-semibold text-gray-500 dark:text-gray-400">
+        {[speaking && "🔊 질문을 읽고 있어요", recording && "🎙 듣고 있어요 — 말한 내용이 입력창에 적혀요", clipRecording && (streamHasSound ? "● 녹화 중 (영상·소리, 이 브라우저에만 저장)" : "● 녹화 중 (영상만, 이 브라우저에만 저장)")].filter(Boolean).join(" · ")}
+      </p>
+
+      {cameraOn && (camStream ? (
+        <div className="relative w-full sm:max-w-sm mb-5 rounded-2xl overflow-hidden bg-black aspect-[4/3]">
+          <video ref={camVideoRef} autoPlay muted playsInline aria-label="내 카메라 미리보기"
+            className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
           {clipRecording && (
             <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> REC
             </span>
           )}
         </div>
-      )}
-
-      {/* 화상 모드에도 질문 자막 — 음성이 안 나오는 기기·청각 사용자도 질문을 알 수 있게 */}
-      {videoMode && (
-        <p className="ml-career-question mb-5 text-base font-semibold text-gray-900 dark:text-gray-100 leading-relaxed">
-          <span className="sr-only">면접 질문: </span>{q.question}
-        </p>
-      )}
-
-      {/* 면접관 질문 — 기본 모드 */}
-      {!videoMode && (
-        <div className="ml-interview-question rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl flex-shrink-0">🧑‍💼</span>
-            <p className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1">{q.question}</p>
-            <button onClick={() => reader().read(q.question)} aria-label="질문 읽어주기"
-              className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors">
-              <Volume2 className="w-4 h-4" />
-            </button>
+      ) : camIssue ? (
+        <div role="alert" className="mb-5 rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm">
+          <p className="font-semibold text-amber-800 dark:text-amber-300">{MEDIA_MESSAGES[camIssue].title}</p>
+          <p className="mt-1 text-amber-800/80 dark:text-amber-300/80 leading-relaxed">{MEDIA_MESSAGES[camIssue].action} 답변은 입력창으로 계속할 수 있어요.</p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {camIssue !== "insecure" && camIssue !== "unsupported" && (
+              <button onClick={() => { void openCamera() }} className="px-4 py-2 rounded-xl border-2 border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200">다시 시도</button>
+            )}
+            <button onClick={() => { void toggleCamera() }} className="px-4 py-2 rounded-xl border-2 border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200">카메라 끄고 계속</button>
           </div>
         </div>
-      )}
+      ) : (
+        <p className="mb-5 text-sm text-gray-400">카메라 연결 중… 권한을 묻는 창이 보이면 허용하거나, 위의 ‘카메라 녹화’를 눌러 끌 수 있어요.</p>
+      ))}
+
+      {/* 면접관 질문 — 질문은 항상 화면에 보인다(소리가 안 나오는 기기·청각 사용자도). 🔊로 듣고, 읽는 중에는 멈출 수 있다. */}
+      <div className="ml-interview-question rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl flex-shrink-0">🧑‍💼</span>
+          <p className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1"><span className="sr-only">면접 질문: </span>{q.question}</p>
+          <button onClick={() => { if (speaking) reader().skip(); else replayQuestion() }} disabled={grading} aria-label={speaking ? "질문 읽기 멈추기" : "질문 듣기"}
+            className="flex-shrink-0 inline-flex items-center gap-1 p-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors disabled:opacity-40">
+            {speaking ? <><VolumeX className="w-4 h-4" /> 멈추기</> : <Volume2 className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
 
       {readingNotice && <p role="status" className="mb-4 text-sm text-amber-700 dark:text-amber-400">{readingNotice}</p>}
 
-      {/* 답변 — 화상 모드: 마이크 받아적기. 음성 인식이 없거나 실패하면 입력창으로 답한다(예전엔 여기서 멈췄다) */}
-      {!feedback && videoMode && (
+      {/* 답변 — 입력창은 언제나 있다. 마이크로 듣는 동안은 받아 적은 글이 여기에 보이고(그동안은 읽기 전용), 끄면 고칠 수 있다. */}
+      {!feedback && (
         <div className="space-y-3">
-          {!speechSupported || speechIssue ? (
-            <div className="space-y-2">
-              <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
-                {speechIssue || "이 브라우저는 음성 인식을 지원하지 않아요. 아래 입력창에 직접 답해 주세요."}
-              </p>
-              <textarea aria-label="면접 답변" value={answer} onChange={e => setAnswer(e.target.value)} disabled={grading} rows={5}
-                placeholder="답변을 입력하세요"
-                className="w-full px-5 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-base leading-relaxed focus:outline-none focus:border-gray-400 resize-none" />
-            </div>
-          ) : (
-          <div className="rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 min-h-[140px]">
-            <p className="text-xs font-semibold text-gray-400 mb-2.5">
-              {speaking ? "🔊 면접관이 질문하고 있어요 — 잠시 들어주세요" : recording ? "🎙 듣고 있어요 — 카메라를 보고 말씀하세요" : "🎙 마이크 연결 중..."}
-            </p>
-            {answer ? (
-              <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">{answer}</p>
-            ) : (
-              <p className="text-base text-gray-300 dark:text-gray-600">말씀하시면 여기에 실시간으로 받아 적혀요</p>
-            )}
-          </div>
-          )}
+          <textarea
+            aria-label="면접 답변"
+            aria-describedby={recording ? "interview-answer-hint" : undefined}
+            value={answer}
+            onChange={e => { typedRef.current = true; setAnswer(e.target.value) }}
+            readOnly={recording}
+            disabled={grading}
+            rows={5}
+            placeholder={recording ? "듣고 있어요... 말씀하세요 🎙" : micOn ? "말하거나 입력하세요" : "답변을 입력하세요"}
+            className={`w-full px-5 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-base leading-relaxed focus:outline-none focus:border-gray-400 transition-colors disabled:opacity-60 resize-none ${recording ? "bg-gray-50 dark:bg-gray-900/60" : "bg-white dark:bg-gray-900"}`}
+          />
+          {recording && <p id="interview-answer-hint" className="text-xs text-gray-400">말하는 동안은 받아 적기만 해요. 글을 고치려면 ‘음성 답변’을 끄세요.</p>}
           <div className="flex gap-2">
-            <button onClick={replayQuestion} disabled={grading || speaking} aria-label="질문 다시 듣기"
-              className="px-3.5 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-40">
-              🔊
-            </button>
-            {/* 읽기가 끝나지 않거나 이미 질문을 읽었을 때: 읽기를 멈추고 바로 답한다(답변 시간은 이때부터) */}
-            {speaking && (
-            <button onClick={() => reader().skip()}
-              className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap">
-              읽기 건너뛰기
-            </button>
-            )}
-            {speechSupported && !speechIssue && (
-            <button onClick={retrySpeak} disabled={grading || speaking}
-              className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-40">
-              🔁 다시 말하기
-            </button>
-            )}
-            <button onClick={submitAnswer} disabled={answer.trim().length < 10 || grading}
-              className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-              {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : aiOff ? "답변 저장하고 다음으로" : "답변 완료"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 답변 — 기본 모드: 타이핑 + 선택적 마이크 */}
-      {!feedback && !videoMode && (
-        <div className="space-y-3">
-          <div className="relative">
-            <textarea
-              aria-label="면접 답변"
-              value={answer}
-              onChange={e => setAnswer(e.target.value)}
-              disabled={grading}
-              rows={5}
-              placeholder={recording ? "듣고 있어요... 말씀하세요 🎙" : "답변을 입력하거나 마이크로 말해보세요"}
-              className="w-full px-5 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-base leading-relaxed focus:outline-none focus:border-gray-400 transition-colors disabled:opacity-60 resize-none"
-            />
-            {speechSupported && (
-              <button onClick={toggleMic} disabled={grading} aria-label={recording ? "녹음 중지" : "음성으로 답변"}
-                className={`absolute bottom-4 right-3 p-3 rounded-full transition-all ${recording ? "bg-red-500 text-white animate-pulse" : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200"}`}>
-                {recording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            {micOn && !speechIssue && (
+              <button onClick={retrySpeak} disabled={grading || speaking}
+                className="px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-40">
+                🔁 다시 말하기
               </button>
             )}
+            <button onClick={submitAnswer} disabled={!answer.trim() || grading}
+              className="flex-1 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : aiOff ? "답변 저장하고 다음으로" : "답변 제출"}
+            </button>
           </div>
-          <button onClick={submitAnswer} disabled={!answer.trim() || grading}
-            className="w-full py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-            {grading ? <><Loader2 className="w-4 h-4 animate-spin" /> 면접관이 평가 중...</> : aiOff ? "답변 저장하고 다음으로" : "답변 제출"}
-          </button>
         </div>
       )}
 
@@ -858,14 +901,19 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
                   ⏱ {metrics[current].sec >= 60 ? `${Math.floor(metrics[current].sec / 60)}분 ${metrics[current].sec % 60}초` : `${metrics[current].sec}초`}
                 </span>
-                {metrics[current].voice && metrics[current].sec >= 5 && (
+                {metrics[current].input === "voice" && metrics[current].sec >= 5 && (
                   <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
                     🗣 분당 {Math.round(metrics[current].chars / (metrics[current].sec / 60))}자 {(() => { const v = Math.round(metrics[current].chars / (metrics[current].sec / 60)); return v > 400 ? "(빠른 편)" : v < 200 ? "(느린 편)" : "(보통)" })()} · 참고
                   </span>
                 )}
-                {metrics[current].voice && metrics[current].fillers > 0 && (
+                {metrics[current].input === "voice" && metrics[current].fillers > 0 && (
                   <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
                     🤔 필러로 잡힌 단어 {metrics[current].fillers}회 · 참고
+                  </span>
+                )}
+                {metrics[current].input === "mixed" && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                    🗣 말하고 고친 답변 — 말속도는 계산하지 않아요
                   </span>
                 )}
               </>
@@ -959,9 +1007,11 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       {metrics.some(Boolean) && (() => {
         const ms = metrics.filter((m): m is AnswerMetrics => !!m)
         const avgSec = Math.round(ms.reduce((a, m) => a + m.sec, 0) / ms.length)
-        const voiced = ms.filter(m => m.voice && m.sec >= 5)
+        // speaking rate and fillers only from answers given entirely by voice: typed or edited text was not spoken
+        const spoken = ms.filter(m => m.input === "voice")
+        const voiced = spoken.filter(m => m.sec >= 5)
         const avgRate = voiced.length ? Math.round(voiced.reduce((a, m) => a + m.chars / (m.sec / 60), 0) / voiced.length) : null
-        const totalFillers = ms.reduce((a, m) => a + m.fillers, 0)
+        const totalFillers = spoken.length ? spoken.reduce((a, m) => a + m.fillers, 0) : null
         return (
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5 mb-6">
             <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">🎙 답변 참고 지표</p>
@@ -975,13 +1025,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
                 <p className="text-xs text-gray-400 mt-0.5">분당 글자 수 {avgRate ? (avgRate > 400 ? "(빠른 편)" : avgRate < 200 ? "(느린 편)" : "(보통)") : "(음성 답변 없음)"}</p>
               </div>
               <div>
-                <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{totalFillers}회</p>
-                <p className="text-xs text-gray-400 mt-0.5">필러로 잡힌 단어</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{totalFillers === null ? "—" : `${totalFillers}회`}</p>
+                <p className="text-xs text-gray-400 mt-0.5">필러로 잡힌 단어{totalFillers === null ? " (음성 답변 없음)" : ""}</p>
               </div>
             </div>
             {/* Heuristics on the transcript and the clock — say so, so they are not read as voice analysis. */}
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
               답변 글자 수와 시간으로 계산한 참고 값이에요. 목소리·발음은 분석하지 않아요.
+              말속도와 필러는 음성으로만 답한 답변에서 계산하고, 타이핑하거나 받아 적은 뒤 고친 답변은 빼요.
               필러는 &lsquo;음·어·그·이제·막&rsquo; 같은 단어를 센 것이라, 음성 인식이 지운 필러는 빠지고 일반 단어로 쓴 경우도 함께 세요.
             </p>
           </div>
@@ -1049,9 +1100,10 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
                   const clip = clips[i]!, ext = recordingExtension(clip.type)
                   return (
                     <div className="mt-4">
-                      <video src={clip.url} controls playsInline className="w-full aspect-video object-cover bg-black" />
+                      <video src={clip.url} controls playsInline aria-label={`답변 ${i + 1} 녹화, ${clip.audio ? "소리 포함" : "소리 없음"}`} className="w-full aspect-video object-cover bg-black" />
+                      <p className="mt-2 text-xs text-gray-500">{clip.audio ? "🔈 소리 포함" : "🔇 소리 없음 · 영상만 녹화"}</p>
                       <a href={clip.url} download={`marklens-면접답변-${i + 1}${ext ? `.${ext}` : ""}`}
-                        className="inline-block mt-2 text-xs font-semibold text-indigo-600 hover:underline">
+                        className="inline-block mt-1 text-xs font-semibold text-indigo-600 hover:underline">
                         영상 저장{ext ? ` (${ext.toUpperCase()})` : ""}
                       </a>
                     </div>

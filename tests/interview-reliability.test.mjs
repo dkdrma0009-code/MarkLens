@@ -145,7 +145,7 @@ test('progress: finish early with at least one answer, warn before leaving, show
   assert.match(early, /speech\(\)\.stop\(\)/) // late results ignored, no restart (tests/interview-lifecycle.test.mjs)
   assert.match(early, /if \(draft\) \{ stopClip\(current\); recordMetrics\(draft\) \}/)
   assert.match(early, /await generateReport\(entries\)/) // which stops camera, recording and speech synthesis
-  assert.match(src, /function stopCamera\(\) \{[\s\S]*?reader\(\)\.cancel\(\)[\s\S]*?getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
+  assert.match(src, /function stopCamera\(\) \{[\s\S]*?getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
   // The button exists only when there is something to show.
   assert.match(src, /\{\(qa\.length > 0 \|\| \(!feedback && !!answer\.trim\(\)\)\) && !\(feedback && current \+ 1 >= questions\.length\) && \(\s+<button onClick=\{finishEarly\}/)
   // beforeunload (and the in-site link check) only while something would be lost, and removed afterwards.
@@ -171,8 +171,8 @@ test('measurements: answer time starts after the question is read; recordings ke
   assert.equal(support.recordingExtension('video/ogg'), null)
 
   const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
-  // Video mode: the timer restarts when the reading ends, fails, times out or is skipped (behaviour: interview-lifecycle).
-  assert.match(src, /const startListening = \(\) => \{\s+qStartRef\.current = Date\.now\(\)/)
+  // With auto-reading on, the timer restarts when the reading ends, fails, times out or is skipped (behaviour: interview-lifecycle).
+  assert.match(src, /const beginAnswer = \(\) => \{\s+qStartRef\.current = Date\.now\(\)/)
   const voiceSrc = readFileSync('src/lib/interview/voice.ts', 'utf8')
   assert.match(voiceSrc, /u\.onend = \(\) => finish\("end"\)/)
   assert.match(voiceSrc, /u\.onerror = \(\) => finish\("end"\)/)
@@ -189,17 +189,17 @@ test('measurements: answer time starts after the question is read; recordings ke
   assert.doesNotMatch(src, /fillers >= 5 \? "bg-red-50/)
 })
 
-test('interview client: no restart loop after a fatal speech error, typing fallback and question caption in video mode, skip on feedback failure', () => {
+test('interview client: no restart loop after a fatal speech error, typing always available, question caption, skip on feedback failure', () => {
   const src = readFileSync('src/components/InterviewSession.tsx', 'utf8')
   // The restart loop guard now lives in voice.ts (behaviour: interview-lifecycle "fatal speech error stops for good").
   const voiceSrc = readFileSync('src/lib/interview/voice.ts', 'utf8')
   assert.match(voiceSrc, /if \(isFatal\) \{ fatal = true; o\.onFatal\(message\) \}/)
   assert.match(voiceSrc, /if \(!fatal && o\.autoRestart\(\)\)/)
-  assert.match(src, /autoRestart: \(\) => videoModeRef\.current/)
-  assert.match(src, /\{!speechSupported \|\| speechIssue \? \(/)
+  assert.match(src, /autoRestart: \(\) => micOnRef\.current/)
+  assert.match(src, /\{speechIssue && <p role="status"/) // the failure is said; the answer box stays (P4: one box for all settings)
   assert.match(src, /<span className="sr-only">면접 질문: <\/span>\{q\.question\}/)
   assert.match(src, /MEDIA_MESSAGES\[camIssue\]\.title/)
-  assert.match(src, /카메라 없이 계속/)
+  assert.match(src, /카메라 끄고 계속/)
   assert.match(src, /await generateReport\(entries\)/)
   assert.doesNotMatch(src, /onClick=\{generateReport\}/) // a click event must never become the report entries
   assert.doesNotMatch(src, /camError/)

@@ -330,17 +330,18 @@ test('B-1/B-2/B-5 wiring: every stop goes through the voice controllers, no stal
   assert.doesNotMatch(src, /stopRequestedRef|speechFatalRef|recRef|function startSpeech|function speak\(/)
   assert.doesNotMatch(src, /setTimeout\(\(\) => \{[^}]*start/, 'no restart hidden behind a timer')
   assert.match(fn('function replayQuestion()', '\n  }'), /speech\(\)\.stop\(\)\s+reader\(\)\.read\(/)
-  assert.match(fn('function retrySpeak()', '\n  }'), /speech\(\)\.stop\(\)[\s\S]*setAnswer\(""\)\s+speech\(\)\.start\(\)/)
+  assert.match(fn('function retrySpeak()', '\n  }'), /speech\(\)\.stop\(\)[\s\S]*setAnswer\(""\)[\s\S]*typedRef\.current = false\s+speech\(\)\.start\(\)/)
   const submit = fn('async function submitAnswer()', 'async function advanceWith')
   assert.match(submit, /speech\(\)\.stop\(\)[^\n]*\n\s+reader\(\)\.cancel\(\)/, 'submit stops listening and any re-reading before the next question')
   assert.match(fn('async function finishEarly()', 'async function submitAnswer()'), /speech\(\)\.stop\(\)/)
   const report = fn('async function generateReport(', 'async function next()')
-  assert.match(report, /speech\(\)\.stop\(\)[^\n]*\n\s+stopCamera\(\)/)
-  assert.match(fn('function stopCamera()', '\n  }'), /reader\(\)\.cancel\(\)/)
-  // answer time starts only when the reading ended, was skipped or timed out
-  assert.match(src, /const startListening = \(\) => \{\s+qStartRef\.current = Date\.now\(\)\s+if \(speechSupported\) speech\(\)\.start\(\)/)
-  assert.match(src, /if \(text\) reader\(\)\.read\(text, startListening\)/)
-  assert.match(src, /onClick=\{\(\) => reader\(\)\.skip\(\)\}/)
+  // the interview end stops listening and any reading; turning the camera off alone does not cancel a reading (P4)
+  assert.match(report, /speech\(\)\.stop\(\)[^\n]*\n\s+reader\(\)\.cancel\(\)[^\n]*\n\s+stopCamera\(\)/)
+  assert.doesNotMatch(fn('function stopCamera()', '\n  }'), /reader\(\)/)
+  // answer time starts only when the reading ended, was skipped or timed out (or at once when auto-reading is off)
+  assert.match(src, /const beginAnswer = \(\) => \{\s+qStartRef\.current = Date\.now\(\)\s+if \(micOnRef\.current\) speech\(\)\.start\(\)/)
+  assert.match(src, /if \(autoReadRef\.current && text\) reader\(\)\.read\(text, beginAnswer\)\s+else beginAnswer\(\)/)
+  assert.match(src, /onClick=\{\(\) => \{ if \(speaking\) reader\(\)\.skip\(\); else replayQuestion\(\) \}\}/)
   assert.match(src, /onTimeout: \(\) => setReadingNotice\(READING_TIMEOUT_MESSAGE\)/)
   assert.match(src, /\{readingNotice && <p role="status"/)
 })
@@ -352,7 +353,7 @@ test('B-3 restart: the previous result is released only after the new questions 
   for (const reset of ['setClips([])', 'setMetrics([])', 'setReportFailure(null)', 'setAiOff(null)']) {
     assert.ok(start.indexOf(reset) > got, `${reset} only on success`)
   }
-  assert.match(start, /const openedCamera = videoMode && !camStreamRef\.current \? await openCamera\(\) : false/)
+  assert.match(start, /const openedCamera = cameraOn && !camStreamRef\.current \? await openCamera\(\) : false/)
   assert.match(start.slice(start.indexOf('} catch (err)')), /if \(openedCamera\) stopCamera\(\)\s+setStage\(prevStage\)/)
 })
 
@@ -371,11 +372,99 @@ test('B-4 wiring: in-site links, restart, change role and prep "정보 수정" a
 test('B-8…B-11: answer time fixed at first submission, typed answers are not voice, late camera answers released, recordings freed on unmount', () => {
   assert.match(fn('function recordMetrics(', '\n  }'), /const end = answerEndRef\.current \?\?= Date\.now\(\)[\s\S]*sec: Math\.round\(\(end - qStartRef\.current\) \/ 1000\)/)
   assert.match(src, /answerEndRef\.current = null/)
-  assert.match(src, /onText: text => \{ voiceUsedRef\.current = true;/)
-  assert.equal(src.match(/voiceUsedRef\.current = true/g).length, 1, 'only recognized speech marks an answer as voice')
+  assert.match(src, /onText: text => \{ spokenRef\.current = true;/)
+  assert.equal(src.match(/spokenRef\.current = true/g).length, 1, 'only recognized speech marks an answer as spoken')
+  assert.match(src, /onChange=\{e => \{ typedRef\.current = true; setAnswer\(e\.target\.value\) \}\}/, 'typing marks it as typed')
+  assert.match(fn('function recordMetrics(', '\n  }'), /input: spokenRef\.current \? \(typedRef\.current \? "mixed" : "voice"\) : "text"/)
   const cam = fn('async function openCamera()', 'function markAiOff')
   assert.match(cam, /const request = \+\+camRequestRef\.current/)
   assert.match(cam, /if \(stale\(\)\) \{ stream\.getTracks\(\)\.forEach\(t => t\.stop\(\)\); return false \}/)
   assert.match(fn('function stopCamera()', '\n  }'), /camRequestRef\.current\+\+/)
   assert.match(src, /clipsRef\.current\.forEach\(c => \{ if \(c\) URL\.revokeObjectURL\(c\.url\) \}\)/)
+})
+
+// ── P4: camera, microphone and question reading are optional; typing always works ──
+test('P4 defaults: camera, microphone and auto-reading start off; no device is requested until turned on', () => {
+  assert.match(src, /const \[cameraOn, setCameraOn\] = useState\(false\)/)
+  assert.match(src, /const \[micOn, setMicOn\] = useState\(false\)/)
+  assert.match(src, /const \[autoRead, setAutoRead\] = useState\(false\)/)
+  assert.doesNotMatch(src, /videoMode/, 'no separate video interview mode left')
+  // getUserMedia only from openCamera, which runs on a camera click or at start when the camera was turned on
+  assert.equal(src.match(/getUserMedia\(/g).length, 2) // video+audio, then the video-only fallback
+  assert.equal(src.match(/await openCamera\(\)/g).length, 3) // camera click, interview start, reopen for a sound change
+  assert.match(fn('async function toggleCamera()', '\n  }\n'), /setCameraOn\(true\)\s+if \(stage !== "settings"\) await openCamera\(\)/)
+  assert.match(src, /const openedCamera = cameraOn && /)
+})
+
+test('P4 camera off: the answer recorded so far is kept, tracks are released, the interview goes on', () => {
+  const off = fn('async function toggleCamera()', 'setCameraOn(true)')
+  assert.match(off, /setCameraOn\(false\)\s+stopClip\(current\)\s+stopCamera\(\)/)
+  assert.match(fn('function stopCamera()', '\n  }'), /getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
+  // recording follows the camera, one clip per answer, never over an existing one
+  assert.match(src, /if \(stage === "interview" && camStream && !feedback && !grading && !clips\[current\] && !soundChangePending\) startClip\(\)/)
+  assert.match(src, /카메라 끄고 계속/)
+})
+
+test('P4 microphone: listening only after it is turned on; off stops it; a failure turns it off and typing stays', () => {
+  const mic = fn('function toggleMic()', '\n  }')
+  assert.match(mic, /if \(micOnRef\.current\) \{ setMic\(false\); speech\(\)\.stop\(\); return \}/)
+  assert.match(mic, /setMic\(true\)\s+if \(stage === "interview" && !feedback && !grading && !speaking\) speech\(\)\.start\(\)/)
+  assert.match(src, /onFatal: message => \{ setSpeechIssue\(message\); setMic\(false\) \}/)
+  assert.match(src, /autoRestart: \(\) => micOnRef\.current/)
+  assert.match(fn('function replayQuestion()', '\n  }'), /if \(micOnRef\.current\) speech\(\)\.start\(\)/)
+})
+
+test('P4 typing: one answer box for every setting, read-only only while speech is being written into it', () => {
+  const interview = src.slice(src.indexOf('if (stage === "interview" && q) return ('), src.indexOf('// ── 리포트 생성 중 ──'))
+  assert.equal(interview.match(/<textarea/g).length, 1)
+  assert.match(interview, /\{!feedback && \(\s+<div className="space-y-3">\s+<textarea/, 'the box does not depend on camera or microphone')
+  assert.match(interview, /readOnly=\{recording\}/)
+  assert.match(interview, /<span className="sr-only">면접 질문: <\/span>\{q\.question\}/, 'the question is always on screen')
+  assert.match(interview, /role="group" aria-label="면접 장치 설정"|\{deviceToggles\}/)
+  assert.match(src, /aria-pressed=\{cameraOn\}[\s\S]*aria-pressed=\{micOn\}[\s\S]*aria-pressed=\{autoRead\}/)
+})
+
+test('P4 metrics: speaking rate and fillers only for answers given entirely by voice', () => {
+  const results = src.slice(src.indexOf('if (stage === "report") return ('))
+  assert.match(results, /const spoken = ms\.filter\(m => m\.input === "voice"\)/)
+  assert.match(results, /const totalFillers = spoken\.length \? spoken\.reduce\(\(a, m\) => a \+ m\.fillers, 0\) : null/)
+  assert.doesNotMatch(src, /\.voice &&|m\.voice/)
+  assert.match(src, /metrics\[current\]\.input === "mixed"/)
+})
+
+// ── P4 recording sound: a separate, explicit sub-option of the camera ──
+test('P4 recording sound: off by default; the microphone is requested only when it is on; separate from speech answers', () => {
+  assert.match(src, /const \[recordAudio, setRecordAudio\] = useState\(false\)/)
+  const cam = fn('async function openCamera()', 'function markAiOff')
+  assert.match(cam, /const withSound = recordAudioRef\.current/)
+  assert.match(cam, /getUserMedia\(\{ video, audio: withSound \}\)/)
+  assert.doesNotMatch(src, /audio: true/, 'no unconditional microphone request')
+  // speech answers and recording sound never switch each other
+  assert.doesNotMatch(fn('function toggleMic()', '\n  }'), /setSound|recordAudio/)
+  assert.doesNotMatch(fn('function toggleSound()', '\n  }'), /setMic|micOn|speech\(\)/)
+})
+
+test('P4 recording sound: refused microphone → video-only recording, said, interview goes on', () => {
+  const cam = fn('async function openCamera()', 'function markAiOff')
+  assert.match(cam, /if \(!withSound \|\| \(issue !== "denied" && issue !== "no-device"\)\) \{ setCamIssue\(issue\); return false \}/)
+  assert.match(cam, /getUserMedia\(\{ video \}\)[\s\S]*setSound\(false\)\s+setSoundNotice\("마이크를 쓸 수 없어 소리 없이 영상만 녹화해요/)
+})
+
+test('P4 recording sound: no track swap during a recording — the change applies after that recording, from the next answer', () => {
+  const t = fn('function toggleSound()', '\n  }')
+  assert.match(t, /if \(clipRecRef\.current\?\.state === "recording"\) \{\s+setSoundChangePending\(true\)/)
+  assert.match(t, /\} else void reopenCamera\(\)/)
+  assert.doesNotMatch(src, /addTrack|removeTrack|replaceTrack/)
+  // the camera going away (interview end, camera off, reopen) drops a pending change, so it cannot block a later interview
+  assert.match(fn('function stopCamera()', '\n  }'), /setSoundChangePending\(false\)/)
+  const pendingEffect = src.indexOf('if (!soundChangePending || clipRecording || !camStream) return')
+  const recordEffect = src.indexOf('!clips[current] && !soundChangePending) startClip()')
+  assert.ok(pendingEffect > 0 && recordEffect > pendingEffect, 'reopen effect runs before the recording effect, which waits while pending')
+})
+
+test('P4 recording sound: each recording knows whether it has sound, and the result screen says so', () => {
+  assert.match(src, /clipAudioRef\.current = stream\.getAudioTracks\(\)\.some\(t => t\.readyState === "live"\)/)
+  assert.match(src, /next\[saveIndex\] = \{ url, type, audio \}/)
+  assert.ok(src.includes('{clip.audio ? "🔈 소리 포함" : "🔇 소리 없음 · 영상만 녹화"}'))
+  assert.ok(src.includes('download={`marklens-면접답변-${i + 1}${ext ? `.${ext}` : ""}`}'), 'download kept')
 })
