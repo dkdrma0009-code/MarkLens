@@ -1,7 +1,7 @@
 // Interview (Career Lab) browser support and failure messages. Every failure tells the user what happened and what to
 // do next, instead of leaving a spinner or a disabled button (2026-10-27 quality audit: "화상 면접이 작동하지 않는다").
 
-export type MediaIssue = "insecure" | "unsupported" | "denied" | "no-device" | "in-use" | "unknown"
+export type MediaIssue = "insecure" | "unsupported" | "denied" | "no-device" | "in-use" | "disconnected" | "unknown"
 
 export interface MediaEnv { isSecureContext?: boolean; hasGetUserMedia?: boolean }
 
@@ -25,12 +25,17 @@ export function classifyMediaError(err: unknown): MediaIssue {
 
 export const MEDIA_MESSAGES: Record<MediaIssue, { title: string; action: string }> = {
   insecure: { title: "보안 연결(HTTPS)에서만 카메라를 쓸 수 있어요.", action: "https://marklens.site 주소로 다시 접속해 주세요." },
-  unsupported: { title: "이 브라우저는 카메라 연결을 지원하지 않아요.", action: "최신 Chrome·Edge·Safari에서 열거나, 기본 면접(타이핑·음성)으로 진행하세요." },
+  unsupported: { title: "이 브라우저는 카메라 연결을 지원하지 않아요.", action: "최신 Chrome·Edge·Safari에서 열거나, 카메라를 끄고 진행하세요." },
   denied: { title: "카메라 또는 마이크 권한이 꺼져 있어요.", action: "주소창 왼쪽 자물쇠 아이콘 → 카메라·마이크 허용 후 '다시 시도'를 눌러 주세요." },
-  "no-device": { title: "연결된 카메라를 찾지 못했어요.", action: "카메라를 연결한 뒤 '다시 시도'를 누르거나, 기본 면접으로 진행하세요." },
+  "no-device": { title: "연결된 카메라를 찾지 못했어요.", action: "카메라를 연결한 뒤 '다시 시도'를 누르거나, 카메라를 끄고 진행하세요." },
   "in-use": { title: "다른 앱이 카메라를 사용 중이에요.", action: "화상회의 등 카메라를 쓰는 앱을 닫고 '다시 시도'를 눌러 주세요." },
-  unknown: { title: "카메라를 시작하지 못했어요.", action: "'다시 시도'를 누르거나, 기본 면접(타이핑·음성)으로 진행하세요." },
+  // the camera stopped during the interview (unplugged, taken by another app, permission revoked)
+  disconnected: { title: "카메라 연결이 끊겼어요.", action: "그때까지 녹화한 부분은 저장했어요. 카메라를 다시 연결한 뒤 '다시 시도'를 누르세요." },
+  unknown: { title: "카메라를 시작하지 못했어요.", action: "'다시 시도'를 누르거나, 카메라를 끄고 진행하세요." },
 }
+
+/** The browser has no MediaRecorder or no format it can record: the preview works, nothing is recorded. */
+export const RECORDING_UNSUPPORTED_MESSAGE = "이 브라우저는 영상 녹화를 지원하지 않아 미리보기만 보여요. 면접은 그대로 진행돼요."
 
 /** Web Speech API error codes. A fatal one must stop the automatic restart (it would loop forever). */
 export function classifySpeechError(code: string): { fatal: boolean; message: string } {

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Volume2, VolumeX, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
-import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, isInSiteLeave, leaveWarning, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, READING_TIMEOUT_MESSAGE, recordingExtension, type MediaIssue } from "@/lib/interview/support"
+import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, isInSiteLeave, leaveWarning, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, READING_TIMEOUT_MESSAGE, RECORDING_UNSUPPORTED_MESSAGE, recordingExtension, type MediaIssue } from "@/lib/interview/support"
 import { createQuestionReader, createSpeechInput, type QuestionReader, type RecognitionLike, type SpeechInput, type UtteranceLike } from "@/lib/interview/voice"
 
 type Stage = "settings" | "loading" | "interview" | "grading" | "report"
@@ -84,6 +84,9 @@ function getSpeechSupport() {
   const w = window as unknown as Record<string, unknown>
   return !!(w.SpeechRecognition || w.webkitSpeechRecognition)
 }
+function getReadingSupport() {
+  return typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined"
+}
 
 export default function InterviewSession({ externalQuestions, externalRole, externalCompanyName, feedbackContext, onGoBack, onRetry, onLeaveWarningChange }: InterviewSessionProps = {}) {
   const isPrepMode = !!externalQuestions?.length
@@ -136,6 +139,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [speaking, setSpeaking] = useState(false) // 면접관이 질문을 읽는 중
   const [readingNotice, setReadingNotice] = useState("") // 질문 읽기가 끝나지 않아 멈췄을 때
   const speechSupported = useSyncExternalStore(subscribeSpeechSupport, getSpeechSupport, () => false)
+  const readingSupported = useSyncExternalStore(subscribeSpeechSupport, getReadingSupport, () => false)
   // Speech input and question reading (src/lib/interview/voice.ts), created on first use in the browser. Their callbacks
   // use only state setters and refs, so an event from an earlier render or question never acts on stale state.
   const speechRef = useRef<SpeechInput | null>(null)
@@ -153,12 +157,12 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // type = what the browser recorded (webm, mp4, …); the download name follows it, nothing is converted.
   // audio = the recording has a sound track (the result screen says so).
   const [clips, setClips] = useState<({ url: string; type: string; audio: boolean } | null)[]>([])
-  const clipMimeRef = useRef("")
-  const clipAudioRef = useRef(false)
+  const [recordIssue, setRecordIssue] = useState("") // this browser cannot record (the preview still works)
   const camVideoRef = useRef<HTMLVideoElement | null>(null)
   const clipRecRef = useRef<MediaRecorder | null>(null)
-  const clipChunksRef = useRef<Blob[]>([])
   const camStreamRef = useRef<MediaStream | null>(null)
+  // Cameras and microphones this device has, read without a permission prompt (enumerateDevices). null = unknown.
+  const [devices, setDevices] = useState<{ camera: boolean; mic: boolean } | null>(null)
 
   const clipsRef = useRef(clips) // for the unmount cleanup
 
@@ -199,7 +203,9 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
   function stopCamera() {
     camRequestRef.current++ // a camera request still waiting for permission is dropped when it answers
-    try { if (clipRecRef.current?.state === "recording") clipRecRef.current.stop() } catch {}
+    // Still recording here = an answer that was not given (stopClip saves the given ones first): drop that recording.
+    const mr = clipRecRef.current
+    if (mr?.state === "recording") { mr.onstop = null; try { mr.stop() } catch {} }
     camStreamRef.current?.getTracks().forEach(t => t.stop())
     camStreamRef.current = null
     setCamStream(null)
@@ -209,36 +215,41 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     setSoundNotice("")
   }
 
+  // One recording per answer, saved however it ends: submitted, camera turned off, or the device went away — Chrome
+  // stops a recorder by itself when its last track ends (2026-11 QA), so the save cannot wait for stopClip.
   function startClip() {
     const stream = camStreamRef.current
     if (!stream || clipRecRef.current?.state === "recording") return
+    // No MediaRecorder or no format it can record (older Safari): keep the preview, say that nothing is recorded.
+    const mimeType = typeof MediaRecorder === "undefined" ? null : pickRecorderMime(t => MediaRecorder.isTypeSupported(t)) // iOS Safari records mp4
+    if (!mimeType) { setRecordIssue(RECORDING_UNSUPPORTED_MESSAGE); return }
+    const index = current, chunks: Blob[] = []
+    const audio = stream.getAudioTracks().some(t => t.readyState === "live")
     try {
-      clipChunksRef.current = []
-      const mimeType = pickRecorderMime(t => MediaRecorder.isTypeSupported(t)) // iOS Safari records mp4
-      if (!mimeType) return
       const mr = new MediaRecorder(stream, { mimeType })
-      clipMimeRef.current = mimeType
-      clipAudioRef.current = stream.getAudioTracks().some(t => t.readyState === "live")
-      mr.ondataavailable = e => { if (e.data.size > 0) clipChunksRef.current.push(e.data) }
+      mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+      mr.onstop = () => {
+        // onstop comes late: the next answer's recorder may already be running — only the current one sets the state
+        if (clipRecRef.current === mr) setClipRecording(false)
+        if (!chunks.length) return
+        const type = mr.mimeType || mimeType // the recorder's actual type; else the one it was started with
+        const url = URL.createObjectURL(new Blob(chunks, { type }))
+        setClips(prev => {
+          const next = [...prev]
+          next[index] = { url, type, audio }
+          return next
+        })
+      }
       clipRecRef.current = mr
       mr.start()
       setClipRecording(true)
-    } catch { /* 미지원 — 화상 없이 진행 */ }
+    } catch { setRecordIssue(RECORDING_UNSUPPORTED_MESSAGE) }
   }
 
-  function stopClip(saveIndex: number) {
+  // Ends this answer's recording; its onstop (startClip) saves it.
+  function stopClip() {
     const mr = clipRecRef.current
-    if (!mr || mr.state !== "recording") return
-    const audio = clipAudioRef.current
-    mr.onstop = () => {
-      const type = mr.mimeType || clipMimeRef.current // the recorder's actual type; else the one it was started with
-      const url = URL.createObjectURL(new Blob(clipChunksRef.current, { type }))
-      setClips(prev => {
-        const next = [...prev]
-        next[saveIndex] = { url, type, audio }
-        return next
-      })
-    }
+    if (mr?.state !== "recording") return
     try { mr.stop() } catch {}
     setClipRecording(false)
   }
@@ -283,6 +294,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stage === "interview" && camStream && !feedback && !grading && !clips[current] && !soundChangePending) startClip()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startClip is recreated every render; current is listed
   }, [stage, current, feedback, grading, camStream, clips, soundChangePending])
 
   // Leaving would lose answers of the interview in progress, or recordings (only in this tab). Closing or reloading the
@@ -327,12 +339,29 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     }
   }, [camStream, stage, current, feedback])
 
+  // 이 기기의 카메라·마이크 유무 — 권한을 묻지 않는 enumerateDevices로 확인하고, 장치를 꽂거나 빼면 다시 확인한다.
+  useEffect(() => {
+    const md = navigator.mediaDevices
+    if (!md?.enumerateDevices) return
+    let alive = true
+    const check = () => {
+      md.enumerateDevices().then(list => {
+        // An empty list says nothing (some browsers list no device before a permission): leave it unknown.
+        if (alive && list.length) setDevices({ camera: list.some(d => d.kind === "videoinput"), mic: list.some(d => d.kind === "audioinput") })
+      }).catch(() => {})
+    }
+    check()
+    md.addEventListener?.("devicechange", check)
+    return () => { alive = false; md.removeEventListener?.("devicechange", check) }
+  }, [])
+
   useEffect(() => {
     return () => {
       speechRef.current?.stop()
       readerRef.current?.cancel()
       // eslint-disable-next-line react-hooks/exhaustive-deps -- a request counter, not a DOM node: drop a late camera answer
       camRequestRef.current++
+      if (clipRecRef.current) clipRecRef.current.onstop = null // the screen is gone: no new recording to keep
       camStreamRef.current?.getTracks().forEach(t => t.stop())
       clipsRef.current.forEach(c => { if (c) URL.revokeObjectURL(c.url) }) // recordings live only as long as this screen
     }
@@ -342,6 +371,13 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // 다음 질문에서 시작한다. 끄면 인식을 바로 멈춘다(늦게 오는 결과는 voice.ts가 버린다).
   function toggleMic() {
     if (micOnRef.current) { setMic(false); speech().stop(); return }
+    if (speechIssue) {
+      // After a failure (no microphone, permission refused) the user may have fixed it: try again with a fresh
+      // recognizer. Only on this click — a failed microphone is never turned back on by itself.
+      speechRef.current?.stop()
+      speechRef.current = null
+      setSpeechIssue("")
+    }
     setMic(true)
     if (stage === "interview" && !feedback && !grading && !speaking) speech().start()
   }
@@ -353,7 +389,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   async function toggleCamera() {
     if (cameraOn) {
       setCameraOn(false)
-      stopClip(current)
+      stopClip()
       stopCamera()
       setCamIssue(null)
       return
@@ -364,15 +400,17 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
   // 녹화에 소리 포함 켜기/끄기 — '음성 답변'(받아쓰기)과 따로 움직인다. 카메라가 열려 있으면 새 설정으로 다시 여는데,
   // 답변을 녹화하는 중이면 그 녹화는 그대로 두고 끝난 뒤에 적용한다(녹화 중 트랙 교체는 하지 않는다).
-  function toggleSound() {
-    const on = !recordAudioRef.current
+  function toggleSound() { changeSound(!recordAudioRef.current) }
+
+  // reason: why the sound setting changed without a click (the recording microphone went away)
+  function changeSound(on: boolean, reason = "") {
     setSound(on)
-    setSoundNotice("")
+    setSoundNotice(reason)
     if (!camStreamRef.current) return // applied when the camera opens
     if (clipRecRef.current?.state === "recording") {
       setSoundChangePending(true)
-      setSoundNotice(on ? "이 답변 녹화는 그대로 두고, 다음 답변부터 소리를 함께 녹화해요." : "이 답변 녹화는 그대로 두고, 다음 답변부터 영상만 녹화해요.")
-    } else void reopenCamera()
+      if (!reason) setSoundNotice(on ? "이 답변 녹화는 그대로 두고, 다음 답변부터 소리를 함께 녹화해요." : "이 답변 녹화는 그대로 두고, 다음 답변부터 영상만 녹화해요.")
+    } else void reopenCamera().then(() => { if (reason) setSoundNotice(reason) })
   }
 
   async function reopenCamera() {
@@ -432,6 +470,18 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       }
     }
     if (stale()) { stream.getTracks().forEach(t => t.stop()); return false }
+    // A device that stops during the interview (unplugged, taken by another app, permission revoked). Our own
+    // track.stop() fires no "ended"; the stream check skips a camera already closed. Turning it back on is the user's choice.
+    stream.getVideoTracks().forEach(t => t.addEventListener("ended", () => {
+      if (camStreamRef.current !== stream) return
+      stopClip() // this answer's recording so far is saved (Chrome may already have stopped the recorder)
+      stopCamera()
+      setCamIssue("disconnected")
+    }))
+    stream.getAudioTracks().forEach(t => t.addEventListener("ended", () => {
+      if (camStreamRef.current !== stream) return
+      changeSound(false, "녹화용 마이크 연결이 끊겼어요. 이 답변의 녹화는 그대로 두고, 다음 답변부터 영상만 녹화해요.")
+    }))
     camStreamRef.current = stream
     setCamStream(stream)
     return true
@@ -521,7 +571,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     const entries = draft ? [...qa, { question: questions[current].question, answer: draft, feedback: null }] : qa
     if (!entries.length || grading) return
     speech().stop() // its late results are ignored and it does not restart
-    if (draft) { stopClip(current); recordMetrics(draft) } // keep this answer's recording; stopCamera discards an unused one
+    if (draft) { stopClip(); recordMetrics(draft) } // keep this answer's recording; stopCamera discards an unused one
     setQa(entries)
     setFeedbackFailed(false)
     setError("")
@@ -533,7 +583,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     speech().stop() // late results of this answer must not reach the next one
     reader().cancel() // a replayed question must not reopen the microphone after this answer
     setReadingNotice("") // it was about this question's reading
-    stopClip(current) // 화상 모드: 이 답변의 녹화 저장
+    stopClip() // 화상 모드: 이 답변의 녹화 저장
     recordMetrics(answer)
 
     setError("")
@@ -691,8 +741,9 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // 카메라·마이크·질문 읽기 — 설정 화면과 면접 화면이 같은 버튼을 쓴다(맞춤 면접도 면접 화면에서 켤 수 있다).
   const toggleClass = (on: boolean) => `flex-1 min-w-[6.5rem] py-2.5 px-3 rounded-xl border-2 text-sm font-semibold transition-all disabled:opacity-40 ${on ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-gray-200 text-gray-600 hover:border-gray-400"}`
   const inSettings = stage === "settings"
-  const cameraState = !cameraOn ? "꺼짐" : inSettings ? "켜짐" : camStream ? (clipRecording ? "녹화 중" : "켜짐") : camIssue ? "연결 안 됨" : "연결 중…"
-  const micState = !speechSupported ? "지원 안 됨" : speechIssue ? "사용 불가" : !micOn ? "꺼짐" : recording ? "듣는 중" : "켜짐"
+  const cameraState = !cameraOn ? "꺼짐" : inSettings ? "켜짐" : camStream ? (clipRecording ? "녹화 중" : recordIssue ? "녹화 불가" : "켜짐") : camIssue ? "연결 안 됨" : "연결 중…"
+  // after a failure the toggle stays usable: turning it on again is how a fixed microphone is tried
+  const micState = !speechSupported ? "지원 안 됨" : !micOn ? (speechIssue ? "꺼짐 · 오류" : "꺼짐") : recording ? "듣는 중" : "켜짐"
   const streamHasSound = !!camStream && camStream.getAudioTracks().length > 0
   const deviceToggles = (
     <div className="space-y-2">
@@ -700,11 +751,11 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <button type="button" aria-pressed={cameraOn} onClick={() => { void toggleCamera() }} className={toggleClass(cameraOn)}>
           <span aria-hidden="true">📷 </span>카메라 녹화 <span className="font-normal opacity-80">· {cameraState}</span>
         </button>
-        <button type="button" aria-pressed={micOn} onClick={toggleMic} disabled={!speechSupported || !!speechIssue || grading} className={toggleClass(micOn)}>
+        <button type="button" aria-pressed={micOn} onClick={toggleMic} disabled={!speechSupported || grading} className={toggleClass(micOn)}>
           <span aria-hidden="true">🎙 </span>음성 답변 <span className="font-normal opacity-80">· {micState}</span>
         </button>
-        <button type="button" aria-pressed={autoRead} onClick={toggleRead} className={toggleClass(autoRead)}>
-          <span aria-hidden="true">🔊 </span>질문 자동 읽기 <span className="font-normal opacity-80">· {autoRead ? "켜짐" : "꺼짐"}</span>
+        <button type="button" aria-pressed={autoRead} onClick={toggleRead} disabled={!readingSupported} className={toggleClass(autoRead)}>
+          <span aria-hidden="true">🔊 </span>질문 자동 읽기 <span className="font-normal opacity-80">· {!readingSupported ? "지원 안 됨" : autoRead ? "켜짐" : "꺼짐"}</span>
         </button>
       </div>
       {/* 카메라의 하위 옵션 — 녹화용 마이크. '음성 답변'(받아쓰기)과는 따로 켜고 끈다 */}
@@ -718,6 +769,9 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         </div>
       )}
       {soundNotice && <p role="status" className="text-xs text-amber-700 dark:text-amber-400">{soundNotice}</p>}
+      {/* 이 기기에 없는 장치 — 권한 없이 확인한 결과라 켜는 것은 막지 않는다(목록이 틀릴 수도 있다) */}
+      {devices && !devices.camera && <p className="text-xs text-amber-700 dark:text-amber-400">이 기기에서 카메라를 찾지 못했어요. 카메라 없이 입력창으로 진행할 수 있어요.</p>}
+      {devices && !devices.mic && <p className="text-xs text-amber-700 dark:text-amber-400">이 기기에서 마이크를 찾지 못했어요. 음성 답변과 녹화 소리 없이 입력창으로 답할 수 있어요.</p>}
     </div>
   )
 
@@ -758,9 +812,24 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
             🔒 카메라 녹화는 답변마다 영상을 녹화해 내 브라우저에만 저장해요 — 서버로 전송되지 않고, 탭을 닫으면 사라집니다. 소리는 ‘녹화에 소리 포함’을 켰을 때만 녹음해요. 권한은 면접을 시작할 때 물어요.
           </p>
         )}
+        {micOn && (
+          <p className="text-xs text-gray-400 mt-1.5">
+            🎙 음성 답변은 브라우저의 음성 인식으로 받아 적어요. 마이크를 쓸 수 없으면 저절로 꺼지고 입력창으로 계속돼요.
+          </p>
+        )}
+        {autoRead && (
+          <p className="text-xs text-gray-400 mt-1.5">
+            🔊 질문을 읽은 뒤부터 답변 시간을 재요. 읽는 중에는 질문 옆 버튼으로 멈출 수 있어요.
+          </p>
+        )}
         {!speechSupported && (
           <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5">
             이 브라우저는 음성 인식을 지원하지 않아 답변은 입력창에 써 주세요. 음성 답변은 Chrome·Edge에서 지원돼요.
+          </p>
+        )}
+        {!readingSupported && (
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5">
+            이 브라우저는 질문 읽기를 지원하지 않아요. 질문은 화면에서 확인할 수 있어요.
           </p>
         )}
       </div>
@@ -816,7 +885,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
       {/* 카메라·마이크·질문 읽기 — 면접 중에도 켜고 끌 수 있다. 무엇을 켜든 끄든 답변은 입력창으로 계속된다. */}
       <div className="mb-3">{deviceToggles}</div>
-      {speechIssue && <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-400">{speechIssue}</p>}
+      {speechIssue && <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-400">{speechIssue} 마이크를 연결하거나 권한을 허용했다면 ‘음성 답변’을 다시 켜 보세요.</p>}
       {/* 지금 일어나는 일 — 읽는 중 / 듣는 중 / 녹화 중 (스크린리더에도 알린다) */}
       <p role="status" className="mb-4 min-h-[1.25rem] text-xs font-semibold text-gray-500 dark:text-gray-400">
         {[speaking && "🔊 질문을 읽고 있어요", recording && "🎙 듣고 있어요 — 말한 내용이 입력창에 적혀요", clipRecording && (streamHasSound ? "● 녹화 중 (영상·소리, 이 브라우저에만 저장)" : "● 녹화 중 (영상만, 이 브라우저에만 저장)")].filter(Boolean).join(" · ")}
@@ -824,6 +893,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
 
       {cameraOn && (camStream ? (
         <div className="relative w-full sm:max-w-sm mb-5 rounded-2xl overflow-hidden bg-black aspect-[4/3]">
+          {recordIssue && <p role="status" className="absolute bottom-0 inset-x-0 bg-black/70 px-3 py-2 text-xs text-white">{recordIssue}</p>}
           <video ref={camVideoRef} autoPlay muted playsInline aria-label="내 카메라 미리보기"
             className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
           {clipRecording && (
@@ -852,10 +922,10 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <div className="flex items-start gap-3">
           <span className="text-2xl flex-shrink-0">🧑‍💼</span>
           <p className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1"><span className="sr-only">면접 질문: </span>{q.question}</p>
-          <button onClick={() => { if (speaking) reader().skip(); else replayQuestion() }} disabled={grading} aria-label={speaking ? "질문 읽기 멈추기" : "질문 듣기"}
+          {readingSupported && <button onClick={() => { if (speaking) reader().skip(); else replayQuestion() }} disabled={grading} aria-label={speaking ? "질문 읽기 멈추기" : "질문 듣기"}
             className="flex-shrink-0 inline-flex items-center gap-1 p-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors disabled:opacity-40">
             {speaking ? <><VolumeX className="w-4 h-4" /> 멈추기</> : <Volume2 className="w-4 h-4" />}
-          </button>
+          </button>}
         </div>
       </div>
 

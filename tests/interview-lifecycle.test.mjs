@@ -398,7 +398,7 @@ test('P4 defaults: camera, microphone and auto-reading start off; no device is r
 
 test('P4 camera off: the answer recorded so far is kept, tracks are released, the interview goes on', () => {
   const off = fn('async function toggleCamera()', 'setCameraOn(true)')
-  assert.match(off, /setCameraOn\(false\)\s+stopClip\(current\)\s+stopCamera\(\)/)
+  assert.match(off, /setCameraOn\(false\)\s+stopClip\(\)\s+stopCamera\(\)/)
   assert.match(fn('function stopCamera()', '\n  }'), /getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
   // recording follows the camera, one clip per answer, never over an existing one
   assert.match(src, /if \(stage === "interview" && camStream && !feedback && !grading && !clips\[current\] && !soundChangePending\) startClip\(\)/)
@@ -451,7 +451,7 @@ test('P4 recording sound: refused microphone → video-only recording, said, int
 })
 
 test('P4 recording sound: no track swap during a recording — the change applies after that recording, from the next answer', () => {
-  const t = fn('function toggleSound()', '\n  }')
+  const t = fn('function changeSound(', '\n  }')
   assert.match(t, /if \(clipRecRef\.current\?\.state === "recording"\) \{\s+setSoundChangePending\(true\)/)
   assert.match(t, /\} else void reopenCamera\(\)/)
   assert.doesNotMatch(src, /addTrack|removeTrack|replaceTrack/)
@@ -463,8 +463,50 @@ test('P4 recording sound: no track swap during a recording — the change applie
 })
 
 test('P4 recording sound: each recording knows whether it has sound, and the result screen says so', () => {
-  assert.match(src, /clipAudioRef\.current = stream\.getAudioTracks\(\)\.some\(t => t\.readyState === "live"\)/)
-  assert.match(src, /next\[saveIndex\] = \{ url, type, audio \}/)
+  assert.match(src, /const audio = stream\.getAudioTracks\(\)\.some\(t => t\.readyState === "live"\)/)
+  assert.match(src, /next\[index\] = \{ url, type, audio \}/)
   assert.ok(src.includes('{clip.audio ? "🔈 소리 포함" : "🔇 소리 없음 · 영상만 녹화"}'))
   assert.ok(src.includes('download={`marklens-면접답변-${i + 1}${ext ? `.${ext}` : ""}`}'), 'download kept')
+})
+
+// ── P5: device readiness and compatibility ──
+test('P5 recordings survive the recorder stopping by itself (device gone); only an answer never given is dropped', () => {
+  const start = fn('function startClip()', '\n  }\n')
+  assert.match(start, /const index = current, chunks: Blob\[\] = \[\]/)
+  assert.match(start, /mr\.onstop = \(\) => \{\s+\/\/[^\n]*\n\s+if \(clipRecRef\.current === mr\) setClipRecording\(false\)\s+if \(!chunks\.length\) return/, 'saved from onstop, set when recording starts; a late onstop does not touch the next recording')
+  assert.doesNotMatch(fn('function stopClip()', '\n  }'), /onstop/)
+  assert.match(fn('function stopCamera()', '\n  }'), /if \(mr\?\.state === "recording"\) \{ mr\.onstop = null; try \{ mr\.stop\(\) \} catch \{\} \}/)
+  assert.match(src, /if \(clipRecRef\.current\) clipRecRef\.current\.onstop = null \/\/ the screen is gone/)
+})
+
+test('P5 a device that stops mid-interview: camera → recording kept, released, explained, explicit retry; recording mic → video only next', () => {
+  const cam = fn('async function openCamera()', 'function markAiOff')
+  assert.match(cam, /getVideoTracks\(\)\.forEach\(t => t\.addEventListener\("ended", \(\) => \{\s+if \(camStreamRef\.current !== stream\) return\s+stopClip\(\)[^\n]*\n\s+stopCamera\(\)\s+setCamIssue\("disconnected"\)/)
+  assert.match(cam, /getAudioTracks\(\)\.forEach\(t => t\.addEventListener\("ended", \(\) => \{\s+if \(camStreamRef\.current !== stream\) return\s+changeSound\(false, "녹화용 마이크 연결이 끊겼어요/)
+  assert.match(support.MEDIA_MESSAGES.disconnected.title, /연결이 끊겼어요/)
+  assert.match(support.MEDIA_MESSAGES.disconnected.action, /다시 시도/)
+  for (const m of Object.values(support.MEDIA_MESSAGES)) assert.doesNotMatch(m.action, /기본 면접/, 'no reference to the removed basic mode')
+})
+
+test('P5 unsupported browser features: recording, speech reading; a failed microphone can be turned on again by the user', () => {
+  const start = fn('function startClip()', '\n  }\n')
+  assert.match(start, /typeof MediaRecorder === "undefined" \? null : pickRecorderMime/)
+  assert.match(start, /if \(!mimeType\) \{ setRecordIssue\(RECORDING_UNSUPPORTED_MESSAGE\); return \}/)
+  assert.match(start, /\} catch \{ setRecordIssue\(RECORDING_UNSUPPORTED_MESSAGE\) \}/)
+  assert.match(support.RECORDING_UNSUPPORTED_MESSAGE, /미리보기만 보여요/)
+  assert.match(src, /onClick=\{toggleRead\} disabled=\{!readingSupported\}/)
+  assert.match(src, /\{readingSupported && <button onClick=\{\(\) => \{ if \(speaking\) reader\(\)\.skip\(\)/)
+  const mic = fn('function toggleMic()', '\n  }')
+  assert.match(mic, /if \(speechIssue\) \{[\s\S]*speechRef\.current\?\.stop\(\)\s+speechRef\.current = null\s+setSpeechIssue\(""\)/)
+  assert.match(src, /onClick=\{toggleMic\} disabled=\{!speechSupported \|\| grading\}/, 'not disabled after a failure')
+  assert.match(src, /onFatal: message => \{ setSpeechIssue\(message\); setMic\(false\) \}/, 'a failure still turns it off — never back on by itself')
+})
+
+test('P5 device presence is read without a permission prompt and only informs', () => {
+  const effect = src.slice(src.indexOf('md.enumerateDevices().then'), src.indexOf('md.removeEventListener?.("devicechange", check)'))
+  assert.doesNotMatch(effect, /getUserMedia/)
+  assert.match(effect, /if \(alive && list\.length\) setDevices/, 'an empty list stays unknown')
+  assert.match(src, /md\.addEventListener\?\.\("devicechange", check\)/)
+  assert.match(src, /\{devices && !devices\.camera && <p/)
+  assert.match(src, /\{devices && !devices\.mic && <p/)
 })

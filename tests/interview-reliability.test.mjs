@@ -143,7 +143,7 @@ test('progress: finish early with at least one answer, warn before leaving, show
   assert.match(early, /if \(!entries\.length \|\| grading\) return/, 'no empty result shown as a finished interview')
   assert.match(early, /const draft = feedback \? "" : answer\.trim\(\)/, 'an answer being written is kept, a recorded one not doubled')
   assert.match(early, /speech\(\)\.stop\(\)/) // late results ignored, no restart (tests/interview-lifecycle.test.mjs)
-  assert.match(early, /if \(draft\) \{ stopClip\(current\); recordMetrics\(draft\) \}/)
+  assert.match(early, /if \(draft\) \{ stopClip\(\); recordMetrics\(draft\) \}/)
   assert.match(early, /await generateReport\(entries\)/) // which stops camera, recording and speech synthesis
   assert.match(src, /function stopCamera\(\) \{[\s\S]*?getTracks\(\)\.forEach\(t => t\.stop\(\)\)/)
   // The button exists only when there is something to show.
@@ -178,7 +178,7 @@ test('measurements: answer time starts after the question is read; recordings ke
   assert.match(voiceSrc, /u\.onerror = \(\) => finish\("end"\)/)
   assert.match(voiceSrc, /\} catch \{ finish\("end"\) \}/)
   // Recording type: the recorder's own, else the one it was started with — never a hard-coded webm guess.
-  assert.match(src, /const type = mr\.mimeType \|\| clipMimeRef\.current/)
+  assert.match(src, /const type = mr\.mimeType \|\| mimeType/)
   assert.doesNotMatch(src, /\|\| "video\/webm"/)
   assert.doesNotMatch(src, /면접답변-\$\{i \+ 1\}\.webm/)
   assert.match(src, /download=\{`marklens-면접답변-\$\{i \+ 1\}\$\{ext \? `\.\$\{ext\}` : ""\}`\}/)
