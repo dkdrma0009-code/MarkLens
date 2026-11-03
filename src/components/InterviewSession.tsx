@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Volume2, VolumeX, ChevronRight, RotateCcw, Share2, Copy, Check, Loader2 } from "lucide-react"
-import { aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, isInSiteLeave, leaveWarning, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, READING_TIMEOUT_MESSAGE, RECORDING_UNSUPPORTED_MESSAGE, recordingExtension, type MediaIssue } from "@/lib/interview/support"
+import { AI_DATA_NOTICE, aiFailureKind, aiOffForSession, apiFailureMessage, classifyMediaError, classifySpeechError, isInSiteLeave, leaveWarning, MEDIA_MESSAGES, mediaSupportIssue, pickRecorderMime, READING_TIMEOUT_MESSAGE, RECORDING_UNSUPPORTED_MESSAGE, recordingExtension, type MediaIssue } from "@/lib/interview/support"
 import { createQuestionReader, createSpeechInput, type QuestionReader, type RecognitionLike, type SpeechInput, type UtteranceLike } from "@/lib/interview/voice"
 
 type Stage = "settings" | "loading" | "interview" | "grading" | "report"
@@ -61,6 +61,8 @@ const ROLES = [
   { key: "CRM 마케팅", label: "CRM" },
   { key: "마케팅 공통", label: "공통" },
 ]
+
+const STAR_LABEL = { s: "상황", t: "과제", a: "행동", r: "결과" } as const
 
 const KIND_LABEL: Record<Question["kind"], string> = {
   trend: "🔥 트렌드 질문",
@@ -165,6 +167,10 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   const [devices, setDevices] = useState<{ camera: boolean; mic: boolean } | null>(null)
 
   const clipsRef = useRef(clips) // for the unmount cleanup
+  // Where focus goes when the screen changes (the button pressed is gone, focus would fall to <body>).
+  const questionRef = useRef<HTMLParagraphElement | null>(null)
+  const feedbackHeadingRef = useRef<HTMLHeadingElement | null>(null)
+  const resultHeadingRef = useRef<HTMLHeadingElement | null>(null)
 
   function speech() {
     return speechRef.current ??= createSpeechInput({
@@ -328,6 +334,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
     }
   }, [leaveMessage])
   useEffect(() => { onLeaveWarningChange?.(leaveMessage) }, [leaveMessage, onLeaveWarningChange])
+
+  // 화면이 바뀌면(새 질문·피드백·결과) 그 화면의 첫 내용으로 포커스를 옮긴다. 누른 버튼이 사라져 포커스가 <body>로
+  // 떨어지면 키보드·스크린리더 사용자는 어디에 있는지 잃는다. 모두 사용자의 조작 뒤에만 일어나는 전환이다.
+  useEffect(() => {
+    const target = stage === "report" ? resultHeadingRef.current
+      : stage === "interview" ? (feedback ? feedbackHeadingRef.current : questionRef.current) : null
+    target?.focus()
+  }, [stage, current, feedback])
 
   useEffect(() => { answerRef.current = answer }, [answer])
   useEffect(() => { clipsRef.current = clips }, [clips])
@@ -769,6 +783,23 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         </div>
       )}
       {soundNotice && <p role="status" className="text-xs text-amber-700 dark:text-amber-400">{soundNotice}</p>}
+      {/* 켜기 전에 무엇이 어디로 가는지 — 설정 화면과 면접 화면(맞춤 면접 포함) 모두에서 보인다. 코드가 하는 일만 적는다:
+          녹화는 Blob URL로만 있고 업로드하지 않는다. 음성 인식은 브라우저 기능이라 처리 위치를 MarkLens가 보장하지 않는다. */}
+      {cameraOn && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          🔒 녹화 영상은 이 브라우저 안에만 있어요. 서버로 보내지 않고, 이 화면을 떠나거나 탭을 닫으면 사라져요. 소리는 ‘녹화에 소리 포함’을 켰을 때만 녹음해요.{inSettings ? " 권한은 면접을 시작할 때 물어요." : ""}
+        </p>
+      )}
+      {micOn && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          🎙 음성 답변은 브라우저의 음성 인식 기능으로 받아 적어요. 브라우저에 따라 음성이 브라우저 회사의 서버로 보내져 처리될 수 있어요. MarkLens는 음성을 받지 않고, 받아 적힌 글만 입력한 답변과 똑같이 다뤄요. 마이크를 쓸 수 없으면 저절로 꺼지고 입력창으로 계속돼요.
+        </p>
+      )}
+      {autoRead && inSettings && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">🔊 질문을 읽은 뒤부터 답변 시간을 재요. 읽는 중에는 질문 옆 버튼으로 멈출 수 있어요.</p>
+      )}
+      {!speechSupported && <p className="text-xs text-amber-700 dark:text-amber-400">이 브라우저는 음성 인식을 지원하지 않아 답변은 입력창에 써 주세요. 음성 답변은 Chrome·Edge에서 지원돼요.</p>}
+      {!readingSupported && <p className="text-xs text-amber-700 dark:text-amber-400">이 브라우저는 질문 읽기를 지원하지 않아요. 질문은 화면에서 확인할 수 있어요.</p>}
       {/* 이 기기에 없는 장치 — 권한 없이 확인한 결과라 켜는 것은 막지 않는다(목록이 틀릴 수도 있다) */}
       {devices && !devices.camera && <p className="text-xs text-amber-700 dark:text-amber-400">이 기기에서 카메라를 찾지 못했어요. 카메라 없이 입력창으로 진행할 수 있어요.</p>}
       {devices && !devices.mic && <p className="text-xs text-amber-700 dark:text-amber-400">이 기기에서 마이크를 찾지 못했어요. 음성 답변과 녹화 소리 없이 입력창으로 답할 수 있어요.</p>}
@@ -807,36 +838,14 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">카메라·마이크·질문 읽기 <span className="font-normal text-gray-400">(선택)</span></p>
         <p className="text-xs text-gray-400 mb-3">답변은 언제나 입력창에 쓸 수 있어요. 필요한 것만 켜세요 — 면접 중에도 바꿀 수 있어요.</p>
         {deviceToggles}
-        {cameraOn && (
-          <p className="text-xs text-gray-400 mt-2">
-            🔒 카메라 녹화는 답변마다 영상을 녹화해 내 브라우저에만 저장해요 — 서버로 전송되지 않고, 탭을 닫으면 사라집니다. 소리는 ‘녹화에 소리 포함’을 켰을 때만 녹음해요. 권한은 면접을 시작할 때 물어요.
-          </p>
-        )}
-        {micOn && (
-          <p className="text-xs text-gray-400 mt-1.5">
-            🎙 음성 답변은 브라우저의 음성 인식으로 받아 적어요. 마이크를 쓸 수 없으면 저절로 꺼지고 입력창으로 계속돼요.
-          </p>
-        )}
-        {autoRead && (
-          <p className="text-xs text-gray-400 mt-1.5">
-            🔊 질문을 읽은 뒤부터 답변 시간을 재요. 읽는 중에는 질문 옆 버튼으로 멈출 수 있어요.
-          </p>
-        )}
-        {!speechSupported && (
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5">
-            이 브라우저는 음성 인식을 지원하지 않아 답변은 입력창에 써 주세요. 음성 답변은 Chrome·Edge에서 지원돼요.
-          </p>
-        )}
-        {!readingSupported && (
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5">
-            이 브라우저는 질문 읽기를 지원하지 않아요. 질문은 화면에서 확인할 수 있어요.
-          </p>
-        )}
       </div>
 
       <div className="rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
         💡 최근 마케팅 트렌드를 인용한 질문이 섞여 나와요. 실제 면접처럼 소리 내어 답해보세요.
       </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+        🔐 {AI_DATA_NOTICE} <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>
+      </p>
 
       <button onClick={() => start("settings")}
         className="w-full py-4 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold hover:opacity-90 transition-opacity">
@@ -848,8 +857,8 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 로딩 ──
   if (stage === "loading") return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <div className="w-10 h-10 border-4 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
-      <p className="text-gray-500 text-base">면접관이 질문을 준비하고 있어요...</p>
+      <div aria-hidden="true" className="w-10 h-10 border-4 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
+      <p role="status" className="text-gray-500 text-base">면접관이 질문을 준비하고 있어요...</p>
     </div>
   )
 
@@ -878,7 +887,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <span className="ml-career-progress text-sm text-gray-400 font-medium">Question {String(current + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}</span>
         <span className="text-sm text-gray-400">{KIND_LABEL[q.kind] ?? ""}</span>
       </div>
-      <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mb-8">
+      <div aria-hidden="true" className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mb-8">
         <div className="h-full bg-black dark:bg-white rounded-full transition-all"
           style={{ width: `${((current + (feedback ? 1 : 0)) / questions.length) * 100}%` }} />
       </div>
@@ -921,7 +930,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       <div className="ml-interview-question rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 mb-6">
         <div className="flex items-start gap-3">
           <span className="text-2xl flex-shrink-0">🧑‍💼</span>
-          <p className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1"><span className="sr-only">면접 질문: </span>{q.question}</p>
+          <p ref={questionRef} tabIndex={-1} className="ml-career-question text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed flex-1 focus:outline-none"><span className="sr-only">질문 {current + 1}/{questions.length}: </span>{q.question}</p>
           {readingSupported && <button onClick={() => { if (speaking) reader().skip(); else replayQuestion() }} disabled={grading} aria-label={speaking ? "질문 읽기 멈추기" : "질문 듣기"}
             className="flex-shrink-0 inline-flex items-center gap-1 p-2 rounded-lg text-sm font-semibold text-gray-400 hover:text-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors disabled:opacity-40">
             {speaking ? <><VolumeX className="w-4 h-4" /> 멈추기</> : <Volume2 className="w-4 h-4" />}
@@ -964,6 +973,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
       {/* 질문별 피드백 */}
       {feedback && (
         <div className="space-y-4">
+          <h2 ref={feedbackHeadingRef} tabIndex={-1} className="sr-only">질문 {current + 1} 피드백</h2>
           {/* 스피치 지표 + STAR 구조 */}
           <div className="flex flex-wrap items-center gap-2">
             {metrics[current] && (
@@ -990,12 +1000,16 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
             )}
             {feedback.star && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-                STAR
-                {(["s", "t", "a", "r"] as const).map(k => (
-                  <span key={k} className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${feedback.star![k] ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-400"}`}>
-                    {k.toUpperCase()}
-                  </span>
-                ))}
+                {/* the filled letters carry the meaning by colour alone: say it in words for screen readers */}
+                <span className="sr-only">STAR 구조: {(["s", "t", "a", "r"] as const).map(k => `${STAR_LABEL[k]} ${feedback.star![k] ? "있음" : "없음"}`).join(", ")}</span>
+                <span aria-hidden="true" className="inline-flex items-center gap-1">
+                  STAR
+                  {(["s", "t", "a", "r"] as const).map(k => (
+                    <span key={k} title={`${STAR_LABEL[k]} ${feedback.star![k] ? "있음" : "없음"}`} className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${feedback.star![k] ? "bg-indigo-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-400"}`}>
+                      {k.toUpperCase()}
+                    </span>
+                  ))}
+                </span>
               </span>
             )}
           </div>
@@ -1041,14 +1055,15 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
   // ── 리포트 생성 중 ──
   if (stage === "grading") return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <div className="w-10 h-10 border-4 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
-      <p className="text-gray-500 text-base">면접 전체를 평가하고 있어요...</p>
+      <div aria-hidden="true" className="w-10 h-10 border-4 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
+      <p role="status" className="text-gray-500 text-base">면접 전체를 평가하고 있어요...</p>
     </div>
   )
 
   // ── 종합 리포트 ──
   if (stage === "report") return (
     <div>
+      <h2 ref={resultHeadingRef} tabIndex={-1} className="sr-only">면접 결과</h2>
       {/* e.g. "새 질문으로 다시" failed: the error must be visible here, not only on the interview screen */}
       {error && <p role="alert" className="text-sm text-red-500 mb-4">{error}</p>}
       {/* AI 종합 평가 — 실제로 생성됐을 때만. 없으면 이유와, 다시 요청해서 나아질 수 있을 때만 재시도 버튼 */}
@@ -1138,6 +1153,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
                 className="absolute top-5 right-4 p-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
                 {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
               </button>
+              <span role="status" className="sr-only">{copied ? "한 마디를 복사했어요" : ""}</span>
             </div>
           )}
         </>
@@ -1148,8 +1164,8 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
         <section className="mb-6" aria-labelledby="interview-record">
           <h2 id="interview-record" className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">📝 내 답변 기록</h2>
           <p className="text-xs text-gray-400 mb-4">
-            {qa.length}/{questions.length}문항 답변
-            {clips.some(Boolean) ? " · 영상은 이 브라우저에만 있어요 — 보관하려면 저장하세요. 탭을 닫으면 사라집니다." : ""}
+            {qa.length}/{questions.length}문항 답변 · 이 기록은 MarkLens에 저장되지 않아 이 화면을 떠나거나 탭을 닫으면 사라져요.
+            {clips.some(Boolean) ? " 영상은 이 브라우저에만 있으니 보관하려면 ‘영상 저장’으로 내려받으세요." : ""}
           </p>
           <ol className="space-y-4">
             {qa.map((entry, i) => (
@@ -1173,7 +1189,7 @@ export default function InterviewSession({ externalQuestions, externalRole, exte
                       <video src={clip.url} controls playsInline aria-label={`답변 ${i + 1} 녹화, ${clip.audio ? "소리 포함" : "소리 없음"}`} className="w-full aspect-video object-cover bg-black" />
                       <p className="mt-2 text-xs text-gray-500">{clip.audio ? "🔈 소리 포함" : "🔇 소리 없음 · 영상만 녹화"}</p>
                       <a href={clip.url} download={`marklens-면접답변-${i + 1}${ext ? `.${ext}` : ""}`}
-                        className="inline-block mt-1 text-xs font-semibold text-indigo-600 hover:underline">
+                        className="inline-flex items-center min-h-[44px] pr-3 text-sm font-semibold text-indigo-600 hover:underline">
                         영상 저장{ext ? ` (${ext.toUpperCase()})` : ""}
                       </a>
                     </div>

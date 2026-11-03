@@ -197,7 +197,7 @@ test('interview client: no restart loop after a fatal speech error, typing alway
   assert.match(voiceSrc, /if \(!fatal && o\.autoRestart\(\)\)/)
   assert.match(src, /autoRestart: \(\) => micOnRef\.current/)
   assert.match(src, /\{speechIssue && <p role="status"/) // the failure is said; the answer box stays (P4: one box for all settings)
-  assert.match(src, /<span className="sr-only">면접 질문: <\/span>\{q\.question\}/)
+  assert.match(src, /<span className="sr-only">질문 \{current \+ 1\}\/\{questions\.length\}: <\/span>\{q\.question\}/)
   assert.match(src, /MEDIA_MESSAGES\[camIssue\]\.title/)
   assert.match(src, /카메라 끄고 계속/)
   assert.match(src, /await generateReport\(entries\)/)

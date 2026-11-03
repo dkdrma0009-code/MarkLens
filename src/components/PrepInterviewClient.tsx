@@ -1,9 +1,10 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
+import Link from "next/link"
 import { Loader2 } from "lucide-react"
 import InterviewSession from "@/components/InterviewSession"
-import { apiFailureMessage } from "@/lib/interview/support"
+import { apiFailureMessage, PREP_AI_DATA_NOTICE } from "@/lib/interview/support"
 
 interface Question {
   question: string
@@ -199,6 +200,7 @@ export default function PrepInterviewClient() {
           {[3, 5, 7].map(n => (
             <button
               key={n}
+              aria-pressed={count === n}
               onClick={() => setCount(n)}
               className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                 count === n
@@ -218,6 +220,10 @@ export default function PrepInterviewClient() {
         </p>
       )}
 
+      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+        🔐 {PREP_AI_DATA_NOTICE} <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>
+      </p>
+
       <button
         onClick={generate}
         disabled={loading}
@@ -234,7 +240,7 @@ export default function PrepInterviewClient() {
       </button>
 
       {loading && (
-        <p className="text-center text-sm text-gray-400">
+        <p role="status" className="text-center text-sm text-gray-400">
           자기소개서와 채용공고를 분석 중이에요. 10~30초 정도 걸려요.
         </p>
       )}

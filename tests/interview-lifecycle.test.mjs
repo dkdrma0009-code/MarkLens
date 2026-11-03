@@ -419,7 +419,7 @@ test('P4 typing: one answer box for every setting, read-only only while speech i
   assert.equal(interview.match(/<textarea/g).length, 1)
   assert.match(interview, /\{!feedback && \(\s+<div className="space-y-3">\s+<textarea/, 'the box does not depend on camera or microphone')
   assert.match(interview, /readOnly=\{recording\}/)
-  assert.match(interview, /<span className="sr-only">면접 질문: <\/span>\{q\.question\}/, 'the question is always on screen')
+  assert.match(interview, /<span className="sr-only">질문 \{current \+ 1\}\/\{questions\.length\}: <\/span>\{q\.question\}/, 'the question is always on screen')
   assert.match(interview, /role="group" aria-label="면접 장치 설정"|\{deviceToggles\}/)
   assert.match(src, /aria-pressed=\{cameraOn\}[\s\S]*aria-pressed=\{micOn\}[\s\S]*aria-pressed=\{autoRead\}/)
 })
@@ -509,4 +509,43 @@ test('P5 device presence is read without a permission prompt and only informs', 
   assert.match(src, /md\.addEventListener\?\.\("devicechange", check\)/)
   assert.match(src, /\{devices && !devices\.camera && <p/)
   assert.match(src, /\{devices && !devices\.mic && <p/)
+})
+
+// ── P6: accessibility and privacy notices ──
+test('P6 focus follows the screen: new question, feedback and result get focus instead of <body>', () => {
+  assert.match(src, /const target = stage === "report" \? resultHeadingRef\.current\s+: stage === "interview" \? \(feedback \? feedbackHeadingRef\.current : questionRef\.current\) : null\s+target\?\.focus\(\)\s+\}, \[stage, current, feedback\]\)/)
+  assert.match(src, /<p ref=\{questionRef\} tabIndex=\{-1\}/)
+  assert.match(src, /<h2 ref=\{feedbackHeadingRef\} tabIndex=\{-1\} className="sr-only">질문 \{current \+ 1\} 피드백<\/h2>/)
+  assert.match(src, /<h2 ref=\{resultHeadingRef\} tabIndex=\{-1\} className="sr-only">면접 결과<\/h2>/)
+})
+
+test('P6 status is announced: loading, evaluating, copy; STAR is said in words; decorative bars hidden', () => {
+  assert.match(src, /<p role="status" className="text-gray-500 text-base">면접관이 질문을 준비하고 있어요/)
+  assert.match(src, /<p role="status" className="text-gray-500 text-base">면접 전체를 평가하고 있어요/)
+  assert.match(src, /<span role="status" className="sr-only">\{copied \? "한 마디를 복사했어요" : ""\}<\/span>/)
+  assert.match(src, /<span className="sr-only">STAR 구조: /)
+  assert.match(src, /<div aria-hidden="true" className="w-full h-1\.5/)
+  const prep = readFileSync('src/components/PrepInterviewClient.tsx', 'utf8')
+  assert.match(prep, /aria-pressed=\{count === n\}/)
+  assert.match(prep, /<p role="status" className="text-center text-sm text-gray-400">/)
+})
+
+test('P6 privacy notices say only what the code does', () => {
+  // answers go to the AI providers through the server; nothing is stored in the database by the interview routes
+  for (const route of ['feedback', 'report', 'custom-questions']) {
+    const r = readFileSync('src/app/api/interview/' + route + '/route.ts', 'utf8')
+    assert.match(r, /geminiJson/)
+    assert.doesNotMatch(r, /\.insert\(|\.upsert\(|\.update\(|\.from\(/, route + ' writes nothing')
+  }
+  assert.match(support.AI_DATA_NOTICE, /외부 AI 서비스\(Google Gemini, 장애 시 Anthropic·OpenAI\)/)
+  assert.match(support.AI_DATA_NOTICE, /MarkLens 데이터베이스에는 저장하지 않아요/)
+  assert.match(support.PREP_AI_DATA_NOTICE, /기업명·직무·자기소개서·채용공고·포트폴리오와 면접 답변/) // all custom-questions inputs
+  // no blanket promise beyond MarkLens; speech recognition is the browser's
+  assert.doesNotMatch(src, /어디에도 저장되지/)
+  assert.match(src, /브라우저에 따라 음성이 브라우저 회사의 서버로 보내져 처리될 수 있어요\. MarkLens는 음성을 받지 않고/)
+  // recordings are never uploaded: no fetch carries a blob, and the client uses no browser storage
+  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|sendBeacon/)
+  assert.equal(src.match(/fetch\("\/api\/interview\//g).length, 3)
+  assert.match(src, /이 기록은 MarkLens에 저장되지 않아 이 화면을 떠나거나 탭을 닫으면 사라져요/)
+  assert.match(src, /download=\{[^\n]*\n\s+className="inline-flex items-center min-h-\[44px\]/, 'recording download is an easy tap target (WCAG 2.5.8)')
 })

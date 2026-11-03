@@ -34,6 +34,12 @@ export const MEDIA_MESSAGES: Record<MediaIssue, { title: string; action: string 
   unknown: { title: "카메라를 시작하지 못했어요.", action: "'다시 시도'를 누르거나, 카메라를 끄고 진행하세요." },
 }
 
+// Where interview text goes (2026-11 code review): the feedback/report/custom-questions routes pass it to geminiJson —
+// Gemini, then the Claude and OpenAI fallbacks (src/lib/ai/gemini.ts, llm.ts) — and write nothing to the database; the
+// quota keeps only a hashed client key. AI providers' own handling is their policy, so it is not promised here.
+export const AI_DATA_NOTICE = "답변 글은 AI 피드백과 종합 평가를 만들 때 MarkLens 서버를 거쳐 외부 AI 서비스(Google Gemini, 장애 시 Anthropic·OpenAI)로 보내져요. MarkLens 데이터베이스에는 저장하지 않아요."
+export const PREP_AI_DATA_NOTICE = "입력한 기업명·직무·자기소개서·채용공고·포트폴리오와 면접 답변은 맞춤 질문과 피드백을 만들 때 MarkLens 서버를 거쳐 외부 AI 서비스(Google Gemini, 장애 시 Anthropic·OpenAI)로 보내져요. MarkLens 데이터베이스에는 저장하지 않아요."
+
 /** The browser has no MediaRecorder or no format it can record: the preview works, nothing is recorded. */
 export const RECORDING_UNSUPPORTED_MESSAGE = "이 브라우저는 영상 녹화를 지원하지 않아 미리보기만 보여요. 면접은 그대로 진행돼요."
 
