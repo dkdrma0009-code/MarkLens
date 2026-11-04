@@ -39,3 +39,10 @@ export function guardDatabase<T extends object>(client: T, reason: string | null
     },
   })
 }
+
+// Server factories: a blocked process never creates the client — supabase-js throws on an empty URL ("supabaseUrl is
+// required" in a Preview build without database variables) before guardDatabase could step in. The stub is typed by the
+// factory, so callers see exactly the client they would have got; allowed runs get the factory's client untouched.
+export function guardedClient<T extends object>(create: () => T, reason: string | null = blockedReason("database")): T {
+  return reason ? guardDatabase({} as T, reason) : create()
+}

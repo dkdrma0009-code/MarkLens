@@ -116,7 +116,43 @@ test('database: a Preview on a production-suspect project reads, writes and auth
     assert.deepEqual(reached, [])
   })
   for (const env of [production, {}, preview(TEST_URL), preview('http://127.0.0.1:54321')]) await withEnv(env, () => { const { client } = fakeSupabase(); assert.equal(guardDatabase(client), client) })
-  for (const file of ['src/lib/supabase/admin.ts', 'src/lib/supabase/server.ts']) assert.ok((readFileSync(file, 'utf8').match(/guardDatabase\(/g) ?? []).length >= (file.endsWith('server.ts') ? 2 : 1), file)
+  for (const file of ['src/lib/supabase/admin.ts', 'src/lib/supabase/server.ts']) assert.ok((readFileSync(file, 'utf8').match(/guardedClient\(/g) ?? []).length >= (file.endsWith('server.ts') ? 2 : 1), file)
+})
+
+test('server factories: a Preview without database variables builds and creates no client; production gets the client untouched', async () => {
+  // Why: supabase-js throws on an empty URL at construction, which failed the Preview build ("supabaseUrl is required").
+  assert.throws(() => require('@supabase/supabase-js').createClient('', ''), /supabaseUrl is required/)
+  const created = [], cookieReads = { n: 0 }
+  const client = kind => ({ kind, from: () => 'real', auth: { getUser: async () => ({ data: { user: { id: 'u' } } }) } })
+  const factories = () => {
+    const mocks = {
+      '@supabase/supabase-js': { createClient: (url, key, opts) => { created.push(['js', url, opts]); return client('js') } },
+      '@supabase/ssr': { createServerClient: (url, key, opts) => { created.push(['ssr', url, opts]); return client('ssr') } },
+      'next/headers': { cookies: async () => { cookieReads.n++; return { getAll: () => [{ name: 'sb', value: 'v' }], set() {} } } },
+      './guard': load('src/lib/supabase/guard.ts'),
+    }
+    return { ...load('src/lib/supabase/server.ts', mocks), ...load('src/lib/supabase/admin.ts', mocks) }
+  }
+  await withEnv({ VERCEL: '1', VERCEL_ENV: 'preview', MARKLENS_DEPLOYMENT: 'preview' }, async () => {
+    const { createPublicClient, createClient, createAdminClient } = factories()
+    for (const db of [createPublicClient(), await createClient(), createAdminClient()]) {
+      assert.equal(typeof db.then, 'undefined') // awaiting the async factory yields the stub itself, not a hijacked promise
+      for (const res of [await db.from('subscribers').select('email'), await db.from('insights').insert({}), await db.rpc('consume_ai_quota', {}), await db.storage.from('b').upload('a', 'b')]) assert.equal(res.error.code, 'PREVIEW_DB_BLOCKED')
+      assert.equal((await db.auth.getUser()).data.user, null)
+    }
+    assert.deepEqual(created, [])
+    assert.equal(cookieReads.n, 1) // still dynamic, like production
+  })
+  await withEnv(production, async () => {
+    const { createPublicClient, createClient, createAdminClient } = factories()
+    const [pub, ssr, admin] = [createPublicClient(), await createClient(), createAdminClient()]
+    assert.deepEqual([pub.kind, ssr.kind, admin.kind], ['js', 'ssr', 'js'])
+    assert.equal(pub.from(), 'real'); assert.equal((await ssr.auth.getUser()).data.user.id, 'u')
+    assert.deepEqual(created.map(([kind, url]) => [kind, url]), [['js', PROD_URL], ['ssr', PROD_URL], ['js', PROD_URL]])
+    assert.deepEqual(created[0][2], { auth: { persistSession: false, autoRefreshToken: false } })
+    assert.deepEqual(created[1][2].cookies.getAll(), [{ name: 'sb', value: 'v' }])
+    assert.deepEqual(created[2][2], { auth: { autoRefreshToken: false, persistSession: false } })
+  })
 })
 
 test('admin: a Preview without an isolated database never opens the admin area (no production session lookup)', async () => {
