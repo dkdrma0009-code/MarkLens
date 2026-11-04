@@ -50,7 +50,8 @@ export default function NewsletterInlineCta({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, source: location }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
+      if (data.code === "db_blocked") { toast.error(data.error); return } // Preview without a database: no retry advice
       const result = subscriptionResult(data)
       if (!res.ok || result === "failure") throw new Error()
       if (result === "already") { toast.info("이미 구독 중이에요!"); trackEvent("newsletter_already", { location, position: pos }) }

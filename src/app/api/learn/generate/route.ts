@@ -50,7 +50,8 @@ export async function POST(req: Request) {
     const pool = (data as { data: QuizQuestion }[]).map(row => row.data)
     questions = pickDistinct(pool, n)
   } else if (error) {
-    console.warn("[quiz] random_quiz RPC 실패, AI 폴백:", error.message)
+    // Only a top-up attempt: the AI budget check below may still refuse it (paused, quota, Preview).
+    console.warn("[quiz] random_quiz RPC 실패, AI 보충 시도(예산 확인 후):", error.message)
   }
 
   // 풀이 부족하면 AI로 보충 — 최근 인사이트 기반 트렌드 문제로 (기존 질문과 중복 배제)

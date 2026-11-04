@@ -32,8 +32,14 @@ export default function NewsletterClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, source: "newsletter_page" }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (data.code === "db_blocked") { // Preview without a database: say so, no retry advice
+        setFailed(true)
+        setMessage(data.error)
+        toast.error(data.error)
+        return
+      }
       if (!res.ok) throw new Error()
-      const data = await res.json()
       const result = subscriptionResult(data)
       if (result === "failure") throw new Error()
       if (result === "already") {

@@ -42,6 +42,7 @@ export default function LearnQuiz() {
   const [grading, setGrading] = useState(false)
   const [answered, setAnswered] = useState(false)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
+  const [gradeNote, setGradeNote] = useState("") // why an answer could not be graded (AI stopped, network) — not a wrong answer
 
   async function start() {
     setError("")
@@ -61,6 +62,7 @@ export default function LearnQuiz() {
       setSelected(null)
       setShortInput("")
       setIsCorrect(null)
+      setGradeNote("")
       setStage("quiz")
     } catch {
       setStage("settings")
@@ -90,15 +92,25 @@ export default function LearnQuiz() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q.question, correctAnswer: q.answer, userAnswer: shortInput }),
       })
-      const data = await res.json()
-      const correct = data.result === "correct"
-      setIsCorrect(correct)
-      setAnswered(true)
-      const newResults = [...results]
-      newResults[current] = correct
-      setResults(newResults)
+      const data = await res.json().catch(() => ({}))
+      if (data.result === "correct" || data.result === "incorrect") {
+        const correct = data.result === "correct"
+        setIsCorrect(correct)
+        setAnswered(true)
+        const newResults = [...results]
+        newResults[current] = correct
+        setResults(newResults)
+      } else if (res.status === 400) {
+        setGradeNote(data.error ?? "답변을 확인해주세요.") // the learner can fix the answer and submit again
+      } else {
+        // AI stopped (ai_paused), quota spent (ai_quota) or grading failed: the question stays ungraded, not wrong
+        setGradeNote(data.code === "ai_quota" ? "오늘 AI 채점 한도에 도달해 채점하지 못했어요." : "AI 채점이 지금은 중지되어 있어 채점하지 못했어요.")
+        setIsCorrect(null)
+        setAnswered(true)
+      }
     } catch {
-      setIsCorrect(false)
+      setGradeNote("네트워크 오류로 채점하지 못했어요.")
+      setIsCorrect(null)
       setAnswered(true)
     } finally {
       setGrading(false)
@@ -114,6 +126,7 @@ export default function LearnQuiz() {
       setShortInput("")
       setAnswered(false)
       setIsCorrect(null)
+      setGradeNote("")
     }
   }
 
@@ -198,6 +211,8 @@ export default function LearnQuiz() {
 
   const q = questions[current]
   const score = results.filter(Boolean).length
+  const wrong = results.filter(r => r === false).length
+  const ungraded = results.filter(r => r === null).length // answered but not graded (AI stopped) — neither right nor wrong
 
   // ── 설정 화면 ──
   if (stage === "settings") return (
@@ -294,7 +309,7 @@ export default function LearnQuiz() {
           <input
             aria-label="퀴즈 단답형 답변"
             value={shortInput}
-            onChange={e => setShortInput(e.target.value)}
+            onChange={e => { setShortInput(e.target.value); if (!answered) setGradeNote("") }}
             onKeyDown={e => e.key === "Enter" && !answered && handleShortSubmit()}
             disabled={answered || grading}
             placeholder="답을 입력하세요"
@@ -306,11 +321,21 @@ export default function LearnQuiz() {
               {grading ? "채점 중..." : "제출"}
             </button>
           )}
+          {!answered && gradeNote && <p role="alert" className="text-sm text-red-500">{gradeNote}</p>}
+        </div>
+      )}
+
+      {/* 채점 불가 — 오답으로 세지 않는다 */}
+      {answered && isCorrect === null && (
+        <div role="status" className="mt-5 rounded-2xl p-5 bg-gray-50 dark:bg-gray-900">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">{gradeNote} 이 문제는 점수에 포함되지 않습니다.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">정답: {q.answer}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{q.explanation}</p>
         </div>
       )}
 
       {/* 정답/오답 결과 */}
-      {answered && (
+      {answered && isCorrect !== null && (
         <div className={`mt-5 rounded-2xl p-5 ${isCorrect ? "bg-emerald-50 dark:bg-emerald-950" : "bg-red-50 dark:bg-red-950"}`}>
           <div className="flex items-center gap-2 mb-2">
             {isCorrect
@@ -346,7 +371,8 @@ export default function LearnQuiz() {
         </p>
         <div className="flex justify-center gap-4 mt-4 text-sm">
           <span className="text-emerald-600 font-medium">✓ 정답 {score}개</span>
-          <span className="text-red-500 font-medium">✗ 오답 {questions.length - score}개</span>
+          <span className="text-red-500 font-medium">✗ 오답 {wrong}개</span>
+          {ungraded > 0 && <span className="text-gray-500 font-medium">채점 불가 {ungraded}개</span>}
         </div>
       </div>
 

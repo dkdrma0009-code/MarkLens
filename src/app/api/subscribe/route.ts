@@ -9,9 +9,9 @@ export async function POST(req: Request) {
   const limited = checkRateLimit(req, { key: "subscribe", limit: 3, windowMs: 60_000 })
   if (limited) return limited
 
-  const { email, source } = await req.json()
+  const { email, source } = (await req.json().catch(() => null)) ?? {}
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "유효하지 않은 이메일입니다" }, { status: 400 })
   }
 
@@ -25,6 +25,10 @@ export async function POST(req: Request) {
       p_source: typeof source === "string" ? source.slice(0, 80) : null,
     })
     const result = Array.isArray(data) && data.length === 1 ? data[0] : null
+    // A Preview without an isolated database refuses on purpose (guard.ts): not a server fault, and retrying cannot help.
+    if (error?.code === "PREVIEW_DB_BLOCKED") {
+      return NextResponse.json({ error: "미리보기(Preview) 환경에서는 구독을 받지 않습니다. 실제 사이트에서 구독해주세요.", code: "db_blocked" }, { status: 503 })
+    }
     if (error || !result || !["issued", "already_active"].includes(result.result)) {
       console.error("[subscribe] token issue failed")
       return NextResponse.json({ error: "구독 저장에 실패했습니다. 잠시 후 다시 시도해주세요." }, { status: 500 })
