@@ -30,13 +30,19 @@ AI가 멈춘 동안 주간 시드는 문제를 지우기 전에 건너뛰므로 
 
 변수 이름과 범위만 확인했고 값은 조회하지 않았다. 현재 범위는 Vercel 프로젝트 `marklens` 기준이다.
 
-| 변수 | Preview 전체 브랜치 | `release/brand-watch-v1` | Production |
+**확정한 변경 범위 (P9E, 실행 전 이름·범위 목록 재확인, Development 항목은 건드리지 않음):**
+
+| 변수 | 현재 Preview 범위 | 조치 | Production 영향 |
 |---|---|---|---|
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 있음 | 있음 | 별도 항목 |
-| `AWS_REGION` | 있음 | 없음 | 별도 항목 |
-| `REMOTION_SERVE_URL` | 있음 | 있음 | 별도 항목 |
-| `REMOTION_FUNCTION_NAME` | 없음 | 없음 | 있음 |
-| `SHOTSTACK_API_KEY` | **Production과 한 항목 공유** | 있음 | 공유 항목 |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 전체 브랜치 + `release/brand-watch-v1` | 전체 브랜치 항목 삭제 | 없음(별도 항목) |
+| `AWS_REGION` | 전체 브랜치 | 항목 삭제 | 없음(별도 항목) |
+| `REMOTION_SERVE_URL` | 전체 브랜치 + `release/brand-watch-v1` | 전체 브랜치 항목 삭제 | 없음(별도 항목) |
+| `UNSPLASH_ACCESS_KEY` | 전체 브랜치 + `release/brand-watch-v1` | 전체 브랜치 항목 삭제 | 없음(별도 항목) |
+| `SHOTSTACK_API_KEY` | **Production과 한 항목 공유** + `release/brand-watch-v1` | **삭제 금지.** 공유 항목의 대상에서 Preview만 제거 | 항목 삭제 시 Production 값도 사라짐 |
+| `GA4_PROPERTY_ID`, `GA4_SA_CLIENT_EMAIL` | **Production과 한 항목 공유** | **삭제 금지.** 대상에서 Preview만 제거 | 항목 삭제 시 관리자 지표 중단 |
+| `release/brand-watch-v1` 전용 항목 | 해당 브랜치만 | 이번 범위 제외, 그 브랜치 재개 여부 결정 후 처리 | 없음 |
+
+공유 항목은 값이 write-only인 Secret이다. 대상 변경 화면에서 값을 다시 입력하라고 하면 **저장하지 말고 중단**한다(Vercel 문서로 동작 미확인). `GA4_SA_PRIVATE_KEY`, `REMOTION_FUNCTION_NAME`은 Preview에 없다.
 
 - **실제 사용:** `SHOTSTACK_*`은 `src`에서 참조하지 않는다. AWS는 관리자 Shorts 경로에서만 쓰며, 렌더와 S3 삭제는 Preview 가드로 차단된다. 상태 조회 등 나머지도 관리자 로그인이 필요하고 RC2 Preview의 관리자 경로는 503이다. Career Lab 검증에는 필요 없다.
 - **위험:** 모든 Preview 빌드의 실행 환경에 들어간다. Deployment Protection은 접속만 막으므로, 저장소에 push할 수 있는 사람이나 악성 의존성이 코드로 읽을 수 있다. 이 키의 IAM 권한 범위, Production 키와 값이 같은지는 미확인이다.
@@ -45,9 +51,9 @@ AI가 멈춘 동안 주간 시드는 문제를 지우기 전에 건너뛰므로 
 
 **권장 순서 (승인 후):**
 1. AWS 콘솔에서 해당 IAM 키의 마지막 사용일과 권한을 확인한다.
-2. Preview 전체 브랜치 항목에서 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `REMOTION_SERVE_URL`을 삭제하고, `SHOTSTACK_API_KEY`는 Preview 대상만 제거한다.
-3. `release/brand-watch-v1` 항목은 그 브랜치 작업 재개 여부를 정한 뒤 처리한다.
-4. 이름·범위 목록을 변경 전후로 비교해 Production 항목이 그대로인지 확인한다.
+2. 변경 전 이름·범위 목록을 저장한다.
+3. 위 표대로 전체 브랜치 항목을 삭제하고, 공유 항목은 Preview 대상만 제거한다.
+4. 변경 후 목록을 비교해 Production 항목이 그대로인지 확인한다.
 5. 변경은 새 배포에만 적용되므로 최종 RC Preview 전에 끝내고, 값을 쓰던 기존 Preview 배포는 정리한다.
 6. Preview와 Production 키 값이 같다면 Production 키를 별도 일정으로 교체한다.
 
@@ -66,8 +72,8 @@ AI가 멈춘 동안 주간 시드는 문제를 지우기 전에 건너뛰므로 
 | # | 작업 | 승인 |
 |---|---|---|
 | 1 | 운영 DB SQL 실행, 위 판정 | 운영 DB 조회 승인 |
-| 2 | 방침 전문가 검토, Gemini 등급 확인, `overseasTransferReviewed` | 운영자·전문가 |
-| 3 | 공개일 결정, `effectiveDate`와 테스트 갱신 | 운영자 |
+| 2 | Gemini 등급 확인(`geminiPaidConfirmed`), 방침 전문가 검토(`overseasTransferReviewed`) | 운영자·전문가 |
+| 3 | 공개일 결정, `effectiveDate`와 테스트 갱신. 미확정이면 시행 중인 방침으로 출시되고 개정본은 다음 배포로 미룬다 | 운영자 |
 | 4 | Preview 인증 정보 정리, `mark-lens` 처리 | Vercel 변경 승인 |
 | 5 | 최종 RC 브랜치 push, 브랜치 전용 `MARKLENS_DEPLOYMENT=preview`, Preview 재배포 | push·Vercel 승인 |
 | 6 | 전체 회귀: 테스트, 빌드, 브라우저 160개, 방침 25개, 서버 API | 우회 키 전달 |

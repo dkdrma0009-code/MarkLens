@@ -1,6 +1,6 @@
-// 개인정보처리방침의 운영자 확정 항목(R-4). 하나라도 비어 있거나 검토가 끝나지 않으면 /privacy 페이지, 구독 폼 고지,
-// 푸터 링크가 공개되지 않는다 — 미확정 법적 정보를 완성된 처리방침처럼 내보내지 않기 위해서다. 값은 운영자가 확정해
-// 채우고, 문안은 운영자·법률 검토를 거친다(docs/release/privacy-policy-draft.md). 임의의 값을 넣지 않는다.
+// 개정 처리방침의 운영자 확정 항목(R-4, P9E). 하나라도 비어 있거나 검토가 끝나지 않으면 /privacy는 시행 중인 2026-10-25 방침을
+// 그대로 보여 준다(PrivacyPolicy20261025) — 미확정 내용을 완성된 방침처럼 내보내지 않고, 방침 자체를 숨기지도 않는다. 값은 운영자가
+// 확정해 채우고, 문안은 운영자·법률 검토를 거친다(docs/release/p9d-privacy-review.md). 임의의 값을 넣지 않는다.
 export interface PrivacyFacts {
   /** 운영 형태. 개인 운영이면 대표자 항목이 없다 */
   operatorType: "individual" | "business" | null
@@ -28,6 +28,8 @@ export interface PrivacyFacts {
   marketingConsent: "notice-only" | "separate-consent" | null
   /** 국외 이전(Vercel·Google·Anthropic·OpenAI·Brevo) 고지 문구 법률 검토 완료 */
   overseasTransferReviewed: boolean
+  /** 운영 GEMINI_API_KEY의 프로젝트가 유료(활성 결제 계정)임을 AI Studio에서 확인했는가. 무료면 입력이 Google 학습에 쓰일 수 있어 개정 방침의 "학습 미사용" 문구가 거짓이 된다 */
+  geminiPaidConfirmed: boolean
 }
 
 // 2026-10-25 운영자 확정: 개인 운영, 서비스명 MarkLens, 보호책임자는 운영자 본인, 문의는 newsletter@marklens.site
@@ -62,9 +64,10 @@ export const PRIVACY_FACTS: PrivacyFacts = {
   // 기존 구독을 광고 동의로 보지 않고 별도 수신 동의를 받는다(처리방침에 명시). 변호사 검토가 아닌 법 조문 기준 확인이다.
   marketingConsent: "notice-only",
   // P9D 개정본의 3절은 검토 전이다. true로 바꾸기 전에 확인: ① 근거로 적은 법 제28조의8제1항제3호가 비회원 AI 이용에도 맞는지
-  // ② Gemini API가 유료(결제 프로젝트)라 입력이 학습에 쓰이지 않는지 ③ 공급자 보관 기간이 그때도 같은지.
+  // ② 공급자 보관 기간이 그때도 같은지.
   // 항목별 근거: docs/release/p9d-privacy-review.md
   overseasTransferReviewed: false,
+  geminiPaidConfirmed: false, // docs/release/p9e-operator-checks.md 절차로 확인한 뒤에만 true
 }
 
 /** Brevo 발송의 회신 주소. 발신 주소 newsletter@marklens.site 는 메일을 받을 수 없어(MX 없음) 회신이 사라지므로,
@@ -73,7 +76,7 @@ export function mailReplyTo(f: PrivacyFacts = PRIVACY_FACTS): { replyTo?: { emai
   return f.contactEmail ? { replyTo: { email: f.contactEmail, name: "MarkLens" } } : {}
 }
 
-/** 공개를 막고 있는 항목(사람이 읽는 이름). 비어 있으면 공개 가능. */
+/** 개정 방침 공개를 막고 있는 항목(사람이 읽는 이름). 비어 있으면 공개 가능. */
 export function missingPrivacyFacts(f: PrivacyFacts = PRIVACY_FACTS): string[] {
   const missing: string[] = []
   const need = (ok: unknown, name: string) => { if (!ok) missing.push(name) }
@@ -96,7 +99,8 @@ export function missingPrivacyFacts(f: PrivacyFacts = PRIVACY_FACTS): string[] {
   need(f.marketingConsent, "광고성 정보 동의 필요 여부(법률 검토)")
   if (f.marketingConsent === "separate-consent") missing.push("광고성 정보 별도 동의 UI(미구현)")
   need(f.overseasTransferReviewed, "국외 이전 고지 법률 검토")
+  need(f.geminiPaidConfirmed, "Gemini 유료 등급 확인")
   return missing
 }
 
-export const privacyReady = (f: PrivacyFacts = PRIVACY_FACTS) => missingPrivacyFacts(f).length === 0
+export const privacyRevisionReady = (f: PrivacyFacts = PRIVACY_FACTS) => missingPrivacyFacts(f).length === 0

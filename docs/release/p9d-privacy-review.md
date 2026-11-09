@@ -1,6 +1,6 @@
 # Career Lab 개인정보처리방침 검토 (P9D)
 
-**상태:** 수정안은 `release/career-lab-rc3-prep`에 구현했고 공개하지 않았다. `PRIVACY_FACTS.effectiveDate`는 `null`, `overseasTransferReviewed`는 `false`라서 운영자가 확정하기 전에는 기존 차단 장치가 `/privacy`, 구독 고지, 푸터 링크를 공개하지 않는다. 변호사 검토가 아닌 조문·지침 대조이며 적법성을 단정하지 않는다.
+**상태:** 수정안은 `release/career-lab-rc3-prep`에 구현했고 공개하지 않았다. `/privacy`, 푸터 링크, 구독 고지는 항상 공개되며(P9E), `effectiveDate`, `overseasTransferReviewed`, `geminiPaidConfirmed`가 모두 확정되기 전까지 `/privacy`는 시행 중인 2026-10-25 방침을 그대로 보여 준다. 변호사 검토가 아닌 조문·지침 대조이며 적법성을 단정하지 않는다.
 
 ## 1. 확인한 공식 자료 (2026-11-09)
 
@@ -59,8 +59,8 @@
 
 ## 6. 공개 전 운영자 작업
 
-1. 전문가 검토 항목을 정리하고 Gemini 결제 프로젝트 여부를 확인한다.
-2. `overseasTransferReviewed`를 `true`로 바꾼다.
-3. 실제 공개일로 `effectiveDate`를 정한다.
+1. `p9e-operator-checks.md` 절차로 Gemini 유료 등급을 확인하고, 확인되면 `geminiPaidConfirmed`를 `true`로 바꾼다.
+2. 전문가 검토 후 `overseasTransferReviewed`를 `true`로 바꾼다.
+3. 실제 공개일로 `effectiveDate`를 정한다. 값을 넣은 배포부터 개정본이 표시되므로 그 배포가 나가는 날이어야 한다.
 4. `tests/privacy-notice.test.mjs`의 미확정 기대값을 `[]`로 갱신한다.
 5. 이전 시행본의 실제 적용 기간이 2026-10-25부터가 맞는지 확인한다.

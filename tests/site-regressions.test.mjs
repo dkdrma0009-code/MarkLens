@@ -99,8 +99,8 @@ test('navigation: Career Lab stays active on its sub-pages and no other item lig
 })
 
 test('footer: no removed menu links, Career tools under their official names, Dictionary and Weekly kept', () => {
-  // R-4: the privacy link appears once src/lib/legal/privacy.ts is complete (last in About). Whether it is complete today: tests/privacy-notice.test.mjs.
-  const { default: Footer } = load('src/components/layout/Footer.tsx', { ...ui, './navigation': navigation, '@/lib/legal/privacy': { ...load('src/lib/legal/privacy.ts'), privacyReady: () => true } })
+  // R-4, P9E: the privacy link is always there (last in About), whatever the state of the pending revision.
+  const { default: Footer } = load('src/components/layout/Footer.tsx', { ...ui, './navigation': navigation, '@/lib/legal/privacy': load('src/lib/legal/privacy.ts') })
   const footer = links(renderToStaticMarkup(createElement(Footer))).filter(link => link.href?.startsWith('/'))
   assert.deepEqual(footer.map(link => [link.text, link.href]), [['', '/#main-content'], ['Insights', '/insights'], ['Dictionary', '/glossary'],
     ['Career Lab', '/practice'], ['Insight Lab', '/insight-lab'], ['AI Interview', '/interview'], ['Trend Quiz', '/learn'],

@@ -1,8 +1,25 @@
-import type { PrivacyFacts } from "@/lib/legal/privacy"
+// 2026-10-25 시행본 스냅숏(개인정보위 작성지침 2026.4., 83쪽: 이전 버전 공개). 본문과 아래 값을 고치지 않는다.
+const facts = {
+  operatorType: "individual",
+  operator: "MarkLens",
+  representative: null,
+  contactEmail: "newsletter@marklens.site",
+  privacyOfficer: "MarkLens 개인정보 담당",
+  effectiveDate: "2026-10-25",
+  retention: {
+    subscribers: "구독을 해지하면 즉시 삭제(이메일 확인을 마치지 않은 신청은 7일 뒤 삭제)",
+    newsletterEvents: "90일",
+    members: "회원 탈퇴(계정 삭제) 시 즉시 삭제",
+    feedback: "접수 후 6개월",
+    aiUsage: "90일",
+    inquiries: "처리 완료 후 6개월",
+  },
+  disposalProcess: "보관 기간이 지난 기록은 매일 자동으로 삭제하고, 운영자가 매월 1회 삭제 결과를 확인합니다. 삭제 요청은 정기 확인을 기다리지 않고 바로 처리합니다. 데이터베이스에서 복구할 수 없도록 삭제하며, 운영자가 보관하는 백업 파일은 만든 날부터 90일이 지나면 삭제합니다.",
+  lawfulRetention: "다른 법령에 따라 따로 보관하는 개인정보는 없습니다.",
+  databaseRegion: "대한민국 서울(AWS ap-northeast-2)",
+}
 
-// 2026-10-25 시행본 스냅숏(개인정보위 작성지침 2026.4., 83쪽: 이전 버전 공개). 본문을 고치지 않는다.
-// shortcut: 운영자 확정값은 현재 facts를 읽음, PRIVACY_FACTS의 보유 기간·리전이 바뀌면 이 파일에 그 시점 값을 고정한다.
-export default function PrivacyPolicy20261025({ facts }: { facts: PrivacyFacts }) {
+export default function PrivacyPolicy20261025() {
   const r = facts.retention
   const rows: [string, string, string, string][] = [
     ["뉴스레터(Weekly)", "이메일 주소, 구독 경로(페이지 위치), 구독·확인 시각", "구독 확인과 뉴스레터·온보딩 메일 발송", `${r.subscribers}`],

@@ -23,30 +23,41 @@ const PrivacyPolicy = load('src/components/legal/PrivacyPolicy.tsx', mocks).defa
 const complete = {
   operatorType: 'business', operator: 'TEST-OPERATOR', representative: 'TEST-REP', contactEmail: 'privacy@example.test', contactInboxVerified: true, privacyOfficer: 'TEST-OFFICER', effectiveDate: '2099-01-01',
   retention: { subscribers: 'TEST-해지 즉시', newsletterEvents: 'TEST-90일', members: 'TEST-탈퇴 시', feedback: 'TEST-1년', aiUsage: 'TEST-30일', inquiries: 'TEST-처리 후 6개월' },
-  disposalProcess: 'TEST-매일 자동 파기', lawfulRetention: 'TEST-법령 보관 없음', databaseRegion: 'TEST-REGION', marketingConsent: 'notice-only', overseasTransferReviewed: true,
+  disposalProcess: 'TEST-매일 자동 파기', lawfulRetention: 'TEST-법령 보관 없음', databaseRegion: 'TEST-REGION', marketingConsent: 'notice-only', overseasTransferReviewed: true, geminiPaidConfirmed: true,
 }
 const html = el => renderToStaticMarkup(el)
 
-test('P9D revision: unpublished until the operator sets the date and the transfer review — then notice, footer link and /privacy go live', () => {
+const pageMocks = (lib = privacy) => ({ 'next/navigation': { notFound: () => { throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': lib, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy }, '@/components/legal/PrivacyPolicy20261025': { default: load('src/components/legal/PrivacyPolicy20261025.tsx', mocks).default } })
+const IN_FORCE = /시행일: 2026-10-25/, REVISION_ONLY = /제28조의8제1항제3호/
+
+test('P9E: an unconfirmed revision never hides the policy — /privacy, the archive, the footer link and the subscribe notice stay public', () => {
+  const current = html(load('src/app/(public)/privacy/page.tsx', pageMocks()).default())
+  assert.match(current, IN_FORCE); assert.doesNotMatch(current, REVISION_ONLY); assert.doesNotMatch(current, /null|undefined/)
+  assert.match(html(load('src/app/(public)/privacy/2026-10-25/page.tsx', pageMocks()).default()), IN_FORCE)
+  const footer = load('src/components/layout/Footer.tsx', { 'next/link': { __esModule: true, default: Link }, '@/lib/brand/WordmarkSvg': { __esModule: true, default: () => null }, './navigation': { CAREER_FEATURES: [] }, '@/lib/legal/privacy': privacy }).default
+  assert.match(html(React.createElement(footer)), /href="\/privacy"/)
+  const notice = html(React.createElement(SubscribeNotice, { id: 'n' }))
+  assert.match(notice, /href="\/privacy"/); assert.doesNotMatch(notice, /null|undefined/)
+})
+
+test('P9E revision: shown only when the date, the transfer review and the Gemini paid tier are all confirmed; any one missing keeps the policy in force', () => {
   // Officer listing = the handling channel (Art. 30(1)6: a name OR a department with a contact; the name stays private).
-  assert.deepEqual(privacy.missingPrivacyFacts(), ['시행일', '국외 이전 고지 법률 검토'])
+  assert.deepEqual(privacy.missingPrivacyFacts(), ['시행일', '국외 이전 고지 법률 검토', 'Gemini 유료 등급 확인'])
   assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, 'MarkLens 개인정보 담당'); assert.equal(privacy.PRIVACY_FACTS.effectiveDate, null)
-  const confirmed = { ...privacy.PRIVACY_FACTS, effectiveDate: '2099-01-01', overseasTransferReviewed: true }
-  assert.deepEqual(privacy.missingPrivacyFacts(confirmed), [])
-  assert.match(html(React.createElement(SubscribeNotice, { id: 'n', facts: confirmed })), /href="\/privacy"/)
-  const footer = load('src/components/layout/Footer.tsx', { 'next/link': { __esModule: true, default: Link }, '@/lib/brand/WordmarkSvg': { __esModule: true, default: () => null }, './navigation': { CAREER_FEATURES: [] }, '@/lib/legal/privacy': { ...privacy, privacyReady: () => true } }).default
-  assert.match(html(React.createElement(footer)), /\/privacy/)
-  // The gate holds today: no notice and /privacy is a 404.
-  const incomplete = privacy.PRIVACY_FACTS
-  assert.equal(html(React.createElement(SubscribeNotice, { id: 'n', facts: incomplete })), '')
-  let notFound = 0
-  const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': { ...privacy, PRIVACY_FACTS: incomplete, privacyReady: () => privacy.privacyReady(incomplete) }, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
-  assert.throws(() => page.default(), /NEXT_NOT_FOUND/); assert.equal(notFound, 1)
+  const confirmed = { ...privacy.PRIVACY_FACTS, effectiveDate: '2099-01-01', overseasTransferReviewed: true, geminiPaidConfirmed: true }
+  const render = facts => html(load('src/app/(public)/privacy/page.tsx', pageMocks({ ...privacy, PRIVACY_FACTS: facts, privacyRevisionReady: () => privacy.privacyRevisionReady(facts) })).default())
+  const revised = render(confirmed)
+  assert.match(revised, /시행일: 2099-01-01/); assert.match(revised, REVISION_ONLY)
+  for (const unset of [{ effectiveDate: null }, { overseasTransferReviewed: false }, { geminiPaidConfirmed: false }]) {
+    const kept = render({ ...confirmed, ...unset })
+    assert.match(kept, IN_FORCE); assert.doesNotMatch(kept, REVISION_ONLY); assert.doesNotMatch(kept, /학습에 쓰지 않습니다|Google 55일/)
+  }
 })
 
 test('readiness: every fact counts; a separate marketing consent blocks publishing until its UI exists', () => {
   assert.deepEqual(privacy.missingPrivacyFacts(complete), [])
-  assert.equal(privacy.privacyReady(complete), true)
+  assert.equal(privacy.privacyRevisionReady(complete), true)
+  assert.deepEqual(privacy.missingPrivacyFacts({ ...complete, geminiPaidConfirmed: false }), ['Gemini 유료 등급 확인'])
   assert.deepEqual(privacy.missingPrivacyFacts({ ...complete, disposalProcess: null }), ['보유 기간 경과 기록 파기 절차'])
   assert.deepEqual(privacy.missingPrivacyFacts({ ...complete, marketingConsent: 'separate-consent' }), ['광고성 정보 별도 동의 UI(미구현)'])
   assert.deepEqual(privacy.missingPrivacyFacts({ ...complete, overseasTransferReviewed: false }), ['국외 이전 고지 법률 검토'])
@@ -66,7 +77,7 @@ test('P9D revision: what the law and the 2026 PIPC guideline ask for is on the p
   // Enforcement Decree Art. 31(1)2: the legal basis of the transfer; Act Art. 28-8(2)4: the recipients' retention.
   for (const v of ['제28조의8제1항제3호', '암호화된 네트워크(HTTPS)', 'Google 55일', 'Anthropic 30일 이내', 'OpenAI 최대 30일', 'AI 모델 학습에 쓰지 않습니다']) assert.ok(policy.includes(v), v)
   for (const v of ['자기소개서·포트폴리오', '브라우저 안에서만 처리되며', '내려받은 파일은 이용자 기기에', '브라우저 제공자의 서버로', '주민등록번호, 건강 정보', '2099-01-01부터 적용', 'href="/privacy/2026-10-25"']) assert.ok(policy.includes(v), v)
-  const archived = html(React.createElement(load('src/components/legal/PrivacyPolicy20261025.tsx', mocks).default, { facts: { ...complete, effectiveDate: '2026-10-25' } }))
+  const archived = html(React.createElement(load('src/components/legal/PrivacyPolicy20261025.tsx', mocks).default))
   assert.match(archived, /시행일: 2026-10-25/); assert.doesNotMatch(archived, /제28조의8제1항제3호|자기소개서/)
 })
 
@@ -88,6 +99,6 @@ test('replies: Brevo mail carries the contact address as reply-to, and nothing w
 
 test('wiring: both subscribe forms carry the notice; inputs reference it only when it exists', () => {
   const inline = readFileSync('src/components/NewsletterInlineCta.tsx', 'utf8'), weekly = readFileSync('src/app/(public)/newsletter/NewsletterClient.tsx', 'utf8')
-  assert.match(inline, /<SubscribeNotice id=\{noticeId\} \/>/); assert.match(inline, /aria-describedby=\{privacyReady\(\) \? noticeId : undefined\}/)
-  assert.match(weekly, /<SubscribeNotice id="weekly-privacy-note" \/>/); assert.match(weekly, /privacyReady\(\) \? "weekly-note weekly-privacy-note" : "weekly-note"/)
+  assert.match(inline, /<SubscribeNotice id=\{noticeId\} \/>/); assert.match(inline, /aria-describedby=\{noticeId\}/)
+  assert.match(weekly, /<SubscribeNotice id="weekly-privacy-note" \/>/); assert.match(weekly, /aria-describedby="weekly-note weekly-privacy-note"/)
 })
