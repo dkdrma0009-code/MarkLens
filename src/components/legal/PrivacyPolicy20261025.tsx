@@ -39,7 +39,7 @@ export default function PrivacyPolicy20261025({ facts }: { facts: PrivacyFacts }
       <div className="ml-container">
         <section className="ml-page-section" aria-labelledby="privacy-items">
           <h2 id="privacy-items">1. 처리하는 개인정보와 목적, 보유 기간</h2>
-          <table className="ml-privacy-table">
+          <table className="ml-privacy-table" tabIndex={0}>
             <thead><tr><th scope="col">서비스</th><th scope="col">항목</th><th scope="col">목적</th><th scope="col">보유 기간</th></tr></thead>
             <tbody>{rows.map(([service, items, purpose, keep]) => <tr key={service}><th scope="row">{service}</th><td>{items}</td><td>{purpose}</td><td>{keep}</td></tr>)}</tbody>
           </table>
@@ -53,7 +53,7 @@ export default function PrivacyPolicy20261025({ facts }: { facts: PrivacyFacts }
         </section>
         <section className="ml-page-section" aria-labelledby="privacy-processors">
           <h2 id="privacy-processors">3. 처리 위탁과 국외 이전</h2>
-          <table className="ml-privacy-table">
+          <table className="ml-privacy-table" tabIndex={0}>
             <thead><tr><th scope="col">받는 자(연락처)</th><th scope="col">맡기는 일</th><th scope="col">처리 항목</th><th scope="col">처리 위치</th></tr></thead>
             <tbody>{processors.map(([company, contact, job, items, place]) => <tr key={company}><th scope="row">{company}<br />{contact}</th><td>{job}</td><td>{items}</td><td>{place}</td></tr>)}</tbody>
           </table>

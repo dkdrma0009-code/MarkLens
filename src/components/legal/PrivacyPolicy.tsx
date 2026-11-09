@@ -45,7 +45,7 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
       <div className="ml-container">
         <section className="ml-page-section" aria-labelledby="privacy-items">
           <h2 id="privacy-items">1. 처리하는 개인정보와 목적, 보유 기간</h2>
-          <table className="ml-privacy-table">
+          <table className="ml-privacy-table" tabIndex={0}>
             <thead><tr><th scope="col">서비스</th><th scope="col">항목</th><th scope="col">목적</th><th scope="col">보유 기간</th></tr></thead>
             <tbody>{rows.map(([service, items, purpose, keep]) => <tr key={service}><th scope="row">{service}</th><td>{items}</td><td>{purpose}</td><td>{keep}</td></tr>)}</tbody>
           </table>
@@ -62,7 +62,7 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
         <section className="ml-page-section" aria-labelledby="privacy-processors">
           <h2 id="privacy-processors">3. 처리 위탁과 국외 이전</h2>
           <p>아래 업체에 개인정보 처리 업무를 위탁합니다. 국외로 이전되는 경우의 법적 근거는 「개인정보 보호법」 제28조의8제1항제3호(서비스 제공 계약의 이행에 필요한 처리위탁·보관으로서 이 처리방침에 공개)입니다.</p>
-          <table className="ml-privacy-table">
+          <table className="ml-privacy-table" tabIndex={0}>
             <thead><tr><th scope="col">받는 자(연락처)</th><th scope="col">맡기는 일</th><th scope="col">처리 항목</th><th scope="col">처리 위치</th></tr></thead>
             <tbody>{processors.map(([company, contact, job, items, place]) => <tr key={company}><th scope="row">{company}<br />{contact}</th><td>{job}</td><td>{items}</td><td>{place}</td></tr>)}</tbody>
           </table>
@@ -92,7 +92,7 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
         <section className="ml-page-section" aria-labelledby="privacy-changes">
           <h2 id="privacy-changes">8. 개인정보처리방침의 변경</h2>
           <p>이 방침은 {facts.effectiveDate}부터 적용됩니다. 이전 방침은 <Link href="/privacy/2026-10-25">2026-10-25 시행본</Link>에서 확인할 수 있습니다.</p>
-          <table className="ml-privacy-table">
+          <table className="ml-privacy-table" tabIndex={0}>
             <thead><tr><th scope="col">항목</th><th scope="col">이전</th><th scope="col">변경</th></tr></thead>
             <tbody>
               <tr><th scope="row">AI 기능 입력 항목</th><td>사용자가 입력한 문장</td><td>맞춤 면접의 기업명·직무·채용공고·자기소개서·포트폴리오와 면접 답변을 명시</td></tr>
