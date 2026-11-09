@@ -1,5 +1,7 @@
 # 개인정보처리방침 보완 초안 — Career Lab (P9B)
 
+> P9D에서 공식 법령과 작성지침을 대조해 수정안을 구현했다. 현재 기준은 `p9d-privacy-review.md`이고, 이 문서는 이력으로 남긴다.
+
 **상태: 초안. 공개 방침에 반영하지 않았다.** `src/components/legal/PrivacyPolicy.tsx`와 `PRIVACY_FACTS.effectiveDate`는 변경하지 않았다. 시행일은 실제 배포일이 정해진 뒤 운영자가 확정한다. 문구는 운영자·법률 전문가 검토 대상이다.
 
 ## 1. 코드로 확인한 사실 (`release/career-lab-rc2`)
