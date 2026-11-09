@@ -40,6 +40,9 @@
 .ml-training { max-width: 740px; margin: 0 auto; }
 .ml-career-prep-link { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--ml-line); padding: 0 0 24px; margin-bottom: 28px; font-size: 13px; color: var(--ml-muted); }
 .ml-career-prep-link strong { display: block; color: var(--ml-ink); margin-bottom: 5px; }
+.ml-career-ai-off { border: 1px solid var(--ml-line); border-left: 3px solid var(--ml-blue-readable); padding: 16px 18px; margin-bottom: 28px; font-size: 14px; line-height: 1.7; color: var(--ml-ink); }
+.ml-career-ai-off strong { display: block; margin-bottom: 4px; }
+.ml-career-ai-off .ml-button { display: inline-flex; margin-top: 12px; }
 .ml-career-process { color: var(--ml-blue-readable); font-size: 12px; line-height: 1.8; margin-bottom: 32px; }
 .ml-career-next { display: block; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--ml-line); font-size: 14px; color: var(--ml-blue-readable); }
 .ml-training :is(input,textarea) { font-size: 16px; color: var(--ml-ink); background: var(--ml-paper); border-color: var(--ml-line); border-radius: 0; min-height: 48px; }

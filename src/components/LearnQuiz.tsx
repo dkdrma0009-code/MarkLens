@@ -28,12 +28,17 @@ const TYPES = [
   { key: "mixed", label: "혼합" },
 ]
 
-export default function LearnQuiz() {
+const GENERATE_FAILED = "문제 생성에 실패했습니다. 다시 시도해주세요."
+const NO_STORED_QUESTIONS = "지금 풀 수 있는 저장 문제가 없어요. AI 문제 생성이 중지되어 있어 새 문제를 만들 수 없습니다."
+
+// aiOff comes from the server page: AI is stopped for this deployment, so what can be graded is known before starting.
+export default function LearnQuiz({ aiOff = false }: { aiOff?: boolean }) {
   const [error, setError] = useState("")
+  const [shortfall, setShortfall] = useState(0) // fewer questions than asked: how many could be served
   const [stage, setStage] = useState<Stage>("settings")
   const [count, setCount] = useState(10)
   const [level, setLevel] = useState("intermediate")
-  const [type, setType] = useState("mixed")
+  const [type, setType] = useState(aiOff ? "multiple_choice" : "mixed")
   const [questions, setQuestions] = useState<Question[]>([])
   const [current, setCurrent] = useState(0)
   const [results, setResults] = useState<(boolean | null)[]>([])
@@ -54,7 +59,12 @@ export default function LearnQuiz() {
         body: JSON.stringify({ count, level, type }),
       })
       const data = await res.json()
-      if (!data.questions?.length) throw new Error()
+      if (!data.questions?.length) {
+        setStage("settings")
+        setError(data.code === "ai_paused" ? NO_STORED_QUESTIONS : GENERATE_FAILED)
+        return
+      }
+      setShortfall(data.questions.length < count ? data.questions.length : 0)
       setQuestions(data.questions)
       setResults(new Array(data.questions.length).fill(null))
       setCurrent(0)
@@ -66,7 +76,7 @@ export default function LearnQuiz() {
       setStage("quiz")
     } catch {
       setStage("settings")
-      setError("문제 생성에 실패했습니다. 다시 시도해주세요.")
+      setError(GENERATE_FAILED)
     }
   }
 
@@ -252,6 +262,14 @@ export default function LearnQuiz() {
         </div>
       </Setting>
 
+      {aiOff && (
+        <p role="note" className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          {type === "short_answer"
+            ? "AI 채점이 지금은 꺼져 있어요. 단답형은 정확히 일치한 답만 정답이 되고, 나머지는 채점 불가로 남아 점수에서 빠져요."
+            : "AI 문제 생성과 AI 채점이 지금은 꺼져 있어, 바로 채점할 수 있는 저장된 객관식 문제로 출제해요."}
+        </p>
+      )}
+
       <button onClick={start}
         className="w-full py-4 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-base font-bold hover:opacity-90 transition-opacity">
         시작하기
@@ -263,13 +281,18 @@ export default function LearnQuiz() {
   if (stage === "loading") return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <div className="w-10 h-10 border-4 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
-      <p className="text-gray-500 text-base">AI가 문제를 생성하고 있어요...</p>
+      <p className="text-gray-500 text-base">{aiOff ? "문제를 불러오고 있어요..." : "AI가 문제를 생성하고 있어요..."}</p>
     </div>
   )
 
   // ── 퀴즈 화면 ──
   if (stage === "quiz" && q) return (
     <div>
+      {shortfall > 0 && current === 0 && (
+        <p className="mb-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          지금 제공할 수 있는 문제가 {shortfall}개라 {shortfall}문제로 진행해요.
+        </p>
+      )}
       {/* 진행률 */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm text-gray-400 font-medium">{current + 1} / {questions.length}</span>

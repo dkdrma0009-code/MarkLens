@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateQuestions, buildTrendDigest, type QuizQuestion } from "@/lib/ai/quiz"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { checkAiBudget } from "@/lib/ai/budget"
+import { aiPaused, checkAiBudget } from "@/lib/ai/budget"
 import { NextResponse } from "next/server"
 
 export const maxDuration = 60
@@ -36,7 +36,9 @@ export async function POST(req: Request) {
   const n = Math.min(Math.max(Number(count) || 10, 1), 30)
 
   const supabase = createAdminClient()
-  const pType = type === "mixed" ? null : type
+  // AI stopped: only questions gradable without it, unless the learner explicitly chose short answers (warned on screen).
+  const aiFreeOnly = aiPaused() && type !== "short_answer"
+  const pType = aiFreeOnly ? "multiple_choice" : type === "mixed" ? null : type
 
   // 필요 수의 3배를 랜덤으로 받아 유사문제를 걸러낼 여유 확보
   const { data, error } = await supabase.rpc("random_quiz", {
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
 
   let questions: QuizQuestion[] = []
   if (!error && data?.length) {
-    const pool = (data as { data: QuizQuestion }[]).map(row => row.data)
+    const pool = (data as { data: QuizQuestion }[]).map(row => row.data).filter(q => !aiFreeOnly || q.type === "multiple_choice")
     questions = pickDistinct(pool, n)
   } else if (error) {
     // Only a top-up attempt: the AI budget check below may still refuse it (paused, quota, Preview).

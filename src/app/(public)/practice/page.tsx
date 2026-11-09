@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 const TRACKS = [
   { number: "01", label: "INSIGHT LAB", title: "생각하는 힘", description: "트렌드의 표면에서 한 걸음 더. 관찰과 맥락을 읽고, 나만의 인사이트와 브랜드 기회를 도출하세요.", href: "/insight-lab", cta: "인사이트 훈련 시작", words: ["OBSERVE", "INTERPRET", "REIMAGINE"], note: "관찰 → 인사이트 → 브랜드 기회" },
-  { number: "02", label: "AI INTERVIEW", title: "말하는 힘", description: "읽고 생각한 것을 내 언어로. 최신 마케팅 이슈와 지원 경험을 바탕으로 답변하고, AI 피드백으로 다듬으세요.", href: "/interview", cta: "면접 연습 시작", words: ["YOUR THINKING.", "YOUR VOICE."], note: "질문 → 답변 → 피드백", secondary: true },
+  { number: "02", label: "AI INTERVIEW", title: "말하는 힘", description: "읽고 생각한 것을 내 언어로. 최신 마케팅 이슈와 지원 경험을 바탕으로 답변하고, 기록으로 돌아보며 다듬으세요.", href: "/interview", cta: "면접 연습 시작", words: ["YOUR THINKING.", "YOUR VOICE."], note: "질문 → 답변 → 돌아보기", secondary: true },
   { number: "03", label: "TREND QUIZ", title: "기억하는 힘", description: "스쳐 지나간 트렌드를 오래 남는 지식으로. 핵심 개념을 테스트하고, 해설로 이해의 빈틈을 채우세요.", href: "/learn", cta: "트렌드 퀴즈 시작", words: ["READ IT.", "RECALL IT."], note: "선택 → 확인 → 이해" },
 ]
 const LOOP = [
