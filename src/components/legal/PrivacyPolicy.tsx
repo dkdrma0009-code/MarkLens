@@ -1,14 +1,20 @@
+import Link from "next/link"
 import type { PrivacyFacts } from "@/lib/legal/privacy"
 
 // 개인정보처리방침 본문(R-4). 처리 항목은 코드에서 확인한 실제 흐름이고, 운영자 확정 항목은 facts에서 온다.
 // /privacy 는 facts가 모두 확정됐을 때만 이 본문을 그린다(src/app/(public)/privacy/page.tsx). 최종 문안은 운영자·법률 검토 대상.
+const CUSTOM_INTERVIEW_INPUT = "맞춤 면접을 이용하면 입력한 기업명·직무·채용공고·자기소개서·포트폴리오와 면접 답변"
+const AI_INPUT = "AI 기능에 입력한 문장(맞춤 면접의 기업명·직무·채용공고·자기소개서·포트폴리오와 면접 답변 포함)"
+
 export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
   const r = facts.retention
   const rows: [string, string, string, string][] = [
     ["뉴스레터(Weekly)", "이메일 주소, 구독 경로(페이지 위치), 구독·확인 시각", "구독 확인과 뉴스레터·온보딩 메일 발송", `${r.subscribers}`],
     ["뉴스레터 발송 기록", "이메일 주소, 메일별 발송·열람·클릭 여부와 시각", "발송 결과 확인", `${r.newsletterEvents}. 구독을 해지하면 즉시 삭제`],
     ["Insight Lab 로그인", "이메일 주소(로그인 계정), 분석 답변·노트·학습 기록", "로그인, 기록 저장, 성장 리포트", `${r.members}`],
-    ["AI 기능(챗·면접 연습·학습·Insight Lab)", "사용자가 입력한 문장", "답변·피드백 생성. Insight Lab 답변 외에는 저장하지 않습니다.", "Insight Lab 답변은 위 회원 기록과 같습니다."],
+    ["AI 기능(챗·면접 연습·학습·Insight Lab)", `사용자가 입력한 문장. ${CUSTOM_INTERVIEW_INPUT}`, "답변·피드백 생성. Insight Lab 답변 외에는 MarkLens가 저장하지 않습니다.", "Insight Lab 답변은 위 회원 기록과 같습니다. 그 밖의 입력은 응답을 만든 뒤 MarkLens에 남지 않으며, AI 공급자의 보관 기간은 3번에 적었습니다."],
+    ["면접 연습의 카메라 녹화(선택)", "수집하지 않습니다. 영상과, 선택한 경우의 소리는 이용자의 브라우저 안에서만 처리되며 MarkLens 서버로 전송되지 않습니다.", "이용자 본인의 답변 확인", "화면을 떠나거나 다시 시작하면 브라우저에서 사라집니다. 내려받은 파일은 이용자 기기에 남고 이용자가 직접 삭제합니다."],
+    ["면접 연습의 음성 답변(선택)", "MarkLens는 음성을 받지 않으며, 브라우저가 받아 적은 글만 입력한 답변과 같게 처리합니다.", "말한 내용을 답변 글로 입력", "위 AI 기능과 같습니다."],
     ["AI 사용량 제한", "접속 IP의 해시값(원문 IP는 저장하지 않음), 로그인 회원 식별자", "과도한 사용 방지", `${r.aiUsage}`],
     ["의견 보내기", "평가, 남긴 의견(이름·연락처 없음)", "서비스 개선. 인사이트 의견은 운영자에게 메일로 전달됩니다.", `${r.feedback}`],
     ["개인정보 문의(메일)", "보낸 사람 이메일 주소, 문의 내용", "문의 답변, 열람·삭제 등 권리 행사 처리", `${r.inquiries}`],
@@ -20,9 +26,9 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
     ["Supabase Inc.", "privacy@supabase.com", "데이터베이스 보관, 로그인과 로그인 메일", "이메일 주소, 구독 정보, Insight Lab 기록, AI 사용량 기록", `${facts.databaseRegion}`],
     ["Vercel Inc.", "privacy@vercel.com", "웹사이트 호스팅과 서버 처리", "접속 기록(IP 등), 폼에 입력한 내용", "미국(서버 처리), 전 세계 캐시"],
     ["Brevo SAS", "dpo@brevo.com", "구독 확인·뉴스레터 메일 발송, 운영자 알림 메일", "이메일 주소, 발송·열람·클릭 기록, 남긴 의견", "EU"],
-    ["Google LLC", "policies.google.com/privacy", "방문 통계(Analytics), AI 응답 생성(Gemini)", "쿠키·기기 정보·방문 페이지, AI 기능에 입력한 문장", "미국"],
-    ["Anthropic PBC", "anthropic.com/legal", "AI 응답 생성(Gemini 장애 시 대체 경로)", "AI 기능에 입력한 문장", "미국"],
-    ["OpenAI, L.L.C.", "privacy@openai.com", "AI 응답 생성(두 번째 대체 경로)", "AI 기능에 입력한 문장", "미국"],
+    ["Google LLC", "policies.google.com/privacy", "방문 통계(Analytics), AI 응답 생성(Gemini)", `쿠키·기기 정보·방문 페이지, ${AI_INPUT}`, "미국"],
+    ["Anthropic PBC", "anthropic.com/legal", "AI 응답 생성(Gemini 장애 시 대체 경로)", AI_INPUT, "미국"],
+    ["OpenAI, L.L.C.", "privacy@openai.com", "AI 응답 생성(두 번째 대체 경로)", AI_INPUT, "미국"],
     // ImprovMX: 개인정보 처리방침·GDPR 안내·로그 안내(2026-10-25 확인). 개인정보 문의 이메일은 공개돼 있지 않아 공식 문의 양식을 적는다.
     ["ImprovMX Incorporation", "improvmx.com/contact(문의 양식)", "문의 메일 수신과 운영자 메일함으로 전달", "문의 메일(보낸 사람 주소·제목·내용), 전달 기록", "프랑스(수신·임시 보관, 전달 후 삭제), 프랑스·미국(전달). 전달 기록 7일 후 삭제"],
     ["NAVER Corp.", "국내 위탁", "운영자 메일함에 문의 메일 보관", "문의 메일(보낸 사람 주소·제목·내용)", "대한민국"],
@@ -45,6 +51,8 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
           </table>
           <p>{facts.disposalProcess}</p>
           <p>{facts.lawfulRetention}</p>
+          <p>면접 연습의 음성 답변은 이용자가 사용하는 브라우저의 음성 인식 기능을 이용합니다. Chrome 등 일부 브라우저는 음성을 브라우저 제공자의 서버로 보내 처리할 수 있으며, 이 처리는 해당 브라우저 제공자의 개인정보 처리 방침을 따릅니다. 원하지 않으면 음성 답변을 켜지 않고 글로 답할 수 있습니다.</p>
+          <p>맞춤 면접과 AI 기능의 입력란에는 주민등록번호, 건강 정보처럼 이용 목적에 필요하지 않은 정보나 다른 사람의 개인정보를 넣지 마세요.</p>
           <p>뉴스레터에는 광고를 싣지 않습니다. 광고를 싣게 되면 기존 구독과 별도로 광고성 정보 수신 동의를 받습니다. 모든 메일에는 발신자와 수신 거부 링크가 있습니다.</p>
         </section>
         <section className="ml-page-section" aria-labelledby="privacy-refuse">
@@ -53,11 +61,13 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
         </section>
         <section className="ml-page-section" aria-labelledby="privacy-processors">
           <h2 id="privacy-processors">3. 처리 위탁과 국외 이전</h2>
+          <p>아래 업체에 개인정보 처리 업무를 위탁합니다. 국외로 이전되는 경우의 법적 근거는 「개인정보 보호법」 제28조의8제1항제3호(서비스 제공 계약의 이행에 필요한 처리위탁·보관으로서 이 처리방침에 공개)입니다.</p>
           <table className="ml-privacy-table">
             <thead><tr><th scope="col">받는 자(연락처)</th><th scope="col">맡기는 일</th><th scope="col">처리 항목</th><th scope="col">처리 위치</th></tr></thead>
             <tbody>{processors.map(([company, contact, job, items, place]) => <tr key={company}><th scope="row">{company}<br />{contact}</th><td>{job}</td><td>{items}</td><td>{place}</td></tr>)}</tbody>
           </table>
-          <p>서비스를 이용할 때마다 네트워크로 전송되며, 위 1번의 보유 기간 동안 처리합니다. 국외 이전을 원하지 않으면 뉴스레터 구독, Insight Lab 로그인, AI 기능을 이용하지 않거나 삭제를 요청할 수 있습니다. 이 경우 해당 기능은 이용할 수 없고, 사이트 열람은 그대로 가능합니다. 제3자에게 개인정보를 제공하지 않습니다.</p>
+          <p>AI 기능에 입력한 내용은 답변을 만드는 데에만 쓰이며, MarkLens와 위 AI 공급자는 이를 AI 모델 학습에 쓰지 않습니다. 공급자는 약관 위반 탐지 등을 위해 입력과 응답을 Google 55일, Anthropic 30일 이내, OpenAI 최대 30일 동안 보관합니다. 약관 위반이 확인되거나 법령상 필요한 경우에는 더 오래 보관될 수 있습니다.</p>
+          <p>서비스를 이용할 때마다 암호화된 네트워크(HTTPS)로 전송되며, 위 1번의 보유 기간 동안 처리합니다. 국외 이전을 원하지 않으면 뉴스레터 구독, Insight Lab 로그인, AI 기능을 이용하지 않거나 삭제를 요청할 수 있습니다. 이 경우 해당 기능은 이용할 수 없고, 사이트 열람은 그대로 가능합니다. 제3자에게 개인정보를 제공하지 않습니다.</p>
         </section>
         <section className="ml-page-section" aria-labelledby="privacy-rights">
           <h2 id="privacy-rights">4. 정보주체의 권리와 행사 방법</h2>
@@ -78,6 +88,18 @@ export default function PrivacyPolicy({ facts }: { facts: PrivacyFacts }) {
           {facts.operatorType === "business"
             ? <p>운영 주체: {facts.operator} · 대표자: {facts.representative}</p>
             : <p>운영 주체: {facts.operator}(개인 운영)</p>}
+        </section>
+        <section className="ml-page-section" aria-labelledby="privacy-changes">
+          <h2 id="privacy-changes">8. 개인정보처리방침의 변경</h2>
+          <p>이 방침은 {facts.effectiveDate}부터 적용됩니다. 이전 방침은 <Link href="/privacy/2026-10-25">2026-10-25 시행본</Link>에서 확인할 수 있습니다.</p>
+          <table className="ml-privacy-table">
+            <thead><tr><th scope="col">항목</th><th scope="col">이전</th><th scope="col">변경</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">AI 기능 입력 항목</th><td>사용자가 입력한 문장</td><td>맞춤 면접의 기업명·직무·채용공고·자기소개서·포트폴리오와 면접 답변을 명시</td></tr>
+              <tr><th scope="row">면접 녹화·음성 답변</th><td>안내 없음</td><td>브라우저 안에서의 녹화 처리, 내려받은 파일 관리, 브라우저 음성 인식 안내 추가</td></tr>
+              <tr><th scope="row">국외 이전</th><td>법적 근거와 AI 공급자 보관 기간 없음</td><td>법적 근거, 암호화 전송, AI 공급자 보관 기간과 학습 미사용 추가</td></tr>
+            </tbody>
+          </table>
         </section>
       </div>
     </div>

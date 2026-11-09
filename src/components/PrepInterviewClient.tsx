@@ -221,7 +221,7 @@ export default function PrepInterviewClient() {
       )}
 
       <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-        🔐 {PREP_AI_DATA_NOTICE} <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>
+        🔐 {PREP_AI_DATA_NOTICE} 주민등록번호, 건강 정보처럼 면접 준비에 필요 없는 정보나 다른 사람의 개인정보는 넣지 마세요. <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>
       </p>
 
       <button

@@ -27,15 +27,17 @@ const complete = {
 }
 const html = el => renderToStaticMarkup(el)
 
-test('published (2026-10-25): every fact confirmed — notice, footer link and /privacy are live; a missing fact hides them', () => {
+test('P9D revision: unpublished until the operator sets the date and the transfer review — then notice, footer link and /privacy go live', () => {
   // Officer listing = the handling channel (Art. 30(1)6: a name OR a department with a contact; the name stays private).
-  assert.deepEqual(privacy.missingPrivacyFacts(), [])
-  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, 'MarkLens 개인정보 담당'); assert.equal(privacy.PRIVACY_FACTS.effectiveDate, '2026-10-25')
-  assert.match(html(React.createElement(SubscribeNotice, { id: 'n' })), /href="\/privacy"/)
-  const footer = load('src/components/layout/Footer.tsx', { 'next/link': { __esModule: true, default: Link }, '@/lib/brand/WordmarkSvg': { __esModule: true, default: () => null }, './navigation': { CAREER_FEATURES: [] }, '@/lib/legal/privacy': privacy }).default
+  assert.deepEqual(privacy.missingPrivacyFacts(), ['시행일', '국외 이전 고지 법률 검토'])
+  assert.equal(privacy.PRIVACY_FACTS.privacyOfficer, 'MarkLens 개인정보 담당'); assert.equal(privacy.PRIVACY_FACTS.effectiveDate, null)
+  const confirmed = { ...privacy.PRIVACY_FACTS, effectiveDate: '2099-01-01', overseasTransferReviewed: true }
+  assert.deepEqual(privacy.missingPrivacyFacts(confirmed), [])
+  assert.match(html(React.createElement(SubscribeNotice, { id: 'n', facts: confirmed })), /href="\/privacy"/)
+  const footer = load('src/components/layout/Footer.tsx', { 'next/link': { __esModule: true, default: Link }, '@/lib/brand/WordmarkSvg': { __esModule: true, default: () => null }, './navigation': { CAREER_FEATURES: [] }, '@/lib/legal/privacy': { ...privacy, privacyReady: () => true } }).default
   assert.match(html(React.createElement(footer)), /\/privacy/)
-  // The gate still holds: with any fact missing, no notice and /privacy is a 404.
-  const incomplete = { ...privacy.PRIVACY_FACTS, contactInboxVerified: false }
+  // The gate holds today: no notice and /privacy is a 404.
+  const incomplete = privacy.PRIVACY_FACTS
   assert.equal(html(React.createElement(SubscribeNotice, { id: 'n', facts: incomplete })), '')
   let notFound = 0
   const page = load('src/app/(public)/privacy/page.tsx', { 'next/navigation': { notFound: () => { notFound++; throw new Error('NEXT_NOT_FOUND') } }, '@/lib/legal/privacy': { ...privacy, PRIVACY_FACTS: incomplete, privacyReady: () => privacy.privacyReady(incomplete) }, '@/components/legal/PrivacyPolicy': { default: PrivacyPolicy } })
@@ -57,6 +59,15 @@ test('complete: the notice and policy match the system — unsubscribing deletes
   for (const v of ['TEST-OPERATOR', 'TEST-REP', 'privacy@example.test', 'TEST-OFFICER', '2099-01-01', 'TEST-1년', 'TEST-탈퇴 시', 'TEST-90일', 'TEST-매일 자동 파기', 'TEST-법령 보관 없음', 'TEST-REGION', 'privacy@supabase.com', 'privacy@vercel.com', 'dpo@brevo.com', 'privacy@openai.com', 'Brevo', 'Anthropic', 'OpenAI', 'Google Analytics', '원문 IP는 저장하지 않음']) assert.ok(policy.includes(v), v)
   assert.doesNotMatch(policy, /null|undefined|\[운영자|\[법률/)
   assert.match(policy, /구독 해지 링크로 바로 해지되고 구독 정보도 함께 삭제됩니다/); assert.match(policy, /쿠키 저장을 거부/); assert.match(policy, /광고를 싣지 않습니다/)
+})
+
+test('P9D revision: what the law and the 2026 PIPC guideline ask for is on the page; the 2026-10-25 version stays reachable', () => {
+  const policy = html(React.createElement(PrivacyPolicy, { facts: complete }))
+  // Enforcement Decree Art. 31(1)2: the legal basis of the transfer; Act Art. 28-8(2)4: the recipients' retention.
+  for (const v of ['제28조의8제1항제3호', '암호화된 네트워크(HTTPS)', 'Google 55일', 'Anthropic 30일 이내', 'OpenAI 최대 30일', 'AI 모델 학습에 쓰지 않습니다']) assert.ok(policy.includes(v), v)
+  for (const v of ['자기소개서·포트폴리오', '브라우저 안에서만 처리되며', '내려받은 파일은 이용자 기기에', '브라우저 제공자의 서버로', '주민등록번호, 건강 정보', '2099-01-01부터 적용', 'href="/privacy/2026-10-25"']) assert.ok(policy.includes(v), v)
+  const archived = html(React.createElement(load('src/components/legal/PrivacyPolicy20261025.tsx', mocks).default, { facts: { ...complete, effectiveDate: '2026-10-25' } }))
+  assert.match(archived, /시행일: 2026-10-25/); assert.doesNotMatch(archived, /제28조의8제1항제3호|자기소개서/)
 })
 
 test('individual operation: no representative is required or shown; processors are listed with what and where', () => {

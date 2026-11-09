@@ -44,7 +44,7 @@ export const PRIVACY_FACTS: PrivacyFacts = {
   // 같고, 부서명 예시로 "고객센터 또는 개인정보 처리 담당부서"를 든다. 운영자는 실명을 공개하지 않기로 했으므로 실제로 운영자가
   // 처리하는 고충처리 창구의 명칭과 연락처를 적는다(2026-10-25).
   privacyOfficer: "MarkLens 개인정보 담당",
-  effectiveDate: "2026-10-25", // 실제 공개일(Production 배포일)
+  effectiveDate: null, // P9D 개정본: 운영자가 실제 Production 공개일로 확정한다(이전 시행본은 2026-10-25)
   retention: {
     subscribers: "구독을 해지하면 즉시 삭제(이메일 확인을 마치지 않은 신청은 7일 뒤 삭제)",
     newsletterEvents: "90일",
@@ -61,9 +61,10 @@ export const PRIVACY_FACTS: PrivacyFacts = {
   // 구독은 본인이 직접 신청하고 확인 메일로 한 번 더 확인하며, 모든 메일에 발신자와 수신거부 링크가 있다. 광고를 싣게 되면
   // 기존 구독을 광고 동의로 보지 않고 별도 수신 동의를 받는다(처리방침에 명시). 변호사 검토가 아닌 법 조문 기준 확인이다.
   marketingConsent: "notice-only",
-  // 처리방침 3절이 법 제28조의8 제2항 항목(이전 항목·국가·시기와 방법·받는 자와 연락처·목적과 보유 기간)을 모두 담는지
-  // 조문 기준으로 대조했다(2026-10-25). 변호사 검토가 아닌 법 조문 기준 확인이다.
-  overseasTransferReviewed: true,
+  // P9D 개정본의 3절은 검토 전이다. true로 바꾸기 전에 확인: ① 근거로 적은 법 제28조의8제1항제3호가 비회원 AI 이용에도 맞는지
+  // ② Gemini API가 유료(결제 프로젝트)라 입력이 학습에 쓰이지 않는지 ③ 공급자 보관 기간이 그때도 같은지.
+  // 항목별 근거: docs/release/p9d-privacy-review.md
+  overseasTransferReviewed: false,
 }
 
 /** Brevo 발송의 회신 주소. 발신 주소 newsletter@marklens.site 는 메일을 받을 수 없어(MX 없음) 회신이 사라지므로,
